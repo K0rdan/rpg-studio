@@ -30,6 +30,13 @@ Execution steps:
 
 2. Load the current spec file. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
 
+   Constitutional Alignment:
+   - Adherence to `packages/types` for new data structures.
+   - Engine agnosticism for `packages/core`.
+   - Minimalist player `apps/player`.
+   - Prioritization of Native Canvas API in `packages/core`.
+   - Test-Driven Development (TDD) approach.
+
    Functional Scope & Behavior:
    - Core user goals & success criteria
    - Explicit out-of-scope declarations

@@ -100,6 +100,16 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+## Constitutional Alignment *(mandatory)*
+
+*This section ensures the feature's requirements align with the project's core principles.*
+
+- **Principle I: Respect for Types**: Are there new data structures? If so, they MUST be defined in `packages/types`.
+- **Principle II: Separation of Concerns**: Does this feature touch the core engine? If so, the implementation MUST remain framework-agnostic.
+- **Principle III: Lightweight Player**: Does this feature impact the player? If so, it MUST NOT add significant overhead.
+- **Principle IV: Prioritize Native Canvas**: If this feature involves rendering, does it justify any use of external rendering libraries?
+- **Principle V: Test-Driven Development (TDD)**: Are the user stories and acceptance criteria defined in a way that supports TDD?
+
 ## Success Criteria *(mandatory)*
 
 <!--

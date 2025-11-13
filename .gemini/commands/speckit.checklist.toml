@@ -107,6 +107,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Coverage**: Are all scenarios/edge cases addressed?
 
    **Category Structure** - Group items by requirement quality dimensions:
+   - **Constitutional Alignment** (Do requirements align with project principles?)
    - **Requirement Completeness** (Are all necessary requirements documented?)
    - **Requirement Clarity** (Are requirements specific and unambiguous?)
    - **Requirement Consistency** (Do requirements align without conflicts?)
@@ -142,6 +143,11 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Use `[Gap]` marker when checking for missing requirements
 
    **EXAMPLES BY QUALITY DIMENSION**:
+
+   Constitutional Alignment:
+   - "Do the requirements for new data structures specify they will be in `packages/types`? [Constitution, Principle I]"
+   - "If the core engine is modified, do the requirements state it must remain framework-agnostic? [Constitution, Principle II]"
+   - "Are there checks to ensure the player remains lightweight if it's affected by this feature? [Constitution, Principle III]"
 
    Completeness:
    - "Are error handling requirements defined for all API failure modes? [Gap]"

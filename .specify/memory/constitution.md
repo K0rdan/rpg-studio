@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report:
-Version change: 0.0.0 -> 0.1.0 (Minor: Initial content population)
+Version change: 1.0.0 -> 1.0.0 (Major: Initial constitution and templates setup)
 Modified principles:
   - PRINCIPLE_1_NAME: Respect for Types
   - PRINCIPLE_2_NAME: Separation of Concerns
@@ -12,17 +12,17 @@ Added sections:
   - Code Quality & Review
 Removed sections: None
 Templates requiring updates:
-  - .specify/templates/plan-template.md: ⚠ pending
-  - .specify/templates/spec-template.md: ⚠ pending
-  - .specify/templates/tasks-template.md: ⚠ pending
-  - .specify/commands/speckit.analyze.toml: ⚠ pending
-  - .specify/commands/speckit.checklist.toml: ⚠ pending
-  - .specify/commands/speckit.clarify.toml: ⚠ pending
-  - .specify/commands/speckit.constitution.toml: ✅ updated
-  - .specify/commands/speckit.implement.toml: ⚠ pending
-  - .specify/commands/speckit.plan.toml: ⚠ pending
-  - .specify/commands/speckit.specify.toml: ⚠ pending
-  - .specify/commands/speckit.tasks.toml: ⚠ pending
+  - .specify/templates/plan-template.md: ✅ updated
+  - .specify/templates/spec-template.md: ✅ updated
+  - .specify/templates/tasks-template.md: ✅ updated
+  - .gemini/commands/speckit.analyze.toml: ✅ updated
+  - .gemini/commands/speckit.checklist.toml: ✅ updated
+  - .gemini/commands/speckit.clarify.toml: ✅ updated
+  - .gemini/commands/speckit.constitution.toml: ✅ updated
+  - .gemini/commands/speckit.implement.toml: ✅ updated
+  - .gemini/commands/speckit.plan.toml: ✅ updated
+  - .gemini/commands/speckit.specify.toml: ✅ updated
+  - .gemini/commands/speckit.tasks.toml: ✅ updated
 Follow-up TODOs:
   - TODO(RATIFICATION_DATE): Original adoption date unknown
 -->
@@ -67,4 +67,4 @@ Amendments to this Constitution MUST be proposed via a PR, reviewed, and approve
 All PRs and code reviews MUST verify compliance with the principles outlined herein.
 Complexity in design or implementation MUST be justified and documented.
 
-**Version**: 0.1.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date unknown | **Last Amended**: 2025-11-12
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date unknown | **Last Amended**: 2025-11-13

@@ -121,6 +121,11 @@ Given that feature description, do this:
       - [ ] Scope is clearly bounded
       - [ ] Dependencies and assumptions identified
       
+      ## Constitutional Alignment
+
+      - [ ] The specification respects the project's core principles.
+      - [ ] Any potential deviation from the constitution is documented and justified.
+
       ## Feature Readiness
       
       - [ ] All functional requirements have clear acceptance criteria

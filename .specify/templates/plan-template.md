@@ -31,7 +31,13 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Principle I: Respect for Types**: Does the design model new logic in `packages/types` first?
+- **Principle II: Separation of Concerns**: Does the design keep `packages/core` framework-agnostic?
+- **Principle III: Lightweight Player**: Does the design keep `apps/player` minimalist?
+- **Principle IV: Prioritize Native Canvas**: Does the design avoid external rendering engines in `packages/core` unless justified?
+- **Principle V: Test-Driven Development (TDD)**: Is a TDD approach planned for all new features and fixes?
+- **Technical Stack Adherence**: Does the proposed solution adhere to the defined technical stack?
+- **Code Quality & Review**: Is the work planned to go through PRs, reviews, and pass all quality checks?
 
 ## Project Structure
 

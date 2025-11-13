@@ -8,6 +8,18 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
+## Constitution-Driven Task Generation
+
+*The tasks generated MUST adhere to the project constitution. When generating tasks, ensure the following principles are reflected in the output:*
+
+-   **Respect for Types**: If the feature requires new data structures, create a specific task to define them in `packages/types` **before** any implementation tasks.
+-   **Separation of Concerns**: Tasks modifying the core engine (`packages/core`) must not include any framework-specific code (React, Next.js).
+-   **Lightweight Player**: Any tasks related to `apps/player` should be scrutinized for performance impact.
+-   **Prioritize Native Canvas**: Tasks for `packages/core` should use `CanvasRenderingContext2D`. If an external library is necessary, a task to justify and document its use must be included.
+-   **Test-Driven Development (TDD)**: For each feature or bug fix, tasks for writing failing tests (unit, integration) MUST be generated and placed **before** the implementation tasks.
+
+---
+
 **Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
@@ -27,19 +39,8 @@ description: "Task list template for feature implementation"
 
 <!-- 
   ============================================================================
-  IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
-  
-  The /speckit.tasks command MUST replace these with actual tasks based on:
-  - User stories from spec.md (with their priorities P1, P2, P3...)
-  - Feature requirements from plan.md
-  - Entities from data-model.md
-  - Endpoints from contracts/
-  
-  Tasks MUST be organized by user story so each story can be:
-  - Implemented independently
-  - Tested independently
-  - Delivered as an MVP increment
-  
+  IMPORTANT: The tasks below are a SAMPLE. The /speckit.tasks command MUST replace
+  them with actual tasks based on the spec, plan, and other design docs.
   DO NOT keep these sample tasks in the generated tasks.md file.
   ============================================================================
 -->

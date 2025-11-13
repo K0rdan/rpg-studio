@@ -60,9 +60,15 @@ The tasks.md should be immediately executable - each task must be specific enoug
 
 ## Task Generation Rules
 
-**CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
+**CONSTITUTIONAL TASK GENERATION**: All generated tasks MUST adhere to the project constitution (`.specify/memory/constitution.md`). Specifically:
 
-**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
+-   **Respect for Types**: If a new data structure is needed, a task to define it in `packages/types` MUST be created and ordered before any task that uses it.
+-   **Separation of Concerns**: Tasks for `packages/core` MUST NOT involve any UI framework code. Create separate tasks for UI work in `apps/editor`.
+-   **Lightweight Player**: Tasks for `apps/player` should be minimal. Scrutinize any task that adds significant complexity or dependencies to the player.
+-   **Prioritize Native Canvas**: Tasks for `packages/core` should use `CanvasRenderingContext2D`. A separate task to justify and document the use of any external rendering library is required.
+-   **Test-Driven Development (TDD)**: For each feature, tasks for writing failing tests MUST be generated and ordered before the implementation tasks.
+
+**CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
 
 ### Checklist Format (REQUIRED)
 
