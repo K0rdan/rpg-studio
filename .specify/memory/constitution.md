@@ -1,50 +1,70 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+Version change: 0.0.0 -> 0.1.0 (Minor: Initial content population)
+Modified principles:
+  - PRINCIPLE_1_NAME: Respect for Types
+  - PRINCIPLE_2_NAME: Separation of Concerns
+  - PRINCIPLE_3_NAME: Lightweight Player
+  - PRINCIPLE_4_NAME: Prioritize Native Canvas
+  - PRINCIPLE_5_NAME: Test-Driven Development (TDD)
+Added sections:
+  - Technical Stack Adherence
+  - Code Quality & Review
+Removed sections: None
+Templates requiring updates:
+  - .specify/templates/plan-template.md: ⚠ pending
+  - .specify/templates/spec-template.md: ⚠ pending
+  - .specify/templates/tasks-template.md: ⚠ pending
+  - .specify/commands/speckit.analyze.toml: ⚠ pending
+  - .specify/commands/speckit.checklist.toml: ⚠ pending
+  - .specify/commands/speckit.clarify.toml: ⚠ pending
+  - .specify/commands/speckit.constitution.toml: ✅ updated
+  - .specify/commands/speckit.implement.toml: ⚠ pending
+  - .specify/commands/speckit.plan.toml: ⚠ pending
+  - .specify/commands/speckit.specify.toml: ⚠ pending
+  - .specify/commands/speckit.tasks.toml: ⚠ pending
+Follow-up TODOs:
+  - TODO(RATIFICATION_DATE): Original adoption date unknown
+-->
+# RPG Studio Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Respect for Types
+Any new game logic or editor feature MUST first be modeled in `packages/types`. This package is the single source of truth for data structures and contracts.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Separation of Concerns
+NEVER put React or Next.js code in `packages/core`. The core engine MUST remain framework-agnostic, focusing solely on pure game logic.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Lightweight Player
+`apps/player` MUST remain minimalist. Its sole responsibility is to load `packages/core` and game data (`game.json`).
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Prioritize Native Canvas
+For `packages/core`, external game engines (e.g., Phaser, Pixi) MUST NOT be used unless explicitly requested. The logic MUST be based on `CanvasRenderingContext2D`.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Test-Driven Development (TDD)
+All new features and bug fixes MUST follow a Test-Driven Development approach. Tests MUST be written before implementation, approved by the team, and pass after implementation.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technical Stack Adherence
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+Editor (`apps/editor`): Next.js (App Router) + TypeScript + React
+Player (`apps/player`): Vite
+Documentation (`apps/docs`): Docusaurus
+Engine (`packages/core`): Pure TypeScript, no framework, using the native Canvas 2D API.
+Types (`packages/types`): Pure TypeScript.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Code Quality & Review
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+All code changes MUST be submitted via Pull Requests (PRs).
+PRs MUST be reviewed and approved by at least one other team member before merging.
+All automated tests (unit, integration) MUST pass before a PR can be merged.
+Linting and type-checking MUST pass as part of the CI/CD pipeline.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This Constitution supersedes all other project practices and guidelines.
+Amendments to this Constitution MUST be proposed via a PR, reviewed, and approved by the core team.
+All PRs and code reviews MUST verify compliance with the principles outlined herein.
+Complexity in design or implementation MUST be justified and documented.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 0.1.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date unknown | **Last Amended**: 2025-11-12
