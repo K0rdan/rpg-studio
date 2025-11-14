@@ -1,0 +1,162 @@
+openapi: 3.0.0
+info:
+  title: RPG Studio API
+  version: 1.0.0
+paths:
+  /projects:
+    get:
+      summary: List all projects
+      responses:
+        '200':
+          description: A list of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+    post:
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProject'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /projects/{projectId}:
+    get:
+      summary: Get a single project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A single project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /projects/{projectId}/maps:
+    post:
+      summary: Create a new map in a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewMap'
+      responses:
+        '201':
+          description: Map created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Map'
+  /projects/{projectId}/characters:
+    post:
+      summary: Create a new character in a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCharacter'
+      responses:
+        '201':
+          description: Character created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+components:
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        maps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Map'
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Character'
+    NewProject:
+      type: object
+      properties:
+        name:
+          type: string
+    Map:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+    NewMap:
+      type: object
+      properties:
+        name:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+    Character:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hp:
+          type: integer
+        attack:
+          type: integer
+        defense:
+          type: integer
+        sprite_id:
+          type: string
+    NewCharacter:
+      type: object
+      properties:
+        name:
+          type: string
+        hp:
+          type: integer
+        attack:
+          type: integer
+        defense:
+          type: integer
+        sprite_id:
+          type: string

@@ -97,3 +97,10 @@ The project is a monorepo using Turborepo. The file structure is as follows:
     *   `npm run test`: (Not yet implemented)
 *   **eslint-config**: Configuration package, no build required.
 *   **tsconfig**: Configuration package, no build required.
+
+## Active Technologies
+- TypeScrip + Next.js, React, Turborepo, MongoDB (001-rpg-editor-project-management)
+- MongoDB Atlas (001-rpg-editor-project-management)
+
+## Recent Changes
+- 001-rpg-editor-project-management: Added TypeScrip + Next.js, React, Turborepo, MongoDB

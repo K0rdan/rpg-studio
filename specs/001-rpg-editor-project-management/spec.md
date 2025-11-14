@@ -45,11 +45,11 @@ As a game designer, I want to create and edit game characters (e.g., player, NPC
 
 **Why this priority**: Characters are a core element of RPGs, enabling the creation of protagonists and non-player characters is fundamental.
 
-**Independent Test**: A user can create a new character, define its name, stats, and assign a sprite. The character data is saved to the project.
+**Independent Test**: A user can create a new character, define its name, role (player or npc), stats, and assign a sprite. The character data is saved to the project.
 
 **Acceptance Scenarios**:
 
-1. **Given** I have a project open, **When** I navigate to the Character Editor, **Then** I can see a list of existing characters and an option to create a new one.
+1. **Given** I have a project open, **When** I navigate to the Character Editor, **Then** I can see a list of existing characters a button to edit their attributes and an option to create a new one.
 2. **Given** I am in the Character Editor, **When** I create a new character and define its name, attributes (e.g., HP, Attack), and assign a sprite, **Then** the character is saved and appears in the character list.
 3. **Given** I have an existing character, **When** I modify its attributes or sprite, **Then** the changes are saved to the character data.
 
