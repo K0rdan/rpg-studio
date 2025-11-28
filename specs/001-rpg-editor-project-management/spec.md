@@ -73,6 +73,10 @@ As a game designer, I want to create and edit game characters (e.g., player, NPC
 - **FR-006**: Users MUST be able to "paint" selected tiles onto the map grid.
 - **FR-007**: The system MUST save the project data, including map layouts and other content.
 - **FR-008**: The system MUST allow users to create, edit, and manage game characters, including their names, attributes (e.g., health, attack), and associated visual sprites.
+- **FR-009**: The system MUST display newly created entities (projects, maps, characters) immediately in their respective lists without requiring a manual page refresh.
+- **FR-010**: The system MUST allow users to delete an existing project.
+- **FR-011**: The system MUST allow users to delete an existing map from a project.
+- **FR-012**: The system MUST allow users to delete an existing character from a project.
 
 ### Key Entities _(include if feature involves data)_
 
@@ -100,3 +104,40 @@ _This section ensures the feature's requirements align with the project's core p
 - **SC-002**: The editor can load a project with over 10 maps, each 100x100, in under 3 seconds.
 - **SC-003**: The core map painting interaction (selecting and placing a tile) should feel instantaneous (under 100ms).
 - **SC-004**: 95% of first-time users can successfully create and save a new project without consulting documentation.
+
+## End-to-End Testing Strategy _(mandatory)_
+
+### Tooling
+- **Framework**: Cypress
+- **Scope**: Critical user flows that span multiple pages or components.
+
+### Functional Flows
+
+#### 1. Project Lifecycle
+- **Goal**: Verify that a user can manage the full lifecycle of a project.
+- **Steps**:
+    1. Create a new project with a unique name.
+    2. Verify the project appears in the project list.
+    3. Open the project and verify the dashboard loads.
+    4. Delete the project.
+    5. Verify the project is removed from the list.
+
+#### 2. Map Management
+- **Goal**: Verify that a user can create, edit, and delete maps.
+- **Steps**:
+    1. Open an existing project.
+    2. Create a new map with specific dimensions.
+    3. Select a tile from the palette and paint it on the canvas.
+    4. Save the map.
+    5. Reload the page and verify the painted tile persists.
+    6. Delete the map and verify it is removed from the list.
+
+#### 3. Character Management
+- **Goal**: Verify that a user can create, edit, and delete characters.
+- **Steps**:
+    1. Open an existing project.
+    2. Create a new character with specific stats (HP, Attack, Defense).
+    3. Verify the character appears in the list.
+    4. Edit the character's stats and save.
+    5. Reload and verify the new stats persist.
+    6. Delete the character and verify it is removed from the list.

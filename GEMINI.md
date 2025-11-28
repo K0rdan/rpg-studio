@@ -37,7 +37,7 @@ The project is a monorepo using Turborepo. The file structure is as follows:
 
 ### Applications
 
-- **Editor (`apps/editor`)**: Next.js (App Router) + TypeScript + React
+- **Editor (`apps/editor`)**: Next.js (App Router) + TypeScript + React + Material-UI (MUI)
 - **Player (`apps/player`)**: Vite.
 - **Documentation (`apps/docs`)**: Docusaurus.
 

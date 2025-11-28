@@ -12,7 +12,7 @@ This plan outlines the implementation of the RPG Editor Project Management featu
 ## Technical Context
 
 **Language/Version**: TypeScript
-**Primary Dependencies**: Next.js, React, Turborepo, MongoDB
+**Primary Dependencies**: Next.js, React, Turborepo, MongoDB, Material-UI (MUI)
 **Storage**: MongoDB Atlas
 **Testing**: Jest
 **Target Platform**: Web Browser
@@ -21,7 +21,7 @@ This plan outlines the implementation of the RPG Editor Project Management featu
 - Load a project with 10 maps (100x100 each) in under 3 seconds.
 - Map painting interaction under 100ms.
 **Constraints**: The editor should be intuitive enough for 95% of first-time users to create and save a project without documentation.
-**Scale/Scope**: The initial scope includes project creation, map editing, and character management.
+**Scale/Scope**: The initial scope is focused on entity CRUD operations.
 
 ## Constitution Check
 
@@ -32,7 +32,6 @@ This plan outlines the implementation of the RPG Editor Project Management featu
 - **Principle III: Lightweight Player**: **Pass**. This feature primarily affects the editor; the player is only impacted by the data it consumes.
 - **Principle IV: Prioritize Native Canvas**: **Pass**. The map editor will use the native Canvas 2D API.
 - **Principle V: Test-Driven Development (TDD)**: **Pass**. The implementation will follow a TDD approach.
-- **Technical Stack Adherence**: **Pass**. The plan uses the prescribed technical stack (Next.js, Turborepo).
 - **Code Quality & Review**: **Pass**. All work will go through PRs, reviews, and pass quality checks.
 
 ## Project Structure
