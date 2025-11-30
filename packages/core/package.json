@@ -1,16 +1,22 @@
 {
-  "name": "core",
+  "name": "@packages/core",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "@packages/tsconfig": "*",
+    "@packages/types": "*",
+    "jsdom": "^26.1.0",
+    "vitest": "^4.0.14"
+  }
 }

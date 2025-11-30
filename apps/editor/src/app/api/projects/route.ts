@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { GameProject } from 'types';
+import type { GameProject } from '@packages/types';
 
 export async function GET() {
   try {

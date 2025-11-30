@@ -1,5 +1,8 @@
 export interface Sprite {
   id: string;
   name: string;
-  path: string;
+  image_source: string;
+  frame_width: number;
+  frame_height: number;
+  animations: Record<string, number[]>;
 }

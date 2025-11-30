@@ -1,0 +1,6 @@
+{
+  "id": "g1",
+  "name": "Test Game",
+  "maps": ["map1.json"],
+  "characters": []
+}

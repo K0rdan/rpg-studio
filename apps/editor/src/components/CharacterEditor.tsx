@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Character } from 'types';
+import type { Character } from '@packages/types';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -98,6 +98,14 @@ export default function CharacterEditor({ projectId, characterId, initialData }:
                 type="number"
                 value={character.hp}
                 onChange={(e) => handleChange('hp', Number(e.target.value))}
+                fullWidth
+              />
+              <TextField
+                label="Max HP"
+                name="maxHp"
+                type="number"
+                value={character.maxHp}
+                onChange={(e) => handleChange('maxHp', Number(e.target.value))}
                 fullWidth
               />
               <TextField

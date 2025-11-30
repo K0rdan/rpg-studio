@@ -1,8 +1,8 @@
 {
-  "name": "tsconfig",
+  "name": "@packages/tsconfig",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "files": ["base.json"],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

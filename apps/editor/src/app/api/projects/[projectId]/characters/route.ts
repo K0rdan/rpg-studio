@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { Character } from 'types';
+import type { Character } from '@packages/types';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
@@ -16,9 +16,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     const newCharacter: Omit<Character, 'id'> = {
       name,
       hp: hp || 100,
+      maxHp: hp || 100,
       attack: attack || 10,
       defense: defense || 10,
-      sprite: { id: '', name: '', path: '' }, // Default empty sprite
+      spriteId: '', // Default empty sprite
     };
 
     const charactersCollection = db.collection('characters');

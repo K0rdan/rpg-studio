@@ -1,7 +1,11 @@
 {
-  "extends": "../../packages/tsconfig/base.json",
+  "extends": "@packages/tsconfig/base.json",
   "compilerOptions": {
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@packages/types": ["../types/src/index.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

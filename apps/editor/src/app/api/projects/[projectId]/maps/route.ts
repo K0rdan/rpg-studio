@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { Map } from 'types';
+import type { Map } from '@packages/types';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {

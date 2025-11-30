@@ -5,7 +5,7 @@ import CharacterList from '@/components/CharacterList';
 
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { Map, Character } from 'types';
+import type { Map, Character } from '@packages/types';
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;

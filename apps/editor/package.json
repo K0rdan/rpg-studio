@@ -17,10 +17,10 @@
     "mongodb": "^7.0.0",
     "next": "16.0.1",
     "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "types": "*"
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@packages/types": "*",
     "@shelf/jest-mongodb": "^6.0.0",
     "@swc/jest": "^0.2.39",
     "@testing-library/jest-dom": "^6.9.1",

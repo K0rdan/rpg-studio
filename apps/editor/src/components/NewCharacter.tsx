@@ -1,5 +1,6 @@
 'use client';
 
+import type { Character } from '@packages/types';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
@@ -20,6 +21,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [hp, setHp] = useState(100);
+  const [maxHp, setMaxHp] = useState(100);
   const [attack, setAttack] = useState(10);
   const [defense, setDefense] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, hp, attack, defense }),
+        body: JSON.stringify({ name, hp, maxHp, attack, defense }),
       });
 
       if (!response.ok) {
@@ -47,6 +49,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
       setIsOpen(false);
       setName('');
       setHp(100);
+      setMaxHp(100);
       setAttack(10);
       setDefense(10);
       showToast('Character created successfully', 'success');
@@ -102,6 +105,17 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
                 variant="outlined"
                 value={hp}
                 onChange={(e) => setHp(Number(e.target.value))}
+                inputProps={{ min: 1 }}
+              />
+              <TextField
+                margin="dense"
+                id="maxHp"
+                label="Max HP"
+                type="number"
+                fullWidth
+                variant="outlined"
+                value={maxHp}
+                onChange={(e) => setMaxHp(Number(e.target.value))}
                 inputProps={{ min: 1 }}
               />
               <TextField

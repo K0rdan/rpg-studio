@@ -1,4 +1,4 @@
-import { TileProperties } from './tile';
+import type { TileProperties } from './tile';
 
 export interface Tileset {
   id: string;

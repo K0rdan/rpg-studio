@@ -1,19 +1,20 @@
 {
   "name": "player",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "rollup": "^4.53.2",
-    "vite": "^5.3.3"
+    "@packages/core": "*"
+  },
+  "devDependencies": {
+    "@packages/types": "*",
+    "cypress": "^15.7.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
   }
 }

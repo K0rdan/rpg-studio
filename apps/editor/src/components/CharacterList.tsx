@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Character } from 'types';
+import type { Character } from '@packages/types';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 import Grid from '@mui/material/Grid';
