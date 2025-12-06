@@ -8,7 +8,7 @@ describe('GameLoop', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     callback = vi.fn();
-    gameLoop = new GameLoop(callback);
+    gameLoop = new GameLoop(callback as any);
     
     // Mock requestAnimationFrame
     global.requestAnimationFrame = vi.fn((cb) => {

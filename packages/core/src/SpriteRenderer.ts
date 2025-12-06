@@ -26,7 +26,7 @@ export class SpriteRenderer {
     }
   }
 
-  public render(renderer: Renderer, x: number, y: number) {
+  public render(renderer: Renderer, x: number, y: number, width?: number, height?: number) {
     const frames = this.sprite.animations[this.currentAnimation];
     if (!frames || frames.length === 0) return;
 
@@ -36,10 +36,13 @@ export class SpriteRenderer {
     const sx = (frameIndex % cols) * this.sprite.frame_width;
     const sy = Math.floor(frameIndex / cols) * this.sprite.frame_height;
 
+    const destWidth = width || this.sprite.frame_width;
+    const destHeight = height || this.sprite.frame_height;
+
     renderer.drawTile(
       this.image,
       sx, sy, this.sprite.frame_width, this.sprite.frame_height,
-      x, y, this.sprite.frame_width, this.sprite.frame_height
+      x, y, destWidth, destHeight
     );
   }
   

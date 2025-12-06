@@ -47,20 +47,22 @@ export class Scene {
         if (input.isKeyDown('ArrowRight')) {
           newX += speed * deltaTime;
           moving = true;
+          char.renderer.setAnimation('walk_right');
         } else if (input.isKeyDown('ArrowLeft')) {
           newX -= speed * deltaTime;
           moving = true;
+          char.renderer.setAnimation('walk_left');
         } else if (input.isKeyDown('ArrowDown')) {
           newY += speed * deltaTime;
           moving = true;
+          char.renderer.setAnimation('walk_down');
         } else if (input.isKeyDown('ArrowUp')) {
           newY -= speed * deltaTime;
           moving = true;
+          char.renderer.setAnimation('walk_up');
         }
 
         if (moving) {
-          char.renderer.setAnimation('walk');
-          
           // Collision Check (Map Bounds)
           // Assuming 32x32 tiles for MVP
           const tileSize = 32;
@@ -93,7 +95,7 @@ export class Scene {
     }
     
     for (const char of this.characters) {
-      char.renderer.render(renderer, char.x, char.y);
+      char.renderer.render(renderer, char.x, char.y, 32, 32);
     }
   }
 }

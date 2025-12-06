@@ -94,3 +94,9 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+canvas {
+  image-rendering: pixelated; /* Crisp edges for pixel art */
+  border: 1px solid #333;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}

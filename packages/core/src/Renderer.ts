@@ -13,6 +13,10 @@ export class Renderer {
     this.height = canvas.height;
   }
 
+  public getContext(): CanvasRenderingContext2D {
+    return this.ctx;
+  }
+
   public clear() {
     this.ctx.clearRect(0, 0, this.width, this.height);
   }
