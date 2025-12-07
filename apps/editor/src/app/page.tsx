@@ -1,7 +1,7 @@
 import NewProject from '@/components/NewProject';
 import ProjectList from '@/components/ProjectList';
 import { connectToDatabase } from '@/lib/mongodb';
-import { GameProject } from 'types';
+import type { GameProject } from '@packages/types';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';

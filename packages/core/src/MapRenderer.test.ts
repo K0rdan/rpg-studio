@@ -21,6 +21,7 @@ describe('MapRenderer', () => {
       name: 'Test Map',
       width: 2,
       height: 2,
+      tilesetId: 'ts1',
       layers: [
         {
           name: 'Layer 1',

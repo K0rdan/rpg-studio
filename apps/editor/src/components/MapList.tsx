@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Map } from 'types';
+import type { Map } from '@packages/types';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 import Grid from '@mui/material/Grid';

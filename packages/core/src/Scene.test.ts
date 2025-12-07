@@ -25,6 +25,7 @@ describe('Scene', () => {
       name: 'Test Map',
       width: 10,
       height: 10,
+      tilesetId: 'ts1',
       layers: [],
     };
     scene.loadMap(map);

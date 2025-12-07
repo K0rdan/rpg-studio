@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GameProject } from 'types';
+import type { GameProject } from '@packages/types';
 import { useToast } from '@/context/ToastContext';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';

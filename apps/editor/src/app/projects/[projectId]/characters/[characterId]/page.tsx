@@ -1,7 +1,7 @@
 import CharacterEditor from '@/components/CharacterEditor';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { Character } from 'types';
+import type { Character } from '@packages/types';
 
 export default async function CharacterPage({ params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const { projectId, characterId } = await params;

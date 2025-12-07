@@ -1,0 +1,247 @@
+openapi: 3.0.0
+info:
+  title: RPG Editor Map API
+  description: API for managing maps, tilesets, and map data in the RPG Editor.
+  version: 0.1.0
+
+paths:
+  /api/tilesets:
+    get:
+      summary: List all available tilesets
+      operationId: getTilesets
+      responses:
+        '200':
+          description: A list of tilesets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tileset'
+
+  /api/projects/{projectId}/maps:
+    get:
+      summary: List all maps in a project
+      operationId: getProjectMaps
+      parameters:
+        - in: path
+          name: projectId
+          schema:
+            type: string
+          required: true
+          description: The ID of the project
+      responses:
+        '200':
+          description: A list of maps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Map'
+        '404':
+          description: Project not found
+        '500':
+          description: Internal server error
+    post:
+      summary: Create a new map in a project
+      operationId: createProjectMap
+      parameters:
+        - in: path
+          name: projectId
+          schema:
+            type: string
+          required: true
+          description: The ID of the project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - width
+                - height
+              properties:
+                name:
+                  type: string
+                width:
+                  type: integer
+                  minimum: 1
+                height:
+                  type: integer
+                  minimum: 1
+      responses:
+        '201':
+          description: Map created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Map'
+        '400':
+          description: Missing required fields
+        '500':
+          description: Internal server error
+
+  /api/projects/{projectId}/maps/{mapId}:
+    get:
+      summary: Get a specific map
+      operationId: getMap
+      parameters:
+        - in: path
+          name: projectId
+          schema:
+            type: string
+          required: true
+          description: The ID of the project
+        - in: path
+          name: mapId
+          schema:
+            type: string
+          required: true
+          description: The ID of the map
+      responses:
+        '200':
+          description: Map details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Map'
+        '404':
+          description: Map not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update a specific map
+      operationId: updateMap
+      parameters:
+        - in: path
+          name: projectId
+          schema:
+            type: string
+          required: true
+          description: The ID of the project
+        - in: path
+          name: mapId
+          schema:
+            type: string
+          required: true
+          description: The ID of the map
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Map'
+      responses:
+        '200':
+          description: Map updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Map updated
+        '404':
+          description: Map not found
+        '500':
+          description: Internal server error
+    delete:
+      summary: Delete a map
+      operationId: deleteMap
+      parameters:
+        - in: path
+          name: projectId
+          schema:
+            type: string
+          required: true
+          description: The ID of the project
+        - in: path
+          name: mapId
+          schema:
+            type: string
+          required: true
+          description: The ID of the map
+      responses:
+        '200':
+          description: Map deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Map deleted
+        '404':
+          description: Map not found
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    Tileset:
+      type: object
+      required:
+        - id
+        - name
+        - image_source
+        - tile_width
+        - tile_height
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        image_source:
+          type: string
+        tile_width:
+          type: integer
+        tile_height:
+          type: integer
+    
+    Layer:
+      type: object
+      required:
+        - name
+        - data
+      properties:
+        name:
+          type: string
+        visible:
+          type: boolean
+          default: true
+        data:
+          type: array
+          items:
+            type: integer
+          description: Array of tile IDs. -1 represents empty tile.
+
+    Map:
+      type: object
+      required:
+        - id
+        - name
+        - width
+        - height
+        - layers
+        - tilesetId
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        tilesetId:
+          type: string
+          description: ID of the used tileset
+        layers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Layer'

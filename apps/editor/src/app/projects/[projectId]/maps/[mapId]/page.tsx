@@ -1,7 +1,7 @@
 import MapEditor from '@/components/MapEditor';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { Map } from 'types';
+import type { Map } from '@packages/types';
 
 export default async function MapPage({ params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   const { projectId, mapId } = await params;

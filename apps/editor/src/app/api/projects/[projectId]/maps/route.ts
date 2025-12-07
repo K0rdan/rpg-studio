@@ -17,6 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       name,
       width,
       height,
+      tilesetId: 'default',
       layers: [],
     };
 

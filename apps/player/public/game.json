@@ -2,5 +2,15 @@
   "id": "g1",
   "name": "Test Game",
   "maps": ["map1.json"],
-  "characters": []
+  "characters": [
+    {
+      "id": "c1",
+      "name": "Hero",
+      "hp": 100,
+      "maxHp": 100,
+      "attack": 10,
+      "defense": 5,
+      "spriteId": "s1"
+    }
+  ]
 }

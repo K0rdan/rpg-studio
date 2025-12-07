@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map } from 'types';
+import { Map, Tileset } from '@packages/types';
 import TilePalette from './TilePalette';
+import MapProperties from './MapProperties';
+import LayerManager from './LayerManager';
 import { useToast } from '@/context/ToastContext';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
 import SaveIcon from '@mui/icons-material/Save';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 
 interface MapEditorProps {
   projectId: string;
@@ -16,73 +21,156 @@ interface MapEditorProps {
   initialMapData?: Map;
 }
 
+interface Selection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export default function MapEditor({ projectId, mapId, initialMapData }: MapEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mapData, setMapData] = useState<Map | null>(initialMapData || null);
-  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
+  const [tilesets, setTilesets] = useState<Tileset[]>([]);
+  const [selectedSelection, setSelectedSelection] = useState<Selection | null>(null);
+  const [activeLayerIndex, setActiveLayerIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
+  const [zoom, setZoom] = useState(1);
   const { showToast } = useToast();
 
   useEffect(() => {
-    if (!mapData && mapId) {
-      const fetchMap = async () => {
-         // Fetch logic handled by page for now, but good to have fallback
-      };
-      fetchMap();
-    }
-  }, [mapId, mapData]);
+    fetch('/api/tilesets')
+      .then((res) => res.json())
+      .then((data) => setTilesets(data))
+      .catch((err) => console.error('Failed to load tilesets', err));
+  }, []);
+
+  useEffect(() => {
+    if (!mapData?.tilesetId || tilesets.length === 0) return;
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
+
+    const img = new Image();
+    img.src = tileset.image_source;
+    img.onload = () => setTilesetImage(img);
+  }, [mapData?.tilesetId, tilesets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !mapData) return;
+    if (!canvas || !mapData || !tilesetImage) return;
+
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const tileSize = 32;
-    const width = mapData.width * tileSize;
-    const height = mapData.height * tileSize;
+    // Apply zoom to canvas dimensions
+    const tileSize = tileset.tile_width;
+    const width = mapData.width * tileSize * zoom;
+    const height = mapData.height * tileSize * zoom;
 
     canvas.width = width;
     canvas.height = height;
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
+    
+    // Enable pixel art scaling
+    ctx.imageSmoothingEnabled = false;
+    
+    // Apply scale
+    ctx.scale(zoom, zoom);
 
     // Draw grid
     ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / zoom; // Keep line width consistent
 
-    for (let x = 0; x <= width; x += tileSize) {
+    for (let x = 0; x <= mapData.width * tileSize; x += tileSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+      ctx.lineTo(x, mapData.height * tileSize);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= height; y += tileSize) {
+    for (let y = 0; y <= mapData.height * tileSize; y += tileSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
+      ctx.lineTo(mapData.width * tileSize, y);
       ctx.stroke();
     }
 
     // Draw tiles
-    if (mapData.layers && mapData.layers.length > 0) {
-      const layer = mapData.layers[0];
-      layer.data.forEach((tileId: number, index: number) => {
-        if (tileId === 0) return; // Empty tile
-        const x = (index % mapData.width) * tileSize;
-        const y = Math.floor(index / mapData.width) * tileSize;
-        
-        // Placeholder colors for tiles
-        ctx.fillStyle = tileId === 1 ? 'red' : tileId === 2 ? 'green' : 'blue';
-        ctx.fillRect(x, y, tileSize, tileSize);
+    if (mapData.layers) {
+      const cols = Math.floor(tilesetImage.width / tileset.tile_width);
+
+      mapData.layers.forEach((layer) => {
+        layer.data.forEach((tileId: number, index: number) => {
+          if (tileId === -1) return; // Empty tile
+          const x = (index % mapData.width) * tileSize;
+          const y = Math.floor(index / mapData.width) * tileSize;
+          
+          const sx = (tileId % cols) * tileset.tile_width;
+          const sy = Math.floor(tileId / cols) * tileset.tile_height;
+
+          ctx.drawImage(
+            tilesetImage,
+            sx, sy, tileset.tile_width, tileset.tile_height,
+            x, y, tileSize, tileSize
+          );
+        });
       });
     }
 
-  }, [mapData]);
+  }, [mapData, tilesetImage, tilesets, zoom]);
+
+  const handlePropertyChange = (field: keyof Map, value: any) => {
+    if (!mapData) return;
+    
+    const newMapData = { ...mapData, [field]: value };
+    
+    if (field === 'width' || field === 'height') {
+      const newWidth = field === 'width' ? value : mapData.width;
+      const newHeight = field === 'height' ? value : mapData.height;
+      
+      newMapData.layers = newMapData.layers.map(layer => {
+        const newData = new Array(newWidth * newHeight).fill(-1);
+        for (let y = 0; y < Math.min(mapData.height, newHeight); y++) {
+          for (let x = 0; x < Math.min(mapData.width, newWidth); x++) {
+            const oldIndex = y * mapData.width + x;
+            const newIndex = y * newWidth + x;
+            newData[newIndex] = layer.data[oldIndex];
+          }
+        }
+        return { ...layer, data: newData };
+      });
+    }
+    
+    setMapData(newMapData);
+  };
+
+  const handleAddLayer = () => {
+    if (!mapData) return;
+    const newLayer = {
+      name: `Layer ${mapData.layers.length + 1}`,
+      data: new Array(mapData.width * mapData.height).fill(-1)
+    };
+    setMapData({ ...mapData, layers: [...mapData.layers, newLayer] });
+    setActiveLayerIndex(mapData.layers.length);
+  };
+
+  const handleRemoveLayer = (index: number) => {
+    if (!mapData || mapData.layers.length <= 1) return;
+    const newLayers = mapData.layers.filter((_, i) => i !== index);
+    setMapData({ ...mapData, layers: newLayers });
+    if (activeLayerIndex >= index && activeLayerIndex > 0) {
+      setActiveLayerIndex(activeLayerIndex - 1);
+    } else if (activeLayerIndex >= newLayers.length) {
+       setActiveLayerIndex(newLayers.length - 1);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDrawing(true);
@@ -100,25 +188,45 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   };
 
   const paintTile = (e: React.MouseEvent) => {
-    if (!selectedTileId || !canvasRef.current || !mapData) return;
+    if (!selectedSelection || !canvasRef.current || !mapData || !tilesetImage) return;
+
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / 32);
-    const y = Math.floor((e.clientY - rect.top) / 32);
+    // Adjust for zoom: coordinate / zoom
+    const x = Math.floor((e.clientX - rect.left) / (tileset.tile_width * zoom));
+    const y = Math.floor((e.clientY - rect.top) / (tileset.tile_height * zoom));
 
     if (x >= 0 && x < mapData.width && y >= 0 && y < mapData.height) {
-      const index = y * mapData.width + x;
-      
       const newMapData = { ...mapData };
       if (!newMapData.layers || newMapData.layers.length === 0) {
-        newMapData.layers = [{ name: 'Layer 1', data: new Array(mapData.width * mapData.height).fill(0) }];
+        newMapData.layers = [{ name: 'Layer 1', data: new Array(mapData.width * mapData.height).fill(-1) }];
       }
       
-      // Clone the layer data to avoid mutation
-      const newLayerData = [...newMapData.layers[0].data];
-      newLayerData[index] = selectedTileId;
-      newMapData.layers[0].data = newLayerData;
-      
+      const newLayerData = [...newMapData.layers[activeLayerIndex].data];
+      const cols = Math.floor(tilesetImage.width / tileset.tile_width);
+
+      // Loop through selection
+      for (let sy = 0; sy < selectedSelection.height; sy++) {
+        for (let sx = 0; sx < selectedSelection.width; sx++) {
+          const targetX = x + sx;
+          const targetY = y + sy;
+
+          if (targetX < mapData.width && targetY < mapData.height) {
+            const targetIndex = targetY * mapData.width + targetX;
+            
+            // Calculate source tile ID
+            const sourceCol = selectedSelection.x + sx;
+            const sourceRow = selectedSelection.y + sy;
+            const tileId = sourceRow * cols + sourceCol;
+
+            newLayerData[targetIndex] = tileId;
+          }
+        }
+      }
+
+      newMapData.layers[activeLayerIndex].data = newLayerData;
       setMapData(newMapData);
     }
   };
@@ -150,34 +258,63 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
 
   if (!mapData) return <div>Loading map...</div>;
 
+  const currentTileset = tilesets.find(t => t.id === mapData.tilesetId) || null;
+
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<SaveIcon />}
-          onClick={handleSave} 
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save Map'}
-        </Button>
-      </Box>
-      <Stack direction="row" spacing={2}>
-        <Box>
-          <TilePalette onSelectTile={setSelectedTileId} selectedTileId={selectedTileId} />
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <MapProperties mapData={mapData} tilesets={tilesets} onChange={handlePropertyChange} />
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Paper sx={{ display: 'flex', alignItems: 'center', p: 0.5 }}>
+            <IconButton onClick={() => setZoom(Math.max(0.5, zoom - 0.5))} disabled={zoom <= 0.5}>
+              <ZoomOutIcon />
+            </IconButton>
+            <Typography sx={{ mx: 1 }}>{Math.round(zoom * 100)}%</Typography>
+            <IconButton onClick={() => setZoom(Math.min(3, zoom + 0.5))} disabled={zoom >= 3}>
+              <ZoomInIcon />
+            </IconButton>
+          </Paper>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<SaveIcon />}
+            onClick={handleSave} 
+            disabled={saving}
+            sx={{ height: 'fit-content' }}
+          >
+            {saving ? 'Saving...' : 'Save Map'}
+          </Button>
         </Box>
-        <Paper sx={{ p: 1, overflow: 'auto' }}>
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            style={{ border: '1px solid #ccc', cursor: 'crosshair' }}
+      </Box>
+      
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+        <Box sx={{ width: { xs: '100%', md: '25%' }, minWidth: 250 }}>
+           <LayerManager 
+            layers={mapData.layers} 
+            activeLayerIndex={activeLayerIndex} 
+            onSelectLayer={setActiveLayerIndex}
+            onAddLayer={handleAddLayer}
+            onRemoveLayer={handleRemoveLayer}
           />
-        </Paper>
-      </Stack>
+          <TilePalette 
+            tileset={currentTileset} 
+            onSelectSelection={setSelectedSelection} 
+            selection={selectedSelection} 
+          />
+        </Box>
+        <Box sx={{ flex: 1 }}>
+          <Paper sx={{ p: 1, overflow: 'auto', height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: '#f5f5f5' }}>
+            <canvas
+              ref={canvasRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              style={{ border: '1px solid #ccc', cursor: 'crosshair', imageRendering: 'pixelated', boxShadow: '0 4px 8px rgba(0,0,0,0.1)', backgroundColor: 'white' }}
+            />
+          </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 }
