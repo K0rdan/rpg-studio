@@ -17,6 +17,10 @@ export class Renderer {
     return this.ctx;
   }
 
+  public getCanvas(): HTMLCanvasElement {
+    return this.ctx.canvas;
+  }
+
   public clear() {
     this.ctx.clearRect(0, 0, this.width, this.height);
   }

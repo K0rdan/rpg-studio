@@ -29,6 +29,8 @@ export class MapRenderer {
 
     // Calculate columns in tileset image
     const cols = Math.floor(this.tilesetImage.width / srcTileWidth);
+    
+    let tilesDrawn = 0;
 
     for (const layer of this.map.layers) {
       for (let i = 0; i < layer.data.length; i++) {
@@ -47,7 +49,12 @@ export class MapRenderer {
           sx, sy, srcTileWidth, srcTileHeight,
           x, y, this.destTileWidth, this.destTileHeight
         );
+        tilesDrawn++;
       }
+    }
+    
+    if (tilesDrawn > 0) {
+      console.log(`MapRenderer: Drew ${tilesDrawn} tiles`);
     }
   }
 }

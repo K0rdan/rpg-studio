@@ -3,17 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Map, Tileset } from '@packages/types';
 import TilePalette from './TilePalette';
-import MapProperties from './MapProperties';
 import LayerManager from './LayerManager';
 import { useToast } from '@/context/ToastContext';
+import dynamic from 'next/dynamic';
+
+const MapProperties = dynamic(() => import('./MapProperties'), { ssr: false });
+
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import SaveIcon from '@mui/icons-material/Save';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { usePreview } from '@/context/PreviewContext';
 
 interface MapEditorProps {
   projectId: string;
@@ -39,6 +44,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const { showToast } = useToast();
+  const { play } = usePreview();
 
   useEffect(() => {
     fetch('/api/tilesets')
@@ -274,6 +280,15 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
               <ZoomInIcon />
             </IconButton>
           </Paper>
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            startIcon={<PlayArrowIcon />}
+            onClick={() => play(projectId)} 
+            sx={{ height: 'fit-content' }}
+          >
+            Play
+          </Button>
           <Button 
             variant="contained" 
             color="primary" 

@@ -14,10 +14,11 @@ export default async function MapPage({ params }: { params: Promise<{ projectId:
     const map = await db.collection('maps').findOne({ _id: new ObjectId(mapId) });
 
     if (map) {
+      const { _id, ...rest } = map;
       mapData = {
-        ...map,
-        id: map._id.toHexString(),
-      } as unknown as Map; // Casting because _id is not in Map interface but we map it to id
+        ...rest,
+        id: _id.toHexString(),
+      } as unknown as Map;
     }
   } catch (e) {
     if (e instanceof Error) {

@@ -17,8 +17,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       name,
       width,
       height,
-      tilesetId: 'default',
-      layers: [],
+      tilesetId: 'ts1',
+      layers: [{
+        name: 'Layer 1',
+        data: new Array(width * height).fill(-1)
+      }],
     };
 
     const mapsCollection = db.collection('maps');

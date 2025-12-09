@@ -4,3 +4,5 @@ export * from './InputManager';
 export * from './Scene';
 export * from './MapRenderer';
 export * from './SpriteRenderer';
+export * from './AssetLoader';
+export * from './GameEngine';

@@ -26,7 +26,19 @@ export async function connectToDatabase() {
   }
 
   const client = new MongoClient(uri!);
-  await client.connect();
+  /* eslint-disable no-await-in-loop */
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      await client.connect();
+      break;
+    } catch (err) {
+      retries -= 1;
+      console.error(`MongoDB connection attempt failed. Retries left: ${retries}`, err);
+      if (retries === 0) throw err;
+      await new Promise(res => setTimeout(res, 2000));
+    }
+  }
   const db = client.db(dbName);
 
   cachedClient = client;
