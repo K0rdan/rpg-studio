@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: RPG Editor Tileset API
+  description: API endpoints for managing project tilesets with Azure Storage integration
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+
+paths:
+  /projects/{projectId}/tilesets:
+    get:
+      summary: List all tilesets for a project
+      operationId: listTilesets
+      tags:
+        - Tilesets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Project ID
+      responses:
+        '200':
+          description: List of tilesets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tileset'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new tileset (metadata only, use upload endpoint for file)
+      operationId: createTileset
+      tags:
+        - Tilesets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTilesetRequest'
+      responses:
+        '201':
+          description: Tileset created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tileset'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+        '500':
+          description: Internal server error
+
+  /projects/{projectId}/tilesets/upload:
+    post:
+      summary: Upload a tileset image file
+      operationId: uploadTileset
+      tags:
+        - Tilesets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+                - tile_width
+                - tile_height
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Tileset image file (PNG, JPEG, or WebP, max 10MB)
+                name:
+                  type: string
+                  description: Tileset name
+                  example: "Forest Tileset"
+                tile_width:
+                  type: integer
+                  minimum: 1
+                  description: Width of a single tile in pixels
+                  example: 32
+                tile_height:
+                  type: integer
+                  minimum: 1
+                  description: Height of a single tile in pixels
+                  example: 32
+      responses:
+        '201':
+          description: Tileset uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tileset'
+        '400':
+          description: Invalid file or request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+        '413':
+          description: File too large (exceeds 10MB)
+        '500':
+          description: Internal server error or storage upload failed
+
+  /projects/{projectId}/tilesets/{tilesetId}:
+    get:
+      summary: Get a tileset by ID
+      operationId: getTileset
+      tags:
+        - Tilesets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tilesetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tileset details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tileset'
+        '404':
+          description: Tileset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+
+    delete:
+      summary: Delete a tileset
+      operationId: deleteTileset
+      tags:
+        - Tilesets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tilesetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tileset deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tileset deleted successfully"
+        '400':
+          description: Tileset is in use by one or more maps
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TilesetInUseError'
+        '404':
+          description: Tileset not found
+        '500':
+          description: Internal server error or storage deletion failed
+
+components:
+  schemas:
+    Tileset:
+      type: object
+      required:
+        - id
+        - name
+        - image_source
+        - tile_width
+        - tile_height
+        - projectId
+      properties:
+        id:
+          type: string
+          description: Tileset ID (MongoDB ObjectId as hex string)
+          example: "507f1f77bcf86cd799439011"
+        name:
+          type: string
+          description: Tileset name
+          example: "Forest Tileset"
+        image_source:
+          type: string
+          format: uri
+          description: URL to the tileset image (from Azure Storage)
+          example: "https://account.blob.core.windows.net/tilesets/projects/proj-123/tilesets/ts-456.png?sv=..."
+        tile_width:
+          type: integer
+          minimum: 1
+          description: Width of a single tile in pixels
+          example: 32
+        tile_height:
+          type: integer
+          minimum: 1
+          description: Height of a single tile in pixels
+          example: 32
+        projectId:
+          type: string
+          description: Project ID that owns this tileset
+          example: "507f1f77bcf86cd799439012"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CreateTilesetRequest:
+      type: object
+      required:
+        - name
+        - tile_width
+        - tile_height
+      properties:
+        name:
+          type: string
+          description: Tileset name
+          example: "Forest Tileset"
+        tile_width:
+          type: integer
+          minimum: 1
+          description: Width of a single tile in pixels
+          example: 32
+        tile_height:
+          type: integer
+          minimum: 1
+          description: Height of a single tile in pixels
+          example: 32
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "Invalid file format. Supported formats: PNG, JPEG, WebP"
+        code:
+          type: string
+          description: Error code (optional)
+          example: "INVALID_MIME_TYPE"
+        details:
+          type: object
+          description: Additional error details (optional)
+
+    TilesetInUseError:
+      type: object
+      required:
+        - message
+        - maps
+      properties:
+        message:
+          type: string
+          example: "Tileset is currently in use by one or more maps"
+        maps:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                example: "507f1f77bcf86cd799439013"
+              name:
+                type: string
+                example: "Forest Map"
+
+

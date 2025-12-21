@@ -12,13 +12,14 @@ import {
   BlobSASPermissions,
   StorageSharedKeyCredential,
 } from '@azure/storage-blob';
+import { ClientSecretCredential } from '@azure/identity';
 import type {
   TilesetAssetLocation,
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
-  SUPPORTED_MIME_TYPES,
 } from './types';
+import { SUPPORTED_MIME_TYPES } from './types';
 import type { TilesetStorage } from './interface';
 import type { AzureStorageOptions } from './config';
 import {
@@ -44,9 +45,29 @@ export class AzureTilesetStorage implements TilesetStorage {
 
   constructor(options: AzureStorageOptions) {
     try {
-      this.blobServiceClient = BlobServiceClient.fromConnectionString(
-        options.connectionString
-      );
+      if (options.connectionString) {
+        this.blobServiceClient = BlobServiceClient.fromConnectionString(
+          options.connectionString
+        );
+        this.accountName = options.accountName || this.blobServiceClient.accountName;
+      } else if (
+        options.tenantId &&
+        options.clientId &&
+        options.clientSecret &&
+        options.accountName
+      ) {
+        const credential = new ClientSecretCredential(
+          options.tenantId,
+          options.clientId,
+          options.clientSecret
+        );
+        this.accountName = options.accountName;
+        const accountUrl = `https://${options.accountName}.blob.core.windows.net`;
+        this.blobServiceClient = new BlobServiceClient(accountUrl, credential);
+      } else {
+        throw new ConfigurationError('Invalid configuration: Provide either connectionString or SP credentials (tenantId, clientId, clientSecret, accountName).');
+      }
+
       this.containerName = options.containerName || 'tilesets';
       this.containerClient = this.blobServiceClient.getContainerClient(
         this.containerName
@@ -54,12 +75,11 @@ export class AzureTilesetStorage implements TilesetStorage {
       this.isPublic = options.isPublic ?? false;
       this.sasExpiryHours = options.sasExpiryHours ?? 24;
       this.publicBaseUrl = options.publicBaseUrl;
-      this.accountName = options.accountName || this.blobServiceClient.accountName;
       
       // Extract account key from connection string if not provided
       if (options.accountKey) {
         this.accountKey = options.accountKey;
-      } else {
+      } else if (options.connectionString) {
         const connectionString = options.connectionString;
         const accountKeyMatch = connectionString.match(/AccountKey=([^;]+)/);
         if (accountKeyMatch) {
@@ -91,9 +111,9 @@ export class AzureTilesetStorage implements TilesetStorage {
   /**
    * Generate blob path from project ID and tileset ID
    */
-  private getBlobPath(projectId: string, tilesetId: string, mimeType: string): string {
+  private getBlobPath(userId: string, projectId: string, tilesetId: string, mimeType: string): string {
     const extension = this.getExtensionFromMimeType(mimeType);
-    return `projects/${projectId}/tilesets/${tilesetId}.${extension}`;
+    return `users/${userId}/projects/${projectId}/tilesets/${tilesetId}.${extension}`;
   }
 
   /**
@@ -114,7 +134,7 @@ export class AzureTilesetStorage implements TilesetStorage {
     try {
       this.validateMimeType(params.mimeType);
 
-      const blobPath = this.getBlobPath(params.projectId, params.tilesetId, params.mimeType);
+      const blobPath = this.getBlobPath(params.userId, params.projectId, params.tilesetId, params.mimeType);
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobPath);
 
       // Convert data to Buffer if needed
@@ -139,12 +159,19 @@ export class AzureTilesetStorage implements TilesetStorage {
       if (error instanceof InvalidMimeTypeError) {
         throw error;
       }
-      if (error instanceof Error && error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
+      
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('network') || 
+        error.message.includes('ECONNREFUSED')
+      );
+
+      if (isNetworkError) {
         throw new NetworkError(
-          `Network error during upload: ${error.message}`,
-          error
+          `Network error during upload: ${(error as Error).message}`,
+          error as Error
         );
       }
+      
       throw new UploadFailedError(
         `Failed to upload tileset image: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error : undefined
@@ -176,43 +203,71 @@ export class AzureTilesetStorage implements TilesetStorage {
       }
 
       // For private containers, generate SAS URL
-      if (!this.accountKey) {
-        throw new ConfigurationError(
-          'Unable to generate SAS token: AccountKey is required for private containers. Provide it in AzureStorageOptions or ensure it is in the connection string.'
-        );
-      }
-
       const expiryTime = new Date();
       const expirySeconds = params.expirySeconds ?? (this.sasExpiryHours * 3600);
       expiryTime.setSeconds(expiryTime.getSeconds() + expirySeconds);
 
-      // Create shared key credential for SAS token generation
-      const sharedKeyCredential = new StorageSharedKeyCredential(
-        this.accountName,
-        this.accountKey
-      );
+      let sasToken: string;
 
-      const sasToken = generateBlobSASQueryParameters(
-        {
-          containerName: this.containerName,
-          blobName: blobPath,
-          permissions: BlobSASPermissions.parse('r'), // Read permission
-          expiresOn: expiryTime,
-        },
-        sharedKeyCredential
-      ).toString();
+      if (this.accountKey) {
+        // Create shared key credential for SAS token generation
+        const sharedKeyCredential = new StorageSharedKeyCredential(
+          this.accountName,
+          this.accountKey
+        );
+
+        sasToken = generateBlobSASQueryParameters(
+          {
+            containerName: this.containerName,
+            blobName: blobPath,
+            permissions: BlobSASPermissions.parse('r'), // Read permission
+            expiresOn: expiryTime,
+          },
+          sharedKeyCredential
+        ).toString();
+      } else {
+        // Assume Service Principal / Managed Identity -> User Delegation SAS
+        // We need a User Delegation Key first
+        // Start time a bit in the past to avoid clock skew
+        const startsOn = new Date();
+        startsOn.setMinutes(startsOn.getMinutes() - 15);
+        
+        const userDelegationKey = await this.blobServiceClient.getUserDelegationKey(
+            startsOn, 
+            expiryTime
+        );
+
+        sasToken = generateBlobSASQueryParameters(
+          {
+            containerName: this.containerName,
+            blobName: blobPath,
+            permissions: BlobSASPermissions.parse('r'),
+            startsOn,
+            expiresOn: expiryTime,
+          },
+          userDelegationKey,
+          this.accountName
+        ).toString();
+      }
 
       return `${blockBlobClient.url}?${sasToken}`;
     } catch (error) {
       if (error instanceof AssetNotFoundError || error instanceof ConfigurationError) {
         throw error;
       }
-      if (error instanceof Error && (error.message.includes('network') || error.message.includes('ECONNREFUSED'))) {
+      
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('network') || 
+        error.message.includes('ECONNREFUSED')
+      );
+
+      if (isNetworkError) {
         throw new NetworkError(
-          `Network error during URL generation: ${error.message}`,
-          error
+          `Network error during URL generation: ${(error as Error).message}`,
+          error as Error
         );
       }
+      
       throw new NetworkError(
         `Failed to generate tileset image URL: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error : undefined
@@ -223,7 +278,7 @@ export class AzureTilesetStorage implements TilesetStorage {
   async deleteTilesetAssets(params: DeleteTilesetAssetsParams): Promise<void> {
     try {
       // Construct blob path pattern (without extension, to catch all variants)
-      const basePath = `projects/${params.projectId}/tilesets/${params.tilesetId}`;
+      const basePath = `users/${params.userId}/projects/${params.projectId}/tilesets/${params.tilesetId}`;
       
       // List blobs with the prefix
       const blobs = [];
@@ -246,12 +301,18 @@ export class AzureTilesetStorage implements TilesetStorage {
         })
       );
     } catch (error) {
-      if (error instanceof Error && (error.message.includes('network') || error.message.includes('ECONNREFUSED'))) {
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('network') || 
+        error.message.includes('ECONNREFUSED')
+      );
+
+      if (isNetworkError) {
         throw new NetworkError(
-          `Network error during deletion: ${error.message}`,
-          error
+          `Network error during deletion: ${(error as Error).message}`,
+          error as Error
         );
       }
+      
       // Deletion is idempotent, so we don't throw errors for missing blobs
       // Only throw for actual failures
       if (error instanceof Error && !error.message.includes('404')) {

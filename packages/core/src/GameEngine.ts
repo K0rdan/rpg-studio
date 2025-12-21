@@ -23,9 +23,16 @@ export class GameEngine {
         this.renderer.getCanvas().height = 600;
     }
 
+    // Configure context for proper transparency handling
+    const ctx = this.renderer.getContext();
+    
     // Scale up for retro feel
-    this.renderer.getContext().scale(2, 2);
-    this.renderer.getContext().imageSmoothingEnabled = false;
+    ctx.scale(2, 2);
+    ctx.imageSmoothingEnabled = false;
+    
+    // Ensure proper alpha blending for transparent tiles
+    ctx.globalCompositeOperation = 'source-over'; // Default, but explicit
+    ctx.globalAlpha = 1.0; // Full opacity for drawing
 
     this.input = new InputManager();
     this.scene = new Scene();
@@ -98,51 +105,58 @@ export class GameEngine {
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
 
-    // Hardcoded Character for now
-    const heroSprite: Sprite = {
-      id: 's1',
-      name: 'Hero Sprite',
-      image_source: '/charset_transparent.png',
-      frame_width: 256, 
-      frame_height: 256,
-      animations: {
-        idle: [0], 
-        walk_down: [0, 1, 2, 3],
-        walk_left: [4, 5, 6, 7],
-        walk_right: [8, 9, 10, 11],
-        walk_up: [12, 13, 14, 15]
+    // Load characters from project (if any)
+    if (project.characters && project.characters.length > 0) {
+      console.log(`GameEngine: Loading ${project.characters.length} character(s) from project`);
+      
+      // TODO: For now, just load the first character as player
+      // In future, support multiple characters and NPCs
+      const firstCharacter = project.characters[0];
+      
+      // Need to find the sprite for this character
+      // For now, use a default sprite if character doesn't have spriteId
+      // or if sprite data isn't provided
+      
+      const defaultSprite: Sprite = {
+        id: firstCharacter.spriteId || 'default',
+        name: 'Default Character Sprite',
+        image_source: '/charset_transparent.png',
+        frame_width: 256, 
+        frame_height: 256,
+        animations: {
+          idle: [0], 
+          walk_down: [0, 1, 2, 3],
+          walk_left: [4, 5, 6, 7],
+          walk_right: [8, 9, 10, 11],
+          walk_up: [12, 13, 14, 15]
+        }
+      };
+
+      console.log('GameEngine: Loading character sprite:', defaultSprite.image_source);
+      const spriteResult = await this.assetLoader.loadImage(defaultSprite.image_source, {
+        timeout: 15000,
+        retries: 3
+      });
+
+      if (!spriteResult.success) {
+        console.error('GameEngine: Character sprite load failed:', spriteResult.error);
+        console.warn('GameEngine: Skipping character rendering');
+      } else {
+        const charImage = spriteResult.asset!;
+        const spriteRenderer = new SpriteRenderer(defaultSprite, charImage);
+        
+        // Place character at map center
+        const centerX = (currentMap.width * tileset.tile_width) / 2;
+        const centerY = (currentMap.height * tileset.tile_height) / 2;
+        
+        this.scene.addCharacter(firstCharacter, spriteRenderer, centerX, centerY);
+        console.log(`GameEngine: Added character "${firstCharacter.name}" at (${centerX}, ${centerY})`);
       }
-    };
-
-    console.log('GameEngine: Loading character sprite:', heroSprite.image_source);
-    const spriteResult = await this.assetLoader.loadImage(heroSprite.image_source, {
-      timeout: 15000,
-      retries: 3
-    });
-
-    if (!spriteResult.success) {
-      console.error('GameEngine: Character sprite load failed:', spriteResult.error);
+    } else {
+      console.log('GameEngine: No characters in project, skipping character rendering');
     }
-
-    const charImage = spriteResult.asset!;
     
-    const spriteRenderer = new SpriteRenderer(heroSprite, charImage);
-    
-    // Use character from project if available
-    const hero: Character = {
-        id: 'c1',
-        name: 'Hero',
-        hp: 100,
-        maxHp: 100,
-        attack: 10,
-        defense: 5,
-        spriteId: 's1'
-    };
-    const playerChar = (project.characters && project.characters.length > 0 ? project.characters[0] : hero) as Character;
-
-    this.scene.addCharacter(playerChar, spriteRenderer, 100, 100);
-    
-    // Expose scene
+    // Expose scene for debugging
     (window as any).scene = this.scene;
   }
 

@@ -17,6 +17,8 @@ export interface TilesetAssetLocation {
  * Parameters for uploading a tileset image
  */
 export interface UploadTilesetImageParams {
+  /** User ID who owns the project */
+  userId: string;
   /** Project ID that owns this tileset */
   projectId: string;
   /** Tileset ID */
@@ -41,6 +43,8 @@ export interface GetTilesetImageUrlParams {
  * Parameters for deleting tileset assets
  */
 export interface DeleteTilesetAssetsParams {
+  /** User ID who owns the project */
+  userId: string;
   /** Project ID that owns the tileset */
   projectId: string;
   /** Tileset ID */

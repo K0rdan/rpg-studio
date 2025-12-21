@@ -4,3 +4,4 @@ export * from './project';
 export * from './sprite';
 export * from './tile';
 export * from './tileset';
+export * from './user';

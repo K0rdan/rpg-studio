@@ -85,18 +85,23 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
     console.log('✅ GameEngine instance created');
     
     // Test if tileset loads (for UI status)
-    const testImage = new Image();
-    testImage.onload = () => {
-      console.log('✅ Tileset image test load successful');
-      setTilesetLoaded(true);
-    };
-    testImage.onerror = (error) => {
-      console.error('❌ Tileset image test load failed:', error);
-      console.error('Image src was:', testImage.src);
+    if (data.tilesets && data.tilesets.length > 0 && data.tilesets[0]?.image_source) {
+      const testImage = new Image();
+      testImage.onload = () => {
+        console.log('✅ Tileset image test load successful');
+        setTilesetLoaded(true);
+      };
+      testImage.onerror = (error) => {
+        console.error('❌ Tileset image test load failed:', error);
+        console.error('Image src was:', testImage.src);
+        setTilesetLoaded(false);
+      };
+      testImage.src = data.tilesets[0].image_source;
+      console.log('Testing tileset load from:', testImage.src);
+    } else {
+      console.warn('⚠️ No tilesets available for preview');
       setTilesetLoaded(false);
-    };
-    testImage.src = data.tilesets?.[0]?.image_source || '/tileset_fixed.png';
-    console.log('Testing tileset load from:', testImage.src);
+    }
     
     console.log('🔄 Calling engine.init()...');
     engine.init(data.project, data.maps, data.tilesets || [])
@@ -311,7 +316,21 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
         </Box>
         
         {/* Canvas Container */}
-        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          // Checkerboard pattern to visualize transparency
+          backgroundImage: `
+            linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+            linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+            linear-gradient(-45deg, transparent 75%, #2a2a2a 75%)
+          `,
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
+        }}>
           <canvas
              ref={canvasCallbackRef}
              width={800}
@@ -319,7 +338,9 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
              style={{ 
                imageRendering: 'pixelated',
                boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-               border: '2px solid #333'
+               border: '2px solid #333',
+               // Canvas background can be transparent or solid
+               backgroundColor: 'transparent'
              }}
           />
         </Box>

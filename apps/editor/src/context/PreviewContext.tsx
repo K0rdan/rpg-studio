@@ -2,34 +2,27 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 import PreviewModal from '@/components/PreviewModal';
+import type { GameProject, Map, Tileset } from '@packages/types';
+
+interface PreviewData {
+  project: GameProject;
+  maps: Map[];
+  tilesets: Tileset[];
+}
 
 interface PreviewContextType {
-  play: (projectId: string) => Promise<void>;
+  play: (data: PreviewData) => void;
 }
 
 const PreviewContext = createContext<PreviewContextType | undefined>(undefined);
 
 export function PreviewProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [previewData, setPreviewData] = useState<{ project: any; maps: any[] } | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
-  const play = async (projectId: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/preview`);
-      if (!res.ok) throw new Error('Failed to load preview data');
-      const data = await res.json();
-      // Ensure data is plain JSON (remove any MongoDB wrappers if they leaked)
-      const sanitizedData = JSON.parse(JSON.stringify(data));
-      setPreviewData(sanitizedData);
-      setIsOpen(true);
-    } catch (err) {
-      console.error(err);
-      // TODO: Show toast error
-    } finally {
-      setLoading(false);
-    }
+  const play = (data: PreviewData) => {
+    setPreviewData(data);
+    setIsOpen(true);
   };
 
   const close = () => {

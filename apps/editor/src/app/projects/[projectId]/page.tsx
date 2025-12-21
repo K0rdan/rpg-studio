@@ -2,6 +2,7 @@ import NewMap from '@/components/NewMap';
 import MapList from '@/components/MapList';
 import NewCharacter from '@/components/NewCharacter';
 import CharacterList from '@/components/CharacterList';
+import TilesetList from '@/components/TilesetList';
 
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -44,10 +45,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
         <NewMap projectId={projectId} />
         <MapList projectId={projectId} maps={maps} />
       </div>
-      <div>
+      <div className="mb-8">
         <h2 className="text-2xl font-bold mb-4">Characters</h2>
         <NewCharacter projectId={projectId} />
         <CharacterList projectId={projectId} characters={characters} />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Tilesets</h2>
+        <TilesetList projectId={projectId} />
       </div>
     </main>
   );

@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, Tileset } from '@packages/types';
+import { Map, Tileset, GameProject } from '@packages/types';
 import TilePalette from './TilePalette';
 import LayerManager from './LayerManager';
 import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
+import { TILESETS } from '@/config/tilesets';
 
 const MapProperties = dynamic(() => import('./MapProperties'), { ssr: false });
 
@@ -37,6 +38,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mapData, setMapData] = useState<Map | null>(initialMapData || null);
   const [tilesets, setTilesets] = useState<Tileset[]>([]);
+  const [allMaps, setAllMaps] = useState<Map[]>([]);
   const [selectedSelection, setSelectedSelection] = useState<Selection | null>(null);
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -47,11 +49,20 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const { play } = usePreview();
 
   useEffect(() => {
-    fetch('/api/tilesets')
+    // Fetch tilesets including project-specific ones
+    fetch(`/api/tilesets?projectId=${projectId}`)
       .then((res) => res.json())
       .then((data) => setTilesets(data))
       .catch((err) => console.error('Failed to load tilesets', err));
-  }, []);
+  }, [projectId]);
+
+  useEffect(() => {
+    // Fetch all maps for the project
+    fetch(`/api/projects/${projectId}/maps`)
+      .then((res) => res.json())
+      .then((data) => setAllMaps(data))
+      .catch((err) => console.error('Failed to load maps', err));
+  }, [projectId]);
 
   useEffect(() => {
     if (!mapData?.tilesetId || tilesets.length === 0) return;
@@ -284,7 +295,30 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
             variant="contained" 
             color="secondary" 
             startIcon={<PlayArrowIcon />}
-            onClick={() => play(projectId)} 
+            onClick={() => {
+              if (!mapData) return;
+              
+              // Update current map data in allMaps (to include unsaved changes)
+              const updatedMaps = allMaps.map(m => m.id === mapData.id ? mapData : m);
+              // Ensure current map is included (in case it's not in allMaps yet)
+              const mapsToUse = updatedMaps.some(m => m.id === mapData.id) 
+                ? updatedMaps 
+                : [...updatedMaps, mapData];
+              
+              // Create minimal project object
+              const project: GameProject = {
+                id: projectId,
+                name: '', // Not needed for preview
+                maps: mapsToUse.map(m => m.id),
+                characters: []
+              };
+
+              play({
+                project,
+                maps: mapsToUse,
+                tilesets: TILESETS
+              });
+            }} 
             sx={{ height: 'fit-content' }}
           >
             Play

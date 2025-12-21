@@ -10,8 +10,8 @@ import type {
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
-  SUPPORTED_MIME_TYPES,
 } from './types';
+import { SUPPORTED_MIME_TYPES } from './types';
 import type { TilesetStorage } from './interface';
 import {
   InvalidMimeTypeError,
@@ -43,8 +43,8 @@ export class InMemoryTilesetStorage implements TilesetStorage {
   /**
    * Generate storage key from project ID and tileset ID
    */
-  private getStorageKey(projectId: string, tilesetId: string): string {
-    return `projects/${projectId}/tilesets/${tilesetId}`;
+  private getStorageKey(userId: string, projectId: string, tilesetId: string): string {
+    return `users/${userId}/projects/${projectId}/tilesets/${tilesetId}`;
   }
 
   /**
@@ -75,7 +75,7 @@ export class InMemoryTilesetStorage implements TilesetStorage {
         buffer = Buffer.from(params.data);
       }
 
-      const storageKey = `${this.getStorageKey(params.projectId, params.tilesetId)}.${this.getExtensionFromMimeType(params.mimeType)}`;
+      const storageKey = `${this.getStorageKey(params.userId, params.projectId, params.tilesetId)}.${this.getExtensionFromMimeType(params.mimeType)}`;
       
       this.storage.set(storageKey, buffer);
 
@@ -107,11 +107,12 @@ export class InMemoryTilesetStorage implements TilesetStorage {
   }
 
   async deleteTilesetAssets(params: DeleteTilesetAssetsParams): Promise<void> {
-    const prefix = this.getStorageKey(params.projectId, params.tilesetId);
+    const prefix = this.getStorageKey(params.userId, params.projectId, params.tilesetId);
     
     // Find all keys matching the prefix
     const keysToDelete: string[] = [];
-    for (const key of this.storage.keys()) {
+    const keys = Array.from(this.storage.keys());
+    for (const key of keys) {
       if (key.startsWith(prefix)) {
         keysToDelete.push(key);
       }
