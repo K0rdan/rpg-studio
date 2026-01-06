@@ -1,6 +1,6 @@
 export {};
 
 declare global {
-  var __MONGO_URI__: string;
-  var __MONGO_DB_NAME__: string;
+  var __ATLAS_URI__: string;
+  var __ATLAS_DATABASE_NAME__: string;
 }

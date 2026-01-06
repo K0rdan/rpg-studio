@@ -14,8 +14,8 @@ describe('Character Deletion API', () => {
   let db: Db;
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__MONGO_URI__!);
-    db = await connection.db(globalThis.__MONGO_DB_NAME__!);
+    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
+    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
   });
 
@@ -30,17 +30,21 @@ describe('Character Deletion API', () => {
 
   it('should delete a character and remove it from the project', async () => {
     // Setup data
-    const char = await db.collection('characters').insertOne({ name: 'Char to Delete' });
+    const char = await db
+      .collection('characters')
+      .insertOne({ name: 'Char to Delete' });
     const charId = char.insertedId.toHexString();
-    
+
     const project = await db.collection('projects').insertOne({
       name: 'Project',
-      characters: [charId]
+      characters: [charId],
     });
     const projectId = project.insertedId.toHexString();
 
     const mockRequest = {} as unknown as NextRequest;
-    const params = { params: Promise.resolve({ projectId, characterId: charId }) };
+    const params = {
+      params: Promise.resolve({ projectId, characterId: charId }),
+    };
 
     // Execute DELETE
     const response = await DELETE(mockRequest, params);
@@ -50,11 +54,15 @@ describe('Character Deletion API', () => {
     expect(data.message).toBe('Character deleted');
 
     // Verify deletion
-    const deletedChar = await db.collection('characters').findOne({ _id: new ObjectId(charId) });
+    const deletedChar = await db
+      .collection('characters')
+      .findOne({ _id: new ObjectId(charId) });
     expect(deletedChar).toBeNull();
 
     // Verify removal from project
-    const updatedProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const updatedProject = await db
+      .collection('projects')
+      .findOne({ _id: new ObjectId(projectId) });
     expect(updatedProject?.characters).not.toContain(charId);
   });
 });

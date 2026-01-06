@@ -58,6 +58,7 @@ The project is a monorepo using Turborepo. The file structure is as follows:
 - **Separation of concerns**: NEVER put React or Next.js code in `packages/core`. The core must remain agnostic.
 - **Lightweight player**: `apps/player` must remain minimalist. It loads `packages/core` and the game data (`game.json`), that's all.
 - **Prioritize Native Canvas**: For `packages/core`, do NOT use external engines (Phaser, Pixi) unless explicitly requested. The logic must be based on `CanvasRenderingContext2D`.
+- **MongoDB ObjectId Pattern**: Always use strings for IDs in application code. Only convert to ObjectId when querying `_id` field. See `specs/DESIGN_MONGODB_OBJECTID_PATTERN.md` for details.
 
 ## Building and Running
 
@@ -99,8 +100,14 @@ The project is a monorepo using Turborepo. The file structure is as follows:
 *   **tsconfig**: Configuration package, no build required.
 
 ## Active Technologies
-- TypeScrip + Next.js, React, Turborepo, MongoDB (001-rpg-editor-project-management)
-- MongoDB Atlas (001-rpg-editor-project-management)
+- TypeScript + Next.js, React, Turborepo, MongoDB Atlas (001-rpg-editor-project-management)
+- Auth.js (NextAuth.js v5) with GitHub, Google, Microsoft, Email providers (007-rpg-editor-auth)
+- Azure Storage with Service Principal authentication (006-rpg-editor-storage-usage)
 
 ## Recent Changes
-- 001-rpg-editor-project-management: Added TypeScrip + Next.js, React, Turborepo, MongoDB
+- 007-rpg-editor-auth: Added comprehensive authentication with multiple OAuth providers and email magic links
+- 006-rpg-editor-storage-usage: Integrated Azure Storage with user-specific paths and ownership validation
+- 001-rpg-editor-project-management: Added TypeScript + Next.js, React, Turborepo, MongoDB
+
+## Design Patterns
+- **MongoDB ObjectId vs String**: See `specs/DESIGN_MONGODB_OBJECTID_PATTERN.md` - Use strings everywhere except direct DB operations

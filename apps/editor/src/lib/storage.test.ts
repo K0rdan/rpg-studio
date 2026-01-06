@@ -77,6 +77,8 @@ describe('Storage Bootstrap', () => {
     });
 
     const originalEnv = process.env.NODE_ENV;
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    
     process.env.NODE_ENV = 'production';
     delete process.env.USE_IN_MEMORY_STORAGE;
 
@@ -86,7 +88,9 @@ describe('Storage Bootstrap', () => {
     expect(storage).toBeDefined();
     expect(parseAzureStorageConfigFromEnv).toHaveBeenCalled();
     expect(InMemoryTilesetStorage).toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalled();
 
+    consoleWarnSpy.mockRestore();
     process.env.NODE_ENV = originalEnv;
   });
 

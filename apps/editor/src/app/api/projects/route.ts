@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { GameProject } from '@packages/types';
+import { auth } from "@/auth";
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { db } = await connectToDatabase();
-    const projects = await db.collection('projects').find({}).toArray();
+    // Filter projects by authenticated user
+    const projects = await db.collection('projects').find({ userId: session.user.id }).toArray();
     const formattedProjects = projects.map((project) => ({
       ...project,
       id: project._id.toHexString(),
@@ -19,6 +26,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { db } = await connectToDatabase();
     const { name } = await req.json();
 
@@ -30,6 +42,7 @@ export async function POST(req: NextRequest) {
       name,
       maps: [],
       characters: [],
+      userId: session.user.id,
     };
 
     const result = await db.collection('projects').insertOne(newProject);

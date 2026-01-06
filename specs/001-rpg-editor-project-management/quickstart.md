@@ -11,12 +11,14 @@ This guide provides the basic steps to get the RPG Editor running locally and st
 ## Installation
 
 1.  **Clone the repository**:
+
     ```bash
     git clone <repository-url>
     cd rpg-studio
     ```
 
 2.  **Install dependencies**:
+
     ```bash
     npm install
     ```
@@ -24,12 +26,13 @@ This guide provides the basic steps to get the RPG Editor running locally and st
 3.  **Configure environment variables**:
     Create a `.env.local` file in `apps/editor` and add your MongoDB connection string:
     ```
-    MONGODB_URI=<your-mongodb-atlas-connection-string>
+    ATLAS_URI=<your-mongodb-atlas-connection-string>
     ```
 
 ## Running the Editor
 
 1.  **Start the development server**:
+
     ```bash
     npm run dev
     ```

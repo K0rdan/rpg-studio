@@ -6,7 +6,10 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "@auth/core": "0.41.1"
+  },
   "dependencies": {
-    "sharp": "^0.34.5"
+    "dotenv": "^17.2.3"
   }
 }

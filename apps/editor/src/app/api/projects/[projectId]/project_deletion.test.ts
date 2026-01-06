@@ -14,8 +14,8 @@ describe('Project Deletion API', () => {
   let db: Db;
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__MONGO_URI__!);
-    db = await connection.db(globalThis.__MONGO_DB_NAME__!);
+    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
+    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
   });
 
@@ -32,12 +32,14 @@ describe('Project Deletion API', () => {
   it('should delete a project and its associated resources', async () => {
     // Setup data
     const map1 = await db.collection('maps').insertOne({ name: 'Map 1' });
-    const char1 = await db.collection('characters').insertOne({ name: 'Char 1' });
-    
+    const char1 = await db
+      .collection('characters')
+      .insertOne({ name: 'Char 1' });
+
     const project = await db.collection('projects').insertOne({
       name: 'Project to Delete',
       maps: [map1.insertedId.toHexString()],
-      characters: [char1.insertedId.toHexString()]
+      characters: [char1.insertedId.toHexString()],
     });
     const projectId = project.insertedId.toHexString();
 
@@ -52,13 +54,19 @@ describe('Project Deletion API', () => {
     expect(data.message).toBe('Project deleted');
 
     // Verify deletion
-    const deletedProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const deletedProject = await db
+      .collection('projects')
+      .findOne({ _id: new ObjectId(projectId) });
     expect(deletedProject).toBeNull();
 
-    const deletedMap = await db.collection('maps').findOne({ _id: map1.insertedId });
+    const deletedMap = await db
+      .collection('maps')
+      .findOne({ _id: map1.insertedId });
     expect(deletedMap).toBeNull();
 
-    const deletedChar = await db.collection('characters').findOne({ _id: char1.insertedId });
+    const deletedChar = await db
+      .collection('characters')
+      .findOne({ _id: char1.insertedId });
     expect(deletedChar).toBeNull();
   });
 });

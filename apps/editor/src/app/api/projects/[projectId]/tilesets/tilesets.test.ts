@@ -3,6 +3,7 @@ import { GET, POST } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { NextRequest } from 'next/server';
+import { auth } from '@/auth';
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
@@ -13,13 +14,19 @@ jest.mock('@/lib/storage', () => ({
   getTilesetStorage: jest.fn(),
 }));
 
+jest.mock('@/auth', () => ({
+  auth: jest.fn(),
+}));
+
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
 const mockedGetTilesetStorage = getTilesetStorage as jest.Mock;
+const mockedAuth = auth as jest.Mock;
 
 describe('Tileset API', () => {
   let connection: MongoClient;
   let db: Db;
   const projectId = new ObjectId().toHexString();
+  const userId = 'test-user-123';
   let mockStorage: {
     uploadTilesetImage: jest.Mock;
     getTilesetImageUrl: jest.Mock;
@@ -27,8 +34,8 @@ describe('Tileset API', () => {
   };
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__MONGO_URI__!);
-    db = await connection.db(globalThis.__MONGO_DB_NAME__!);
+    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
+    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
 
     // Setup mock storage
@@ -41,6 +48,9 @@ describe('Tileset API', () => {
   });
 
   beforeEach(async () => {
+    // Default authenticated session
+    mockedAuth.mockResolvedValue({ user: { id: userId } });
+
     // Clean up collections
     await db.collection('projects').deleteMany({});
     await db.collection('tilesets').deleteMany({});
@@ -50,6 +60,7 @@ describe('Tileset API', () => {
     await db.collection('projects').insertOne({
       _id: new ObjectId(projectId),
       name: 'Test Project',
+      userId: userId,
       maps: [],
       characters: [],
       tilesets: [],
@@ -111,7 +122,11 @@ describe('Tileset API', () => {
 
       await db.collection('projects').updateOne(
         { _id: new ObjectId(projectId) },
-        { $set: { tilesets: [tileset1Id.toHexString(), tileset2Id.toHexString()] } }
+        {
+          $set: {
+            tilesets: [tileset1Id.toHexString(), tileset2Id.toHexString()],
+          },
+        },
       );
 
       mockStorage.getTilesetImageUrl
@@ -161,8 +176,38 @@ describe('Tileset API', () => {
   });
 
   describe('POST /api/projects/[projectId]/tilesets', () => {
+    it('should return 401 if not authenticated', async () => {
+      mockedAuth.mockResolvedValueOnce(null);
+
+      const mockRequest = {
+        formData: jest.fn(),
+      } as unknown as NextRequest;
+
+      const response = await POST(mockRequest, {
+        params: Promise.resolve({ projectId }),
+      });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('should return 403 if user does not own project', async () => {
+      mockedAuth.mockResolvedValueOnce({ user: { id: 'other-user-456' } });
+
+      const mockRequest = {
+        formData: jest.fn(),
+      } as unknown as NextRequest;
+
+      const response = await POST(mockRequest, {
+        params: Promise.resolve({ projectId }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
     it('should upload a tileset successfully', async () => {
-      const mockFile = new File(['test image data'], 'test.png', { type: 'image/png' });
+      const mockFile = new File(['test image data'], 'test.png', {
+        type: 'image/png',
+      });
       const formData = new FormData();
       formData.append('file', mockFile);
       formData.append('name', 'Test Tileset');
@@ -172,7 +217,9 @@ describe('Tileset API', () => {
       mockStorage.uploadTilesetImage.mockResolvedValue({
         storageKey: 'projects/test/tilesets/ts1.png',
       });
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+      mockStorage.getTilesetImageUrl.mockResolvedValue(
+        'https://storage.example.com/ts1.png',
+      );
 
       const mockRequest = {
         formData: jest.fn().mockResolvedValue(formData),
@@ -194,6 +241,7 @@ describe('Tileset API', () => {
 
       // Verify storage was called
       expect(mockStorage.uploadTilesetImage).toHaveBeenCalledWith({
+        userId,
         projectId,
         tilesetId: expect.any(String),
         mimeType: 'image/png',
@@ -201,20 +249,28 @@ describe('Tileset API', () => {
       });
 
       // Verify database record
-      const tileset = await db.collection('tilesets').findOne({ name: 'Test Tileset' });
+      const tileset = await db
+        .collection('tilesets')
+        .findOne({ name: 'Test Tileset' });
       expect(tileset).not.toBeNull();
       expect(tileset?.projectId).toBe(projectId);
 
       // Verify project was updated
-      const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+      const project = await db
+        .collection('projects')
+        .findOne({ _id: new ObjectId(projectId) });
       expect(project?.tilesets).toContain(data.id);
     });
 
     it('should reject file that is too large', async () => {
       // Create a file larger than 10MB
-      const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], 'large.png', {
-        type: 'image/png',
-      });
+      const largeFile = new File(
+        [new ArrayBuffer(11 * 1024 * 1024)],
+        'large.png',
+        {
+          type: 'image/png',
+        },
+      );
       const formData = new FormData();
       formData.append('file', largeFile);
       formData.append('name', 'Large Tileset');
@@ -295,5 +351,3 @@ describe('Tileset API', () => {
     });
   });
 });
-
-

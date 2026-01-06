@@ -27,8 +27,8 @@ describe('Tileset by ID API', () => {
   };
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__MONGO_URI__!);
-    db = await connection.db(globalThis.__MONGO_DB_NAME__!);
+    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
+    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
 
     // Setup mock storage
@@ -68,10 +68,12 @@ describe('Tileset by ID API', () => {
       updatedAt: new Date(),
     });
 
-    await db.collection('projects').updateOne(
-      { _id: new ObjectId(projectId) },
-      { $set: { tilesets: [tilesetId] } }
-    );
+    await db
+      .collection('projects')
+      .updateOne(
+        { _id: new ObjectId(projectId) },
+        { $set: { tilesets: [tilesetId] } },
+      );
 
     // Reset mocks
     mockStorage.getTilesetImageUrl.mockClear();
@@ -84,7 +86,9 @@ describe('Tileset by ID API', () => {
 
   describe('GET /api/projects/[projectId]/tilesets/[tilesetId]', () => {
     it('should return tileset by ID with image URL', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+      mockStorage.getTilesetImageUrl.mockResolvedValue(
+        'https://storage.example.com/ts1.png',
+      );
 
       const mockRequest = {} as NextRequest;
 
@@ -151,11 +155,15 @@ describe('Tileset by ID API', () => {
       });
 
       // Verify tileset was removed from database
-      const tileset = await db.collection('tilesets').findOne({ _id: new ObjectId(tilesetId) });
+      const tileset = await db
+        .collection('tilesets')
+        .findOne({ _id: new ObjectId(tilesetId) });
       expect(tileset).toBeNull();
 
       // Verify tileset was removed from project
-      const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+      const project = await db
+        .collection('projects')
+        .findOne({ _id: new ObjectId(projectId) });
       expect(project?.tilesets).not.toContain(tilesetId);
     });
 
@@ -185,7 +193,9 @@ describe('Tileset by ID API', () => {
       expect(data.maps.length).toBe(1);
 
       // Verify tileset was NOT deleted
-      const tileset = await db.collection('tilesets').findOne({ _id: new ObjectId(tilesetId) });
+      const tileset = await db
+        .collection('tilesets')
+        .findOne({ _id: new ObjectId(tilesetId) });
       expect(tileset).not.toBeNull();
     });
 
@@ -201,5 +211,3 @@ describe('Tileset by ID API', () => {
     });
   });
 });
-
-

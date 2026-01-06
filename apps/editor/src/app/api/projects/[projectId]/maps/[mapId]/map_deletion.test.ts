@@ -14,8 +14,8 @@ describe('Map Deletion API', () => {
   let db: Db;
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__MONGO_URI__!);
-    db = await connection.db(globalThis.__MONGO_DB_NAME__!);
+    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
+    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
   });
 
@@ -30,12 +30,14 @@ describe('Map Deletion API', () => {
 
   it('should delete a map and remove it from the project', async () => {
     // Setup data
-    const map = await db.collection('maps').insertOne({ name: 'Map to Delete' });
+    const map = await db
+      .collection('maps')
+      .insertOne({ name: 'Map to Delete' });
     const mapId = map.insertedId.toHexString();
-    
+
     const project = await db.collection('projects').insertOne({
       name: 'Project',
-      maps: [mapId]
+      maps: [mapId],
     });
     const projectId = project.insertedId.toHexString();
 
@@ -50,11 +52,15 @@ describe('Map Deletion API', () => {
     expect(data.message).toBe('Map deleted');
 
     // Verify deletion
-    const deletedMap = await db.collection('maps').findOne({ _id: new ObjectId(mapId) });
+    const deletedMap = await db
+      .collection('maps')
+      .findOne({ _id: new ObjectId(mapId) });
     expect(deletedMap).toBeNull();
 
     // Verify removal from project
-    const updatedProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const updatedProject = await db
+      .collection('projects')
+      .findOne({ _id: new ObjectId(projectId) });
     expect(updatedProject?.maps).not.toContain(mapId);
   });
 });

@@ -5,6 +5,7 @@ import { getTilesetStorage } from '@/lib/storage';
 import type { Tileset } from '@packages/types';
 import { SUPPORTED_MIME_TYPES } from '@packages/storage';
 import { InvalidMimeTypeError, UploadFailedError } from '@packages/storage';
+import { auth } from "@/auth";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -18,6 +19,12 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const { db } = await connectToDatabase();
     const { projectId } = await params;
 
@@ -25,6 +32,15 @@ export async function GET(
     const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) {
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    }
+
+    // Validate ownership - ensure both values are strings for comparison
+    const projectUserId = project.userId instanceof ObjectId 
+      ? project.userId.toHexString() 
+      : project.userId;
+    
+    if (projectUserId && projectUserId !== userId) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     // Get tileset IDs from project
@@ -97,12 +113,14 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const { db } = await connectToDatabase();
     const { projectId } = await params;
-
-    // TODO: Implement real authentication
-    // For now, check for a user ID header or default to a mock user
-    const userId = req.headers.get('x-user-id') || 'mock-user-123';
 
     // Verify project exists
     const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
@@ -110,8 +128,12 @@ export async function POST(
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Validate ownership
-    if (project.userId && project.userId !== userId) {
+    // Validate ownership - ensure both values are strings for comparison
+    const projectUserId = project.userId instanceof ObjectId 
+      ? project.userId.toHexString() 
+      : project.userId;
+    
+    if (projectUserId && projectUserId !== userId) {
       return NextResponse.json({ message: 'Forbidden: You do not own this project' }, { status: 403 });
     }
 
