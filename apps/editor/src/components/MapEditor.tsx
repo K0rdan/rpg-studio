@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Map, Tileset, GameProject } from '@packages/types';
 import TilePalette from './TilePalette';
 import LayerManager from './LayerManager';
+import ZoomControls from './ZoomControls';
 import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
 import { TILESETS } from '@/config/tilesets';
@@ -14,12 +15,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import SaveIcon from '@mui/icons-material/Save';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import { usePreview } from '@/context/PreviewContext';
+
 
 interface MapEditorProps {
   projectId: string;
@@ -44,9 +42,11 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [mapZoom, setMapZoom] = useState(100); // Percentage (50-400)
   const { showToast } = useToast();
   const { play } = usePreview();
+
+  const BASE_TILE_SIZE = 32; // Base tile size in pixels
 
   useEffect(() => {
     // Fetch tilesets including project-specific ones
@@ -84,10 +84,13 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Apply zoom to canvas dimensions
-    const tileSize = tileset.tile_width;
-    const width = mapData.width * tileSize * zoom;
-    const height = mapData.height * tileSize * zoom;
+    // Calculate zoom scale and actual tile size
+    // BASE_TILE_SIZE is our target display size (32px)
+    // tileset.tile_width is the source image tile size (could be 128px)
+    const zoomScale = mapZoom / 100;
+    const actualTileSize = BASE_TILE_SIZE * zoomScale;
+    const width = mapData.width * actualTileSize;
+    const height = mapData.height * actualTileSize;
 
     canvas.width = width;
     canvas.height = height;
@@ -97,25 +100,22 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
     
     // Enable pixel art scaling
     ctx.imageSmoothingEnabled = false;
-    
-    // Apply scale
-    ctx.scale(zoom, zoom);
 
     // Draw grid
     ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1 / zoom; // Keep line width consistent
+    ctx.lineWidth = 1;
 
-    for (let x = 0; x <= mapData.width * tileSize; x += tileSize) {
+    for (let x = 0; x <= mapData.width; x++) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, mapData.height * tileSize);
+      ctx.moveTo(x * actualTileSize, 0);
+      ctx.lineTo(x * actualTileSize, height);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= mapData.height * tileSize; y += tileSize) {
+    for (let y = 0; y <= mapData.height; y++) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(mapData.width * tileSize, y);
+      ctx.moveTo(0, y * actualTileSize);
+      ctx.lineTo(width, y * actualTileSize);
       ctx.stroke();
     }
 
@@ -126,22 +126,51 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       mapData.layers.forEach((layer) => {
         layer.data.forEach((tileId: number, index: number) => {
           if (tileId === -1) return; // Empty tile
-          const x = (index % mapData.width) * tileSize;
-          const y = Math.floor(index / mapData.width) * tileSize;
+          const x = (index % mapData.width) * actualTileSize;
+          const y = Math.floor(index / mapData.width) * actualTileSize;
           
+          // Source coordinates in the tileset image (using actual source tile size)
           const sx = (tileId % cols) * tileset.tile_width;
           const sy = Math.floor(tileId / cols) * tileset.tile_height;
 
+          // Draw from source (128px) to target (32px * zoom)
           ctx.drawImage(
             tilesetImage,
             sx, sy, tileset.tile_width, tileset.tile_height,
-            x, y, tileSize, tileSize
+            x, y, actualTileSize, actualTileSize
           );
         });
       });
     }
 
-  }, [mapData, tilesetImage, tilesets, zoom]);
+  }, [mapData, tilesetImage, tilesets, mapZoom]);
+
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if canvas or its container has focus
+      if (!canvasRef.current) return;
+      
+      switch(e.key) {
+        case '+':
+        case '=':
+          setMapZoom(prev => Math.min(400, prev + 50));
+          e.preventDefault();
+          break;
+        case '-':
+          setMapZoom(prev => Math.max(50, prev - 50));
+          e.preventDefault();
+          break;
+        case '0':
+          setMapZoom(100);
+          e.preventDefault();
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handlePropertyChange = (field: keyof Map, value: any) => {
     if (!mapData) return;
@@ -211,9 +240,11 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
     if (!tileset) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    // Adjust for zoom: coordinate / zoom
-    const x = Math.floor((e.clientX - rect.left) / (tileset.tile_width * zoom));
-    const y = Math.floor((e.clientY - rect.top) / (tileset.tile_height * zoom));
+    // Adjust for zoom: coordinate / (BASE_TILE_SIZE * zoomScale)
+    const zoomScale = mapZoom / 100;
+    const actualTileSize = BASE_TILE_SIZE * zoomScale;
+    const x = Math.floor((e.clientX - rect.left) / actualTileSize);
+    const y = Math.floor((e.clientY - rect.top) / actualTileSize);
 
     if (x >= 0 && x < mapData.width && y >= 0 && y < mapData.height) {
       const newMapData = { ...mapData };
@@ -282,15 +313,10 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <MapProperties mapData={mapData} tilesets={tilesets} onChange={handlePropertyChange} />
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Paper sx={{ display: 'flex', alignItems: 'center', p: 0.5 }}>
-            <IconButton onClick={() => setZoom(Math.max(0.5, zoom - 0.5))} disabled={zoom <= 0.5}>
-              <ZoomOutIcon />
-            </IconButton>
-            <Typography sx={{ mx: 1 }}>{Math.round(zoom * 100)}%</Typography>
-            <IconButton onClick={() => setZoom(Math.min(3, zoom + 0.5))} disabled={zoom >= 3}>
-              <ZoomInIcon />
-            </IconButton>
-          </Paper>
+          <ZoomControls
+            zoom={mapZoom}
+            onZoomChange={setMapZoom}
+          />
           <Button 
             variant="contained" 
             color="secondary" 
@@ -309,6 +335,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
               const project: GameProject = {
                 id: projectId,
                 name: '', // Not needed for preview
+                userId: '', // Not needed for preview
                 maps: mapsToUse.map(m => m.id),
                 characters: []
               };

@@ -30,3 +30,72 @@
 ## Phase 6: Integration
 
 - [x] T011 Verify saving functionality with new map data structure.
+
+## Phase 7: Zoom Controls Enhancement
+
+### Map Editor Zoom (4-6 hours)
+
+- [x] **T012** Create `ZoomControls` component
+  - Zoom slider (50-400%)
+  - Zoom in/out buttons (+/-)
+  - Reset button (⟲)
+  - Zoom percentage display
+  - Reusable props interface
+
+- [x] **T013** Integrate zoom controls into `MapEditor`
+  - Add `mapZoom` state (default: 100)
+  - Add `ZoomControls` to toolbar
+  - Update canvas size calculation with zoom
+  - Update tile rendering with zoom scale
+  - Update grid rendering with zoom
+  - Update mouse position calculation
+
+- [x] **T014** Implement keyboard shortcuts
+  - Add keyboard event listener
+  - `+` or `=`: Zoom in
+  - `-`: Zoom out
+  - `0`: Reset to 100%
+  - Focus management for canvas
+
+- [ ] **T015** Test map canvas zoom
+  - Test all zoom levels (50%, 100%, 200%, 300%, 400%)
+  - Verify pixel-perfect rendering
+  - Verify grid alignment
+  - Verify tile painting at all zooms
+
+### Tile Palette Zoom (2-3 hours)
+
+- [x] **T016** Add zoom controls to `TilePalette`
+  - Add `paletteZoom` state (default: 100)
+  - Add `ZoomControls` component
+  - Style controls for palette width
+
+- [x] **T017** Update palette rendering
+  - Update canvas size with zoom
+  - Update tileset image scaling
+  - Update selection highlight scaling
+  - Update click detection for scaled tiles
+
+- [x] **T018** Test palette zoom
+  - Test all zoom levels
+  - Verify selection works at all zooms
+  - Verify scrolling when zoomed in
+
+### Polish & Documentation (2-3 hours)
+
+- [x] **T019** Add visual polish
+  - Smooth transitions
+  - Hover/active states
+  - Tooltips for all controls
+
+- [x] **T020** Edge case testing
+  - Large maps at high zoom
+  - Small maps at low zoom
+  - Rapid zoom changes
+  - Different tileset sizes
+
+- [x] **T021** Update documentation
+  - Update spec.md (done)
+  - Document keyboard shortcuts
+  - Add inline help/tooltips
+  - Create user guide (ZOOM_CONTROLS_GUIDE.md)

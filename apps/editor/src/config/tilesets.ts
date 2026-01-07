@@ -12,8 +12,8 @@ export const TILESETS: Tileset[] = [
     id: 'ts1',
     name: 'RPG Tileset',
     image_source: '/tileset_final.png?v=3',
-    tile_width: 128,
-    tile_height: 128,
+    tile_width: 128,  // Source tile size in the image
+    tile_height: 128, // Source tile size in the image
   },
   // Add more tilesets as needed:
   // {
