@@ -5,6 +5,8 @@ import { Map, Tileset, GameProject } from '@packages/types';
 import TilePalette from './TilePalette';
 import LayerManager from './LayerManager';
 import ZoomControls from './ZoomControls';
+import ToolSelector from './ToolSelector';
+import { DrawingTool } from '@/types/DrawingTool';
 import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
 import { TILESETS } from '@/config/tilesets';
@@ -43,6 +45,9 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const [saving, setSaving] = useState(false);
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
   const [mapZoom, setMapZoom] = useState(100); // Percentage (50-400)
+  const [activeTool, setActiveTool] = useState<DrawingTool>(DrawingTool.PENCIL);
+  const [rectangleStart, setRectangleStart] = useState<{ x: number; y: number } | null>(null);
+  const [rectanglePreview, setRectanglePreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const { showToast } = useToast();
   const { play } = usePreview();
 
@@ -143,7 +148,22 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       });
     }
 
-  }, [mapData, tilesetImage, tilesets, mapZoom]);
+    // Draw rectangle preview
+    if (rectanglePreview && activeTool === DrawingTool.RECTANGLE) {
+      ctx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
+      ctx.fillStyle = 'rgba(0, 123, 255, 0.2)';
+      ctx.lineWidth = 2;
+      
+      const previewX = rectanglePreview.x * actualTileSize;
+      const previewY = rectanglePreview.y * actualTileSize;
+      const previewWidth = rectanglePreview.width * actualTileSize;
+      const previewHeight = rectanglePreview.height * actualTileSize;
+      
+      ctx.fillRect(previewX, previewY, previewWidth, previewHeight);
+      ctx.strokeRect(previewX, previewY, previewWidth, previewHeight);
+    }
+
+  }, [mapData, tilesetImage, tilesets, mapZoom, rectanglePreview, activeTool]);
 
   // Keyboard shortcuts for zoom
   useEffect(() => {
@@ -163,6 +183,43 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
           break;
         case '0':
           setMapZoom(100);
+          e.preventDefault();
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Keyboard shortcuts for tools
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      const key = e.key.toUpperCase();
+      switch(key) {
+        case 'P':
+          setActiveTool(DrawingTool.PENCIL);
+          e.preventDefault();
+          break;
+        case 'R':
+          setActiveTool(DrawingTool.RECTANGLE);
+          e.preventDefault();
+          break;
+        case 'F':
+          setActiveTool(DrawingTool.FILL);
+          e.preventDefault();
+          break;
+        case 'I':
+          setActiveTool(DrawingTool.EYEDROPPER);
+          e.preventDefault();
+          break;
+        case 'E':
+          setActiveTool(DrawingTool.ERASER);
           e.preventDefault();
           break;
       }
@@ -219,18 +276,223 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (!canvasRef.current || !mapData) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const zoomScale = mapZoom / 100;
+    const actualTileSize = BASE_TILE_SIZE * zoomScale;
+    const x = Math.floor((e.clientX - rect.left) / actualTileSize);
+    const y = Math.floor((e.clientY - rect.top) / actualTileSize);
+
+    if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height) return;
+
     setIsDrawing(true);
-    paintTile(e);
+
+    switch (activeTool) {
+      case DrawingTool.PENCIL:
+      case DrawingTool.ERASER:
+        paintTile(e);
+        break;
+      case DrawingTool.RECTANGLE:
+        setRectangleStart({ x, y });
+        setRectanglePreview({ x, y, width: 1, height: 1 });
+        break;
+      case DrawingTool.FILL:
+        floodFill(x, y);
+        setIsDrawing(false); // Fill is instant, no dragging
+        break;
+      case DrawingTool.EYEDROPPER:
+        sampleTile(x, y);
+        setIsDrawing(false); // Eyedropper is instant
+        break;
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDrawing) {
-      paintTile(e);
+    if (!isDrawing || !canvasRef.current || !mapData) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const zoomScale = mapZoom / 100;
+    const actualTileSize = BASE_TILE_SIZE * zoomScale;
+    const x = Math.floor((e.clientX - rect.left) / actualTileSize);
+    const y = Math.floor((e.clientY - rect.top) / actualTileSize);
+
+    if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height) return;
+
+    switch (activeTool) {
+      case DrawingTool.PENCIL:
+      case DrawingTool.ERASER:
+        paintTile(e);
+        break;
+      case DrawingTool.RECTANGLE:
+        if (rectangleStart) {
+          const rectX = Math.min(rectangleStart.x, x);
+          const rectY = Math.min(rectangleStart.y, y);
+          const rectWidth = Math.abs(x - rectangleStart.x) + 1;
+          const rectHeight = Math.abs(y - rectangleStart.y) + 1;
+          setRectanglePreview({ x: rectX, y: rectY, width: rectWidth, height: rectHeight });
+        }
+        break;
     }
   };
 
   const handleMouseUp = () => {
+    if (!isDrawing) return;
+
+    switch (activeTool) {
+      case DrawingTool.RECTANGLE:
+        if (rectanglePreview) {
+          fillRectangle(rectanglePreview);
+          setRectanglePreview(null);
+          setRectangleStart(null);
+        }
+        break;
+    }
+
     setIsDrawing(false);
+  };
+
+  const fillRectangle = (rect: { x: number; y: number; width: number; height: number }) => {
+    if (!selectedSelection || !mapData || !tilesetImage) return;
+
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
+
+    const newMapData = { ...mapData };
+    if (!newMapData.layers || newMapData.layers.length === 0) {
+      newMapData.layers = [{ name: 'Layer 1', data: new Array(mapData.width * mapData.height).fill(-1) }];
+    }
+
+    const newLayerData = [...newMapData.layers[activeLayerIndex].data];
+    const cols = Math.floor(tilesetImage.width / tileset.tile_width);
+
+    // Fill rectangle with selected tile pattern
+    for (let ry = 0; ry < rect.height; ry++) {
+      for (let rx = 0; rx < rect.width; rx++) {
+        const targetX = rect.x + rx;
+        const targetY = rect.y + ry;
+
+        if (targetX < mapData.width && targetY < mapData.height) {
+          const targetIndex = targetY * mapData.width + targetX;
+
+          // Tile pattern repeats if selection is smaller than rectangle
+          const sx = rx % selectedSelection.width;
+          const sy = ry % selectedSelection.height;
+          const sourceCol = selectedSelection.x + sx;
+          const sourceRow = selectedSelection.y + sy;
+          const tileId = sourceRow * cols + sourceCol;
+
+          newLayerData[targetIndex] = tileId;
+        }
+      }
+    }
+
+    newMapData.layers[activeLayerIndex].data = newLayerData;
+    setMapData(newMapData);
+  };
+
+  const floodFill = (startX: number, startY: number) => {
+    if (!selectedSelection || !mapData || !tilesetImage) return;
+
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
+
+    const newMapData = { ...mapData };
+    if (!newMapData.layers || newMapData.layers.length === 0) {
+      newMapData.layers = [{ name: 'Layer 1', data: new Array(mapData.width * mapData.height).fill(-1) }];
+    }
+
+    const layerData = newMapData.layers[activeLayerIndex].data;
+    const startIndex = startY * mapData.width + startX;
+    const targetTileId = layerData[startIndex];
+
+    // Get the replacement tile (first tile in selection)
+    const cols = Math.floor(tilesetImage.width / tileset.tile_width);
+    const replacementTileId = selectedSelection.y * cols + selectedSelection.x;
+
+    // Don't fill if target and replacement are the same
+    if (targetTileId === replacementTileId) return;
+
+    // Flood fill algorithm using stack (iterative, not recursive)
+    const newLayerData = [...layerData];
+    const stack: [number, number][] = [[startX, startY]];
+    const visited = new Set<number>();
+    let fillCount = 0;
+
+    while (stack.length > 0) {
+      const [x, y] = stack.pop()!;
+      const index = y * mapData.width + x;
+
+      // Skip if already visited
+      if (visited.has(index)) continue;
+
+      // Skip if out of bounds
+      if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height) continue;
+
+      // Skip if not the target tile
+      if (newLayerData[index] !== targetTileId) continue;
+
+      // Mark as visited and fill
+      visited.add(index);
+      newLayerData[index] = replacementTileId;
+      fillCount++;
+
+      // Safety check: prevent filling too many tiles without confirmation
+      if (fillCount > 10000) {
+        const confirmed = window.confirm(
+          `This fill operation will affect more than 10,000 tiles. Continue?`
+        );
+        if (!confirmed) {
+          showToast('Fill operation cancelled', 'info');
+          return;
+        }
+        // Reset counter after confirmation
+        fillCount = 0;
+      }
+
+      // Add neighbors (4-directional)
+      stack.push([x + 1, y]);
+      stack.push([x - 1, y]);
+      stack.push([x, y + 1]);
+      stack.push([x, y - 1]);
+    }
+
+    newMapData.layers[activeLayerIndex].data = newLayerData;
+    setMapData(newMapData);
+    
+    showToast(`Filled ${visited.size} tiles`, 'success');
+  };
+
+  const sampleTile = (x: number, y: number) => {
+    if (!mapData || !tilesetImage) return;
+
+    const tileset = tilesets.find((t) => t.id === mapData.tilesetId);
+    if (!tileset) return;
+
+    const layerData = mapData.layers[activeLayerIndex].data;
+    const index = y * mapData.width + x;
+    const tileId = layerData[index];
+
+    // Can't sample empty tiles
+    if (tileId === -1) {
+      showToast('Cannot sample empty tile', 'warning');
+      return;
+    }
+
+    // Calculate tile position in tileset
+    const cols = Math.floor(tilesetImage.width / tileset.tile_width);
+    const tileX = tileId % cols;
+    const tileY = Math.floor(tileId / cols);
+
+    // Update palette selection
+    setSelectedSelection({
+      x: tileX,
+      y: tileY,
+      width: 1,
+      height: 1,
+    });
+
+    showToast('Tile sampled', 'success');
   };
 
   const paintTile = (e: React.MouseEvent) => {
@@ -255,6 +517,9 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       const newLayerData = [...newMapData.layers[activeLayerIndex].data];
       const cols = Math.floor(tilesetImage.width / tileset.tile_width);
 
+      // Determine what to paint based on tool
+      const isEraser = activeTool === DrawingTool.ERASER;
+
       // Loop through selection
       for (let sy = 0; sy < selectedSelection.height; sy++) {
         for (let sx = 0; sx < selectedSelection.width; sx++) {
@@ -264,12 +529,17 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
           if (targetX < mapData.width && targetY < mapData.height) {
             const targetIndex = targetY * mapData.width + targetX;
             
-            // Calculate source tile ID
-            const sourceCol = selectedSelection.x + sx;
-            const sourceRow = selectedSelection.y + sy;
-            const tileId = sourceRow * cols + sourceCol;
+            if (isEraser) {
+              // Eraser sets tile to -1 (empty)
+              newLayerData[targetIndex] = -1;
+            } else {
+              // Calculate source tile ID
+              const sourceCol = selectedSelection.x + sx;
+              const sourceRow = selectedSelection.y + sy;
+              const tileId = sourceRow * cols + sourceCol;
 
-            newLayerData[targetIndex] = tileId;
+              newLayerData[targetIndex] = tileId;
+            }
           }
         }
       }
@@ -311,11 +581,16 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   return (
     <Box>
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <MapProperties mapData={mapData} tilesets={tilesets} onChange={handlePropertyChange} />
+      <MapProperties mapData={mapData} tilesets={tilesets} onChange={handlePropertyChange} />
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <ToolSelector
+            activeTool={activeTool}
+            onToolChange={setActiveTool}
+          />
           <ZoomControls
             zoom={mapZoom}
             onZoomChange={setMapZoom}
+            testIdPrefix="map"
           />
           <Button 
             variant="contained" 
@@ -382,6 +657,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
           <Paper sx={{ p: 1, overflow: 'auto', height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: '#f5f5f5' }}>
             <canvas
               ref={canvasRef}
+              data-testid="map-editor-canvas"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}

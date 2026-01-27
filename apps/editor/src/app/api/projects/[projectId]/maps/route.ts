@@ -13,6 +13,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       return NextResponse.json({ message: 'Map name, width, and height are required' }, { status: 400 });
     }
 
+    // Check if project exists
+    const projectsCollection = db.collection('projects');
+    const project = await projectsCollection.findOne({ _id: new ObjectId(projectId) });
+    
+    if (!project) {
+      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    }
+
     const newMap: Omit<Map, 'id'> = {
       name,
       width,
@@ -28,7 +36,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     const result = await mapsCollection.insertOne(newMap);
     const newMapId = result.insertedId;
 
-    const projectsCollection = db.collection('projects');
     await projectsCollection.updateOne(
       { _id: new ObjectId(projectId) },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

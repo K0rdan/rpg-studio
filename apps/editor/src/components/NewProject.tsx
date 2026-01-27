@@ -89,7 +89,7 @@ export default function NewProject() {
             <Button onClick={() => setModalOpen(false)} color="secondary">
               Cancel
             </Button>
-            <Button type="submit" color="primary" disabled={loading}>
+            <Button id='new-project-submit-button' type="submit" color="primary" disabled={loading}>
               {loading ? 'Creating...' : 'Create'}
             </Button>
           </DialogActions>

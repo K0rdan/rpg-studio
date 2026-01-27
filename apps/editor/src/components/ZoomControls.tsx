@@ -13,6 +13,7 @@ interface ZoomControlsProps {
   step?: number;                   // Default: 50
   showLabel?: boolean;             // Default: true
   compact?: boolean;               // Default: false (for palette)
+  testIdPrefix?: string;           // Prefix for test IDs (e.g., 'map' or 'palette')
 }
 
 const ZOOM_MARKS = [
@@ -31,6 +32,7 @@ export default function ZoomControls({
   step = 50,
   showLabel = true,
   compact = false,
+  testIdPrefix = 'zoom',
 }: ZoomControlsProps) {
   const handleZoomIn = () => {
     const newZoom = Math.min(max, zoom + step);
@@ -54,12 +56,14 @@ export default function ZoomControls({
         gap: compact ? 0.5 : 1,
         minWidth: compact ? 200 : 300,
       }}
+      data-testid={`${testIdPrefix}-zoom-controls`}
     >
       <Tooltip title="Zoom out (-)">
         <IconButton
           size={compact ? 'small' : 'medium'}
           onClick={handleZoomOut}
           disabled={zoom <= min}
+          data-testid={`${testIdPrefix}-zoom-out-button`}
         >
           <ZoomOutIcon fontSize={compact ? 'small' : 'medium'} />
         </IconButton>
@@ -75,6 +79,7 @@ export default function ZoomControls({
         valueLabelDisplay="auto"
         valueLabelFormat={(value) => `${value}%`}
         sx={{ flex: 1, mx: 1 }}
+        data-testid={`${testIdPrefix}-zoom-slider`}
       />
 
       <Tooltip title="Zoom in (+)">
@@ -82,6 +87,7 @@ export default function ZoomControls({
           size={compact ? 'small' : 'medium'}
           onClick={handleZoomIn}
           disabled={zoom >= max}
+          data-testid={`${testIdPrefix}-zoom-in-button`}
         >
           <ZoomInIcon fontSize={compact ? 'small' : 'medium'} />
         </IconButton>
@@ -96,6 +102,7 @@ export default function ZoomControls({
             fontWeight: 'medium',
             transition: 'all 0.2s ease-in-out',
           }}
+          data-testid={`${testIdPrefix}-zoom-label`}
         >
           {zoom}%
         </Typography>
@@ -107,6 +114,7 @@ export default function ZoomControls({
             size={compact ? 'small' : 'medium'}
             onClick={handleReset}
             disabled={zoom === 100}
+            data-testid={`${testIdPrefix}-zoom-reset-button`}
             sx={{
               transition: 'all 0.2s ease-in-out',
               '&:hover': {

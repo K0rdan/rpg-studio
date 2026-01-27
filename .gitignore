@@ -36,8 +36,8 @@ pnpm-debug.log*
 *.sublime-workspace
 
 # Cypress
-cypress/videos
-cypress/screenshots
+**/cypress/videos*
+**/cypress/screenshots*
 
 # Misc
 .vercel

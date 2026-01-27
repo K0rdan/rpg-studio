@@ -28,14 +28,20 @@ export default function LayerManager({
   onRemoveLayer 
 }: LayerManagerProps) {
   return (
-    <Paper sx={{ p: 2, mb: 2, maxHeight: 300, overflow: 'auto' }}>
+    <Paper sx={{ p: 2, mb: 2, maxHeight: 300, overflow: 'auto' }} data-testid="layer-manager">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Layers</Typography>
-        <IconButton onClick={onAddLayer} size="small" color="primary" sx={{ border: '1px solid', borderRadius: 1 }}>
+        <IconButton 
+          onClick={onAddLayer} 
+          size="small" 
+          color="primary" 
+          sx={{ border: '1px solid', borderRadius: 1 }}
+          data-testid="add-layer-button"
+        >
           <AddIcon />
         </IconButton>
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }} data-testid="layer-list">
         {layers.slice().reverse().map((layer, i) => {
           const index = layers.length - 1 - i;
           const isActive = activeLayerIndex === index;
@@ -55,6 +61,7 @@ export default function LayerManager({
                 '&:hover': { bgcolor: 'action.hover' }
               }}
               onClick={() => onSelectLayer(index)}
+              data-testid={`layer-item-${index}`}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box 
@@ -85,6 +92,7 @@ export default function LayerManager({
                     onRemoveLayer(index);
                   }}
                   sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' } }}
+                  data-testid={`delete-layer-button-${index}`}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>

@@ -142,7 +142,7 @@ export default function TilePalette({ tileset, onSelectSelection, selection }: T
   if (!tileset) return <Paper sx={{ p: 2 }}>Select a tileset</Paper>;
 
   return (
-    <Paper sx={{ p: 2 }}>
+    <Paper sx={{ p: 2 }} data-testid="tile-palette">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Palette</Typography>
         <ZoomControls
@@ -150,11 +150,13 @@ export default function TilePalette({ tileset, onSelectSelection, selection }: T
           onZoomChange={setPaletteZoom}
           compact={true}
           showLabel={false}
+          testIdPrefix="palette"
         />
       </Box>
       <Box sx={{ overflow: 'auto', maxHeight: '600px' }}>
         <canvas 
-          ref={canvasRef} 
+          ref={canvasRef}
+          data-testid="tile-palette-canvas"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

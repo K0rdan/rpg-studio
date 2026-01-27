@@ -4,7 +4,7 @@ module.exports = {
       version: '6.0.13',
       skipMD5: true,
     },
-    autoStart: false,
+    autoStart: true,
     instance: {},
   },
 };

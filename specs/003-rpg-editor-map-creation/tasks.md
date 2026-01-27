@@ -99,3 +99,84 @@
   - Document keyboard shortcuts
   - Add inline help/tooltips
   - Create user guide (ZOOM_CONTROLS_GUIDE.md)
+
+## Phase 8: E2E Testing (Drawing Tools)
+
+### Authentication Setup (2 hours)
+
+- [x] **T022** Configure Auth.js Credentials provider for testing
+  - Add Credentials provider (development only)
+  - Configure JWT session strategy
+  - Test password: "test-password"
+
+- [x] **T023** Create Cypress login command
+  - Implement `cy.login()` custom command
+  - Use `cy.session()` for session caching
+  - Handle sign-in flow
+
+### Test Infrastructure (3 hours)
+
+- [x] **T024** Add `data-testid` attributes to components
+  - TilePalette: `tile-palette-canvas`
+  - MapEditor: `map-editor-canvas`
+  - ZoomControls: `zoom-in-button`, `zoom-out-button`, `zoom-reset-button`, `zoom-label`
+  - ToolSelector: `tool-button-{tool}`
+  - LayerManager: `add-layer-button`, `layer-item-{index}`
+
+- [x] **T025** Create Cypress debugging helpers
+  - `cy.waitForCanvas()` - Wait for canvas rendering
+  - `cy.debugCanvas()` - Visual debugging with red borders
+
+### Drawing Tools Tests (4-6 hours)
+
+- [x] **T026** Tool Selection tests (4 tests)
+  - Display all 5 tools
+  - Default selection (Pencil)
+  - Click to switch tools
+  - Keyboard shortcuts (P, R, F, I, E)
+
+- [x] **T027** Individual tool tests (9 tests)
+  - Pencil: Click and drag
+  - Rectangle: Preview and fill
+  - Fill: Flood fill with confirmation
+  - Eyedropper: Sample tiles
+  - Eraser: Click and drag
+
+- [x] **T028** Zoom Controls tests (5 tests)
+  - Display controls
+  - Zoom in/out buttons
+  - Reset button
+  - Keyboard shortcuts (+, -, 0)
+
+- [x] **T029** Layer Management tests (3 tests)
+  - Display layers
+  - Add layers
+  - Switch layers
+
+- [x] **T030** Integration tests (2 tests)
+  - Complete workflow (all tools)
+  - Zoom + drawing
+
+### Test Fixes & Isolation (2 hours)
+
+- [x] **T031** Fix test isolation issues
+  - Intercept PUT requests to prevent database pollution
+  - Handle window.confirm dialogs
+  - Increase toast timeouts
+  - Fix canvas rendering waits
+
+- [x] **T032** Fix zoom controls test conflicts
+  - Add `testIdPrefix` prop to ZoomControls component
+  - Separate map zoom (`map-zoom-*`) from palette zoom (`palette-zoom-*`)
+  - Update test selectors to use context-specific IDs
+  - Improve test cleanup to delete all test projects
+
+**Total E2E Tests**: 23 tests, all passing ✅
+
+### Key Learnings
+
+- **Test Isolation**: Use `cy.intercept()` to prevent API calls from persisting state
+- **Canvas Testing**: Custom commands (`waitForCanvas`, `debugCanvas`) essential for canvas apps
+- **data-testid**: Stable selectors prevent test brittleness - use context prefixes for reusable components
+- **Auth in Tests**: Credentials provider works well for E2E testing in development
+- **Cleanup**: Recursive cleanup ensures no test data accumulates across runs
