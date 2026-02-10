@@ -4,6 +4,7 @@ export enum DrawingTool {
   FILL = 'fill',
   EYEDROPPER = 'eyedropper',
   ERASER = 'eraser',
+  ENTITY = 'entity',
 }
 
 export const TOOL_LABELS: Record<DrawingTool, string> = {
@@ -12,6 +13,7 @@ export const TOOL_LABELS: Record<DrawingTool, string> = {
   [DrawingTool.FILL]: 'Fill',
   [DrawingTool.EYEDROPPER]: 'Eyedropper',
   [DrawingTool.ERASER]: 'Eraser',
+  [DrawingTool.ENTITY]: 'Entity',
 };
 
 export const TOOL_SHORTCUTS: Record<DrawingTool, string> = {
@@ -20,4 +22,5 @@ export const TOOL_SHORTCUTS: Record<DrawingTool, string> = {
   [DrawingTool.FILL]: 'F',
   [DrawingTool.EYEDROPPER]: 'I',
   [DrawingTool.ERASER]: 'E',
+  [DrawingTool.ENTITY]: 'N',
 };

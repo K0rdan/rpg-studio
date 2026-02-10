@@ -7,6 +7,7 @@ import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import CircularProgress from '@mui/material/CircularProgress';
 import TilesetUpload from './TilesetUpload';
+import TilesetGenerateDialog from './TilesetGenerateDialog';
 import TilesetCard from './TilesetCard';
 import { useToast } from '@/context/ToastContext';
 
@@ -61,7 +62,10 @@ export default function TilesetList({ projectId }: TilesetListProps) {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Tilesets</Typography>
-        <TilesetUpload projectId={projectId} onTilesetUploaded={handleTilesetUploaded} />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TilesetGenerateDialog projectId={projectId} onTilesetGenerated={handleTilesetUploaded} />
+          <TilesetUpload projectId={projectId} onTilesetUploaded={handleTilesetUploaded} />
+        </Box>
       </Box>
 
       {loading ? (

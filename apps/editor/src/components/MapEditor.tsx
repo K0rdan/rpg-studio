@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, Tileset, GameProject } from '@packages/types';
+import { Map, Tileset, GameProject, Entity, EntityType, Sprite } from '@packages/types';
 import TilePalette from './TilePalette';
 import LayerManager from './LayerManager';
 import ZoomControls from './ZoomControls';
 import ToolSelector from './ToolSelector';
+import EntityPalette from './EntityPalette';
+import EntityPropertiesPanel from './EntityPropertiesPanel';
 import { DrawingTool } from '@/types/DrawingTool';
 import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
@@ -48,6 +50,13 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const [activeTool, setActiveTool] = useState<DrawingTool>(DrawingTool.PENCIL);
   const [rectangleStart, setRectangleStart] = useState<{ x: number; y: number } | null>(null);
   const [rectanglePreview, setRectanglePreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  
+  // Entity state
+  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>(null);
+  const [selectedSpriteId, setSelectedSpriteId] = useState<string | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [availableSprites] = useState<Sprite[]>([]); // TODO: Load from API
+  
   const { showToast } = useToast();
   const { play } = usePreview();
 
@@ -163,7 +172,58 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       ctx.strokeRect(previewX, previewY, previewWidth, previewHeight);
     }
 
-  }, [mapData, tilesetImage, tilesets, mapZoom, rectanglePreview, activeTool]);
+    // Draw entities
+    if (mapData.entities && mapData.entities.length > 0) {
+      mapData.entities.forEach((entity) => {
+        const entityX = entity.x * actualTileSize;
+        const entityY = entity.y * actualTileSize;
+        const padding = actualTileSize * 0.25;
+        
+        // Get entity color
+        let color = '#FF00FF'; // Default magenta
+        switch (entity.type) {
+          case EntityType.PlayerSpawn:
+            color = '#00FF00'; // Green
+            break;
+          case EntityType.NPC:
+            color = '#0000FF'; // Blue
+            break;
+          case EntityType.Interaction:
+            color = '#FFFF00'; // Yellow
+            break;
+        }
+        
+        // Draw entity placeholder
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(
+          entityX + padding,
+          entityY + padding,
+          actualTileSize - padding * 2,
+          actualTileSize - padding * 2
+        );
+        ctx.globalAlpha = 1.0;
+        
+        // Draw entity border
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          entityX + padding,
+          entityY + padding,
+          actualTileSize - padding * 2,
+          actualTileSize - padding * 2
+        );
+        
+        // Highlight selected entity
+        if (selectedEntity && selectedEntity.id === entity.id) {
+          ctx.strokeStyle = '#FF0000';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(entityX, entityY, actualTileSize, actualTileSize);
+        }
+      });
+    }
+
+  }, [mapData, tilesetImage, tilesets, mapZoom, rectanglePreview, activeTool, selectedEntity]);
 
   // Keyboard shortcuts for zoom
   useEffect(() => {
@@ -220,6 +280,10 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
           break;
         case 'E':
           setActiveTool(DrawingTool.ERASER);
+          e.preventDefault();
+          break;
+        case 'N':
+          setActiveTool(DrawingTool.ENTITY);
           e.preventDefault();
           break;
       }
@@ -304,6 +368,10 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       case DrawingTool.EYEDROPPER:
         sampleTile(x, y);
         setIsDrawing(false); // Eyedropper is instant
+        break;
+      case DrawingTool.ENTITY:
+        handleEntityClick(x, y);
+        setIsDrawing(false); // Entity placement is instant
         break;
     }
   };
@@ -549,6 +617,61 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
     }
   };
 
+  // Entity handlers
+  const handleEntityClick = (x: number, y: number) => {
+    if (!mapData) return;
+
+    // Check if clicking on existing entity
+    const existingEntity = mapData.entities?.find(e => e.x === x && e.y === y);
+    
+    if (existingEntity) {
+      // Select existing entity
+      setSelectedEntity(existingEntity);
+      showToast('Entity selected', 'info');
+    } else if (selectedEntityType) {
+      // Place new entity
+      const newEntity: Entity = {
+        id: `entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: selectedEntityType,
+        name: `${selectedEntityType} ${(mapData.entities?.length || 0) + 1}`,
+        x,
+        y,
+        ...(selectedEntityType === EntityType.PlayerSpawn || selectedEntityType === EntityType.NPC
+          ? { spriteId: selectedSpriteId || '' }
+          : {})
+      } as Entity;
+
+      const newMapData = { ...mapData };
+      newMapData.entities = [...(mapData.entities || []), newEntity];
+      setMapData(newMapData);
+      setSelectedEntity(newEntity);
+      showToast(`${selectedEntityType} placed`, 'success');
+    } else {
+      showToast('Select an entity type first', 'info');
+    }
+  };
+
+  const handleUpdateEntity = (updatedEntity: Entity) => {
+    if (!mapData) return;
+
+    const newMapData = { ...mapData };
+    newMapData.entities = mapData.entities?.map(e => 
+      e.id === updatedEntity.id ? updatedEntity : e
+    ) || [];
+    setMapData(newMapData);
+    setSelectedEntity(updatedEntity);
+  };
+
+  const handleDeleteEntity = () => {
+    if (!mapData || !selectedEntity) return;
+
+    const newMapData = { ...mapData };
+    newMapData.entities = mapData.entities?.filter(e => e.id !== selectedEntity.id) || [];
+    setMapData(newMapData);
+    setSelectedEntity(null);
+    showToast('Entity deleted', 'success');
+  };
+
   const handleSave = async () => {
     if (!mapData) return;
     setSaving(true);
@@ -651,6 +774,19 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
             tileset={currentTileset} 
             onSelectSelection={setSelectedSelection} 
             selection={selectedSelection} 
+          />
+          <EntityPalette
+            selectedEntityType={selectedEntityType}
+            onSelectEntityType={setSelectedEntityType}
+            selectedSpriteId={selectedSpriteId}
+            onSelectSprite={setSelectedSpriteId}
+            availableSprites={availableSprites}
+          />
+          <EntityPropertiesPanel
+            entity={selectedEntity}
+            onUpdateEntity={handleUpdateEntity}
+            onDeleteEntity={handleDeleteEntity}
+            availableSprites={availableSprites}
           />
         </Box>
         <Box sx={{ flex: 1 }}>

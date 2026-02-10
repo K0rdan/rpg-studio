@@ -105,6 +105,11 @@ export class GameEngine {
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
 
+    // TODO: Load entities from map and create character instances
+    // The old character loading code below is commented out because project.characters
+    // contains character IDs (strings), not Character objects. We'll use the entity system instead.
+    
+    /*
     // Load characters from project (if any)
     if (project.characters && project.characters.length > 0) {
       console.log(`GameEngine: Loading ${project.characters.length} character(s) from project`);
@@ -150,11 +155,12 @@ export class GameEngine {
         const centerY = (currentMap.height * tileset.tile_height) / 2;
         
         this.scene.addCharacter(firstCharacter, spriteRenderer, centerX, centerY);
-        console.log(`GameEngine: Added character "${firstCharacter.name}" at (${centerX}, ${centerY})`);
+        console.log(`GameEngine: Added character \"${firstCharacter.name}\" at (${centerX}, ${centerY})`);
       }
     } else {
       console.log('GameEngine: No characters in project, skipping character rendering');
     }
+    */
     
     // Expose scene for debugging
     (window as any).scene = this.scene;

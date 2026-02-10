@@ -1,8 +1,9 @@
-import type { Map, Character } from '@packages/types';
+import type { Map as GameMap, Character, Entity } from '@packages/types';
 import { Renderer } from './Renderer';
 import { InputManager } from './InputManager';
 import { MapRenderer } from './MapRenderer';
 import { SpriteRenderer } from './SpriteRenderer';
+import { EntityRenderer } from './EntityRenderer';
 
 interface GameCharacter {
   data: Character;
@@ -12,11 +13,12 @@ interface GameCharacter {
 }
 
 export class Scene {
-  private map: Map | null = null;
+  private map: GameMap | null = null;
   private mapRenderer: MapRenderer | null = null;
   private characters: GameCharacter[] = [];
+  private entityRenderers: EntityRenderer[] = [];
 
-  public loadMap(map: Map) {
+  public loadMap(map: GameMap) {
     this.map = map;
   }
 
@@ -32,8 +34,41 @@ export class Scene {
     return this.characters;
   }
 
+  public loadEntities(entities: Entity[], tileWidth: number, tileHeight: number, spriteRenderers: Map<string, SpriteRenderer>) {
+    this.entityRenderers = entities.map(entity => {
+      let spriteRenderer: SpriteRenderer | null = null;
+      
+      // Get sprite renderer for entities that have sprites
+      if ('spriteId' in entity && entity.spriteId) {
+        spriteRenderer = spriteRenderers.get(entity.spriteId) || null;
+      }
+      
+      return new EntityRenderer(entity, spriteRenderer, tileWidth, tileHeight);
+    });
+  }
+
+  public getEntities(): Entity[] {
+    return this.entityRenderers.map(er => er.getEntity());
+  }
+
+  public getEntityById(id: string): Entity | undefined {
+    const renderer = this.entityRenderers.find(er => er.getEntity().id === id);
+    return renderer?.getEntity();
+  }
+
+  public getEntitiesAtPosition(x: number, y: number): Entity[] {
+    return this.entityRenderers
+      .map(er => er.getEntity())
+      .filter(entity => entity.x === x && entity.y === y);
+  }
+
   public update(deltaTime: number, input: InputManager) {
     const speed = 0.1; // pixels per ms
+    
+    // Update entity animations
+    for (const entityRenderer of this.entityRenderers) {
+      entityRenderer.update(deltaTime);
+    }
     
     for (const char of this.characters) {
       char.renderer.update(deltaTime);
@@ -92,6 +127,11 @@ export class Scene {
   public render(renderer: Renderer) {
     if (this.mapRenderer) {
       this.mapRenderer.render(renderer);
+    }
+    
+    // Render entities (after map, before characters)
+    for (const entityRenderer of this.entityRenderers) {
+      entityRenderer.render(renderer);
     }
     
     for (const char of this.characters) {

@@ -104,6 +104,30 @@ Multi-provider authentication with Auth.js (NextAuth.js v5).
 - [Tasks](./007-rpg-editor-auth/tasks.md)
 - [Implementation Summary](./007-rpg-editor-auth/IMPLEMENTATION_SUMMARY.md)
 
+#### 008 - Map Entity Placement
+**Status**: 🚧 In Progress  
+**Path**: `008-rpg-editor-map-entities/`
+
+Place interactive entities (NPCs, player spawns, interactions) on map tiles with charset animations.
+
+- [Specification](./008-rpg-editor-map-entities/spec.md)
+- [Data Model](./008-rpg-editor-map-entities/data-model.md)
+- [Implementation Plan](./008-rpg-editor-map-entities/plan.md)
+- [Tasks](./008-rpg-editor-map-entities/tasks.md)
+
+#### 009 - Editor UI Layout & Navigation
+**Status**: 📋 Planned  
+**Path**: `009-rpg-editor-ui-layout/`
+
+Modern editor UI with hierarchical project explorer, resizable panels, tile palette, inspector, and optional tile tagging system.
+
+- [Specification](./009-rpg-editor-ui-layout/spec.md)
+- [Data Model](./009-rpg-editor-ui-layout/data-model.md)
+- [Implementation Plan](./009-rpg-editor-ui-layout/plan.md)
+- [Tasks](./009-rpg-editor-ui-layout/tasks.md)
+- [Wireframe](./009-rpg-editor-ui-layout/wireframe.md)
+
+
 ---
 
 ## 🏗️ Architecture Principles
@@ -172,6 +196,8 @@ Multi-provider authentication with Auth.js (NextAuth.js v5).
 | Preview | `004-rpg-editor-preview/` |
 | Storage | `005-package-storage/`, `006-rpg-editor-storage-usage/` |
 | Auth | `007-rpg-editor-auth/` |
+| Map Entities | `008-rpg-editor-map-entities/` |
+
 
 ---
 

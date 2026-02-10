@@ -6,6 +6,7 @@ import CropSquareIcon from '@mui/icons-material/CropSquare';
 import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
 import ColorizeIcon from '@mui/icons-material/Colorize';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import { DrawingTool, TOOL_LABELS, TOOL_SHORTCUTS } from '@/types/DrawingTool';
 
 interface ToolSelectorProps {
@@ -19,6 +20,7 @@ const TOOL_ICONS = {
   [DrawingTool.FILL]: FormatColorFillIcon,
   [DrawingTool.EYEDROPPER]: ColorizeIcon,
   [DrawingTool.ERASER]: DeleteOutlineIcon,
+  [DrawingTool.ENTITY]: PersonPinCircleIcon,
 };
 
 export default function ToolSelector({ activeTool, onToolChange }: ToolSelectorProps) {

@@ -13,8 +13,10 @@
     "@auth/mongodb-adapter": "^3.11.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/genai": "^1.38.0",
     "@mui/icons-material": "^7.3.5",
     "@mui/material": "^7.3.5",
+    "@mui/x-tree-view": "^8.27.0",
     "@packages/core": "*",
     "@packages/storage": "*",
     "@packages/types": "*",
@@ -23,7 +25,8 @@
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^7.0.12",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@napi-rs/triples": "^2.1.5",
