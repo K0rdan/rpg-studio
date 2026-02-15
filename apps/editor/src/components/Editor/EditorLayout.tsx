@@ -1,15 +1,18 @@
 'use client';
 
 import { Box } from '@mui/material';
-import { TopBar } from './TopBar/TopBar';
+import { ToolBar } from './ToolBar/ToolBar';
 import { ProjectExplorer } from './ProjectExplorer/ProjectExplorer';
+import { ContextPanel } from './ContextPanel/ContextPanel';
 import { MapCanvas } from './Canvas/MapCanvas';
-import { TilePalette } from './TilePalette/TilePalette';
 import { Inspector } from './Inspector/Inspector';
 import { ResizablePanel } from '../shared/ResizablePanel';
 import { useEditorStore } from '@/stores/editorStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import { useLayoutPersistence } from '@/hooks/useLayoutPersistence';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+
+const TOOLBAR_WIDTH = 56; // Width of vertical toolbar
 
 export const EditorLayout = () => {
   // Load and persist layout preferences
@@ -21,33 +24,73 @@ export const EditorLayout = () => {
   const leftSidebarOpen = useEditorStore((state) => state.layout.leftSidebarOpen);
   const rightSidebarOpen = useEditorStore((state) => state.layout.rightSidebarOpen);
   const leftSidebarWidth = useEditorStore((state) => state.layout.leftSidebarWidth);
+  const contextPanelWidth = useEditorStore((state) => state.layout.contextPanelWidth);
   const rightSidebarWidth = useEditorStore((state) => state.layout.rightSidebarWidth);
   const setLeftSidebarWidth = useEditorStore((state) => state.setLeftSidebarWidth);
+  const setContextPanelWidth = useEditorStore((state) => state.setContextPanelWidth);
   const setRightSidebarWidth = useEditorStore((state) => state.setRightSidebarWidth);
 
+  // Check if something is selected for context panel
+  const selectedType = useSelectionStore((state) => state.type);
+  const selectedId = useSelectionStore((state) => state.id);
+  const hasSelection = selectedType && selectedId;
+
+  // Calculate max width for left panel group: 40% of viewport - toolbar width
+  const maxLeftPanelGroupWidth = typeof window !== 'undefined' 
+    ? Math.floor(window.innerWidth * 0.4) - TOOLBAR_WIDTH
+    : 600;
+
+  // Calculate max width for context panel: remaining space after project tree
+  const maxContextPanelWidth = Math.max(300, maxLeftPanelGroupWidth - leftSidebarWidth);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopBar />
+    <Box id="editor-layout" sx={{ display: 'flex', height: '100%' }}>
+      {/* Left: Vertical Toolbar */}
+      <ToolBar />
       
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left Panel: Project Explorer */}
+      {/* Main Content Area */}
+      <Box id="editor-main-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Left Panels: Project Tree + Context Panel (max 40% viewport - toolbar) */}
         {leftSidebarOpen && (
-          <ResizablePanel
-            id="project-explorer"
-            defaultWidth={leftSidebarWidth}
-            minWidth={200}
-            maxWidth={400}
-            position="left"
-            onWidthChange={setLeftSidebarWidth}
+          <Box
+            id="left-panel-group"
+            sx={{ 
+              display: 'flex',
+              maxWidth: `${maxLeftPanelGroupWidth}px`,
+              flexShrink: 0,
+            }}
           >
-            <ProjectExplorer />
-          </ResizablePanel>
+            {/* Project Tree */}
+            <ResizablePanel
+              id="project-tree"
+              defaultWidth={leftSidebarWidth}
+              minWidth={200}
+              maxWidth={Math.min(400, maxLeftPanelGroupWidth - (hasSelection ? 300 : 0))}
+              position="left"
+              onWidthChange={setLeftSidebarWidth}
+            >
+              <ProjectExplorer />
+            </ResizablePanel>
+            
+            {/* Context Panel - Only show when something is selected */}
+            {hasSelection && (
+              <ResizablePanel
+                id="context-panel"
+                defaultWidth={contextPanelWidth}
+                minWidth={300}
+                maxWidth={maxContextPanelWidth}
+                position="left"
+                onWidthChange={setContextPanelWidth}
+              >
+                <ContextPanel />
+              </ResizablePanel>
+            )}
+          </Box>
         )}
         
-        {/* Center: Canvas + Tile Palette */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {/* Center: Canvas (flex - takes remaining space) */}
+        <Box id="canvas-container" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <MapCanvas />
-          <TilePalette />
         </Box>
         
         {/* Right Panel: Inspector */}
@@ -67,3 +110,4 @@ export const EditorLayout = () => {
     </Box>
   );
 };
+

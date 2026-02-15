@@ -28,14 +28,38 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   try {
+    const { auth: getAuth } = await import('@/auth');
+    const session = await getAuth();
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { db } = await connectToDatabase();
-    const { mapId } = await params;
+    const { projectId, mapId } = await params;
     const updates = await req.json();
+
+    // Verify project ownership
+    const project = await db.collection('projects').findOne({
+      _id: new ObjectId(projectId),
+      userId: session.user.id,
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { message: 'Project not found or unauthorized' },
+        { status: 403 }
+      );
+    }
 
     // Remove id from updates if present to avoid immutable field error
     delete updates.id;
     delete updates._id;
 
+    // Add updatedAt timestamp
+    updates.updatedAt = new Date();
+
+    // Update map (maps don't have projectId field, only _id)
     const result = await db.collection('maps').updateOne(
       { _id: new ObjectId(mapId) },
       { $set: updates }
@@ -45,7 +69,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
       return NextResponse.json({ message: 'Map not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Map updated' }, { status: 200 });
+    return NextResponse.json({ message: 'Map saved successfully' }, { status: 200 });
   } catch (error) {
     console.error('Error updating map:', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });

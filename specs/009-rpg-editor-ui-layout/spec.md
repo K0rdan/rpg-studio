@@ -131,6 +131,195 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 - Extend `Map` type with optional `entities` array
 - Extend `Tileset` type with optional `metadata` field
 
+## Implementation Phases
+
+### Phase 1: Core Layout ✅ COMPLETED
+- EditorLayout component with 3-panel structure
+- ResizablePanel component with drag-to-resize
+- TopBar with tool buttons and keyboard shortcuts
+- Layout persistence to localStorage
+- E2E tests for layout structure
+
+### Phase 2: Project Explorer ✅ COMPLETED
+- MapsTree with API integration
+- EntitiesTree with Player/NPCs/Interactions subfolders
+- AssetsTree with Tilesets/Charsets/Sounds subfolders
+- Selection handling and state management
+- Empty states and loading indicators
+- E2E tests for tree views
+- Entities API endpoint implementation
+
+### Phase 3: Map Canvas Integration ✅ COMPLETED
+**Goal**: Integrate `@rpg-studio/core` engine to render actual map data with tilesets.
+
+**Components**:
+- `useMapEngine` hook - Manages GameEngine lifecycle and data loading
+- Updated `MapCanvas` component - Renders maps using core engine
+- `CanvasControls` component - Zoom controls UI
+- `viewportStore` - Zoom and pan state management
+- `useCanvasShortcuts` hook - Keyboard shortcuts for zoom/pan
+- Loading and error states for canvas area
+
+**Data Flow**:
+1. Fetch project, maps, and tilesets from APIs
+2. Initialize GameEngine with canvas element and zoom level
+3. Call `engine.init(project, maps, tilesets)`
+4. Start continuous render loop (60 FPS)
+5. Listen to selection changes and reload map when user selects different map
+6. Listen to zoom changes and re-initialize engine with new scale
+7. Cleanup engine on unmount
+
+**Technical Details**:
+- GameEngine uses requestAnimationFrame for smooth rendering
+- AssetLoader handles tileset image loading with retries
+- Canvas uses `imageRendering: 'pixelated'` for crisp tiles
+- Engine stops cleanly on unmount (no memory leaks)
+- Map selection triggers engine reload with new map data
+- Zoom levels: 0.25x, 0.5x, 1x, 2x, 4x, 8x
+- Pan with middle mouse drag or space + drag
+- Keyboard shortcuts: +/- for zoom, arrows for pan, 0 to reset
+- `ctx.resetTransform()` prevents cumulative scaling bug
+
+**Files**:
+- NEW: `apps/editor/src/hooks/useMapEngine.ts`
+- NEW: `apps/editor/src/components/Editor/Canvas/CanvasLoading.tsx`
+- NEW: `apps/editor/src/components/Editor/Canvas/CanvasError.tsx`
+- NEW: `apps/editor/src/components/Editor/Canvas/CanvasControls.tsx`
+- NEW: `apps/editor/src/stores/viewportStore.ts`
+- NEW: `apps/editor/src/hooks/useCanvasShortcuts.ts`
+- MODIFY: `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- MODIFY: `packages/core/src/GameEngine.ts` (added scale parameter)
+
+### Phase 4: Tile Palette 🚧 IN PROGRESS
+**Goal**: Implement tileset selector and tile grid for selecting tiles to paint on maps.
+
+**Components**:
+- `TilesetSelector` - Dropdown to select active tileset
+- `TileGrid` - Scrollable grid displaying all tiles from selected tileset
+- `tileSelectionStore` - State management for selected tileset and tile
+- Updated `TilePalette` component - Integrates selector and grid
+
+**Features**:
+- **Tileset Selector**:
+  - MUI Select dropdown showing all project tilesets
+  - Displays tileset name and dimensions (tile_width × tile_height)
+  - Shows grid size (columns × rows calculated from image)
+  - Fetches from `/api/tilesets?projectId={projectId}`
+  - Updates selection store on change
+
+- **Tile Grid**:
+  - Loads tileset image dynamically
+  - Calculates grid dimensions from image size and tile dimensions
+  - Renders tiles using CSS Grid with background-position
+  - Click to select tile (blue border highlight)
+  - Hover shows light border
+  - Tooltip displays tile coordinates (x, y)
+  - Scrollable for large tilesets
+  - Handles different tile sizes (16x16, 32x32, 128x128, etc.)
+
+- **Selection State**:
+  - Tracks selected tileset ID
+  - Tracks selected tile index and coordinates
+  - Ready for drawing tools integration (future)
+
+**Data Flow**:
+1. TilePalette fetches tilesets on mount
+2. First tileset selected by default
+3. TileGrid loads tileset image
+4. Calculate grid dimensions (columns, rows)
+5. Render tiles with proper background-position
+6. User clicks tile → update tileSelectionStore
+7. Visual feedback (blue border on selected tile)
+
+**Technical Details**:
+- Tile index calculation: `index = y * columns + x`
+- Tile coordinates from index: `x = index % columns`, `y = Math.floor(index / columns)`
+- CSS background-position: `-${x * tileWidth}px -${y * tileHeight}px`
+- Image loading with error handling
+- Loading states for tileset image
+- Empty state when no tilesets exist
+
+**Files**:
+- NEW: `apps/editor/src/stores/tileSelectionStore.ts`
+- NEW: `apps/editor/src/components/Editor/TilePalette/TilesetSelector.tsx`
+- NEW: `apps/editor/src/components/Editor/TilePalette/TileGrid.tsx`
+- MODIFY: `apps/editor/src/components/Editor/TilePalette/TilePalette.tsx`
+
+### Phase 5: Dual-Panel Context Layout 🚧 IN PROGRESS
+**Goal**: Restructure layout to use Project Tree + Context Panel side-by-side, maximizing canvas height and creating contextual workflow.
+
+**Layout Structure**:
+```
+┌──┬─────────────────┬─────────────────┬──────────┬──────────┐
+│🖌️│ Project Tree    │ Context Panel   │  Canvas  │Inspector │
+│📁│ (scrollable)    │ (Palette/Props) │          │          │
+│  │ • Maps          │ ┌───┬───┬───┐   │          │          │
+│  │ • Entities      │ │ 0 │ 1 │ 2 │   │          │          │
+│  │ • Assets        │ └───┴───┴───┘   │          │          │
+└──┴─────────────────┴─────────────────┴──────────┴──────────┘
+ 56px    200-300px        300-400px       flex      0-300px
+```
+
+**Components**:
+- `ContextPanel` - Container that renders content based on selection
+- `EmptyState` - Shows when nothing selected
+- `MapProperties` - Shows map details when map selected
+- Updated `TilePalette` - Moves from bottom to context panel
+- Updated `EditorLayout` - Adds context panel between tree and canvas
+
+**Context Panel Behavior**:
+- **Tileset selected** → Shows Tile Palette with selected tileset
+- **Map selected** → Shows Map Properties (name, size, tileset, layers)
+- **Entity selected** → Shows Entity Properties (position, sprite, behavior)
+- **Nothing selected** → Shows empty state
+
+**Benefits**:
+- Canvas uses full height (no bottom palette) - **+450px vertical space**
+- Contextual tools appear based on selection
+- Tile Palette gets dedicated width (300-400px)
+- Better workflow: select item → see tools → use on canvas
+- Resizable panels for user customization
+
+**Data Flow**:
+1. User clicks tileset in Project Tree
+2. `selectionStore` updates: `{ type: 'tileset', id: 'tileset-123' }`
+3. `ContextPanel` detects selection change
+4. Renders `TilePalette` with selected tileset
+5. User selects tile from palette
+6. `tileSelectionStore` updates
+7. User draws on canvas (future: drawing tools)
+
+**Technical Details**:
+- Context Panel renders conditionally based on `selectionStore`
+- TilePalette accepts `tilesetId` prop instead of fetching all tilesets
+- TilePalette uses flexible height (fills context panel)
+- Both panels (tree + context) wrapped in resizable containers
+- Canvas no longer has bottom palette - full height available
+
+**Files**:
+- NEW: `apps/editor/src/components/Editor/ContextPanel/ContextPanel.tsx`
+- NEW: `apps/editor/src/components/Editor/ContextPanel/EmptyState.tsx`
+- NEW: `apps/editor/src/components/Editor/ContextPanel/MapProperties.tsx`
+- MODIFY: `apps/editor/src/components/Editor/EditorLayout.tsx` (add context panel)
+- MODIFY: `apps/editor/src/components/Editor/TilePalette/TilePalette.tsx` (remove fixed height)
+- MODIFY: `apps/editor/src/stores/editorStore.ts` (add contextPanelWidth state)
+
+### Phase 6: Drawing Tools (Future)
+- Brush tool - Paint selected tile on map
+- Fill tool - Flood fill with selected tile
+- Eraser tool - Clear tiles
+- Select tool - Select region
+- Undo/Redo system with command pattern
+- Coordinate adjustment for pan offset
+
+### Phase 7: Inspector Panels (Future)
+- Map properties editor (name, dimensions, layers)
+- Entity properties editor (position, sprite, behavior)
+- Tileset properties editor (tags, metadata)
+- Layer management UI
+- Real-time cursor position display
+
+
 ## Success Criteria
 
 ### Layout & Structure

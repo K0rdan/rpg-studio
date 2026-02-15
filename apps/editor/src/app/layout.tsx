@@ -28,12 +28,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body 
+        className={`${geistSans.variable} ${geistMono.variable}`}
+        style={{ 
+          margin: 0, 
+          padding: 0, 
+          height: '100vh', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         <ThemeRegistry>
           <ToastProvider>
             <PreviewProvider>
               <Header />
-              {children}
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                {children}
+              </div>
             </PreviewProvider>
           </ToastProvider>
         </ThemeRegistry>

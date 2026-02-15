@@ -14,8 +14,11 @@ export class GameEngine {
   private gameLoop: GameLoop;
   private assetLoader: AssetLoader;
   private isRunning: boolean = false;
+  private scale: number;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options?: { scale?: number }) {
+    this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
+    
     this.renderer = new Renderer(canvas);
     // Initialize default dimensions if 0
     if (this.renderer.getCanvas().width === 0) {
@@ -26,8 +29,14 @@ export class GameEngine {
     // Configure context for proper transparency handling
     const ctx = this.renderer.getContext();
     
-    // Scale up for retro feel
-    ctx.scale(2, 2);
+    // IMPORTANT: Reset transform to prevent cumulative scaling
+    // when re-creating GameEngine with same canvas
+    ctx.resetTransform();
+    
+    // Scale for retro feel (configurable)
+    if (this.scale !== 1) {
+      ctx.scale(this.scale, this.scale);
+    }
     ctx.imageSmoothingEnabled = false;
     
     // Ensure proper alpha blending for transparent tiles
@@ -186,5 +195,16 @@ export class GameEngine {
     this.pause();
     this.renderer.clear();
     this.scene = new Scene();
+  }
+
+  /**
+   * Update map data without reinitializing the entire engine
+   * Useful for real-time editing in the editor
+   */
+  public updateMapData(map: Map): void {
+    const mapRenderers = this.scene.getMapRenderers();
+    if (mapRenderers.length > 0) {
+      mapRenderers[0].updateMapData(map);
+    }
   }
 }

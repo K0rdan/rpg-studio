@@ -24,7 +24,28 @@ export async function GET(
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    // Fetch tileset from database
+    // Check if this is a static tileset from config
+    const { getTilesetById } = await import('@/config/tilesets');
+    const staticTileset = getTilesetById(tilesetId);
+    
+    if (staticTileset) {
+      // Return static tileset (no need to query database)
+      const formattedTileset: Tileset & { projectId: string; createdAt: Date; updatedAt: Date } = {
+        ...staticTileset,
+        projectId,
+        createdAt: new Date(), // Static tilesets don't have timestamps
+        updatedAt: new Date(),
+      };
+      return NextResponse.json(formattedTileset, { status: 200 });
+    }
+
+    // Not a static tileset, try to fetch from database
+    // Only try ObjectId conversion if it looks like a valid ObjectId (24 hex chars)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(tilesetId);
+    if (!isValidObjectId) {
+      return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
+    }
+
     const tilesetsCollection = db.collection('tilesets');
     const tileset = await tilesetsCollection.findOne({
       _id: new ObjectId(tilesetId),
@@ -92,7 +113,7 @@ export async function DELETE(
     // Fetch tileset from database
     const tilesetsCollection = db.collection('tilesets');
     const tileset = await tilesetsCollection.findOne({
-      _id: new ObjectId(tilesetId),
+      _id: new ObjectId(tilesetId),  // Tilesets use _id as ObjectId
       projectId,
     });
 
@@ -132,7 +153,7 @@ export async function DELETE(
     }
 
     // Delete from database
-    await tilesetsCollection.deleteOne({ _id: new ObjectId(tilesetId) });
+    await tilesetsCollection.deleteOne({ _id: new ObjectId(tilesetId) });  // Use ObjectId
 
     // Remove from project's tilesets array
     await db.collection('projects').updateOne(

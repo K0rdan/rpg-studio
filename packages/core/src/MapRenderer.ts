@@ -23,11 +23,12 @@ export class MapRenderer {
   }
 
   public render(renderer: Renderer) {
-    const srcTileWidth = this.tileset.tile_width;
-    const srcTileHeight = this.tileset.tile_height;
+    // Use source tile sizes for reading from tileset image, fall back to display sizes
+    const srcTileWidth = this.tileset.source_tile_width || this.tileset.tile_width;
+    const srcTileHeight = this.tileset.source_tile_height || this.tileset.tile_height;
     const mapWidth = this.map.width; // in tiles
 
-    // Calculate columns in tileset image
+    // Calculate columns in tileset image based on SOURCE tile size
     const cols = Math.floor(this.tilesetImage.width / srcTileWidth);
     
     let tilesDrawn = 0;
@@ -40,7 +41,7 @@ export class MapRenderer {
         const x = (i % mapWidth) * this.destTileWidth;
         const y = Math.floor(i / mapWidth) * this.destTileHeight;
 
-        // Calculate source position
+        // Calculate source position using SOURCE tile sizes
         const sx = (tileIndex % cols) * srcTileWidth;
         const sy = Math.floor(tileIndex / cols) * srcTileHeight;
 
@@ -56,5 +57,13 @@ export class MapRenderer {
     if (tilesDrawn > 0) {
       console.log(`MapRenderer: Drew ${tilesDrawn} tiles`);
     }
+  }
+
+  /**
+   * Update map data without reinitializing the renderer
+   * Useful for real-time editing
+   */
+  public updateMapData(map: Map): void {
+    this.map = map;
   }
 }

@@ -3,6 +3,7 @@ import { useEditorStore } from '@/stores/editorStore';
 
 export const useKeyboardShortcuts = () => {
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
+  const toggleLeftSidebar = useEditorStore((state) => state.toggleLeftSidebar);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -12,6 +13,13 @@ export const useKeyboardShortcuts = () => {
       }
 
       const key = e.key.toLowerCase();
+      
+      // Panel toggles
+      if (key === 'b' && (e.ctrlKey || e.metaKey)) {
+        toggleLeftSidebar();
+        e.preventDefault();
+        return;
+      }
       
       // Tool shortcuts
       switch (key) {
@@ -48,5 +56,5 @@ export const useKeyboardShortcuts = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setActiveTool]);
+  }, [setActiveTool, toggleLeftSidebar]);
 };

@@ -7,7 +7,7 @@ import { AssetsTree } from './AssetsTree';
 
 export const ProjectExplorer = () => {
   return (
-    <Box sx={{ p: 2, height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <Box id="project-explorer" sx={{ p: 2, height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h6" sx={{ mb: 2, fontSize: '0.875rem', fontWeight: 600 }}>
         PROJECT EXPLORER
       </Typography>

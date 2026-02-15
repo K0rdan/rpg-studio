@@ -12,8 +12,10 @@ export const TILESETS: Tileset[] = [
     id: 'ts1',
     name: 'RPG Tileset',
     image_source: '/tileset_final.png?v=3',
-    tile_width: 128,  // Source tile size in the image
-    tile_height: 128, // Source tile size in the image
+    tile_width: 32,           // Display size in palette (32x32 pixels)
+    tile_height: 32,          // Display size in palette (32x32 pixels)
+    source_tile_width: 128,   // Actual tile size in source image (128x128 pixels)
+    source_tile_height: 128,  // Actual tile size in source image (128x128 pixels)
   },
   // Add more tilesets as needed:
   // {

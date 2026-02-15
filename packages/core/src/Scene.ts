@@ -138,4 +138,8 @@ export class Scene {
       char.renderer.render(renderer, char.x, char.y, 32, 32);
     }
   }
+
+  public getMapRenderers(): MapRenderer[] {
+    return this.mapRenderer ? [this.mapRenderer] : [];
+  }
 }
