@@ -9,12 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@packages/core": "*"
+    "@packages/core": "^1.0.0"
   },
   "devDependencies": {
-    "@packages/types": "*",
-    "cypress": "^15.7.0",
+    "@packages/types": "^1.0.0",
+    "cypress": "^15.10.0",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.3.1"
   }
 }
