@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, Tileset, GameProject, Entity, EntityType, Sprite } from '@packages/types';
+import { Map, Tileset, GameProject, Entity, Sprite } from '@packages/types';
 import TilePalette from './TilePalette';
 import LayerManager from './LayerManager';
 import ZoomControls from './ZoomControls';
 import ToolSelector from './ToolSelector';
-import EntityPalette from './EntityPalette';
-import EntityPropertiesPanel from './EntityPropertiesPanel';
+// Entity components removed - using new entity system in Editor layout
 import { DrawingTool } from '@/types/DrawingTool';
 import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
@@ -52,7 +51,8 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
   const [rectanglePreview, setRectanglePreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   
   // Entity state
-  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>(null);
+  // Entity system moved to new Editor layout
+  // const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>(null);
   const [selectedSpriteId, setSelectedSpriteId] = useState<string | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [availableSprites] = useState<Sprite[]>([]); // TODO: Load from API
@@ -179,19 +179,33 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
         const entityY = entity.y * actualTileSize;
         const padding = actualTileSize * 0.25;
         
-        // Get entity color
-        let color = '#FF00FF'; // Default magenta
-        switch (entity.type) {
-          case EntityType.PlayerSpawn:
-            color = '#00FF00'; // Green
-            break;
-          case EntityType.NPC:
-            color = '#0000FF'; // Blue
-            break;
-          case EntityType.Interaction:
-            color = '#FFFF00'; // Yellow
-            break;
-        }
+        // Entity rendering moved to new Editor layout
+        /*
+        mapData.entities?.forEach((entity: Entity) => {
+          const entityX = entity.x * tileSize;
+          const entityY = entity.y * tileSize;
+          
+          // Get entity color
+          let color = '#757575'; // Gray
+          
+          // Draw entity marker
+          ctx.fillStyle = color;
+          ctx.fillRect(entityX, entityY, tileSize, tileSize);
+          
+          // Draw entity border
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(entityX, entityY, tileSize, tileSize);
+          
+          // Draw entity name
+          ctx.fillStyle = '#000';
+          ctx.font = '10px Arial';
+          ctx.fillText(entity.name, entityX + 2, entityY + 12);
+        });
+        */
+        
+        // Get entity color (default gray, as type-specific rendering is moved)
+        let color = '#757575'; // Gray
         
         // Draw entity placeholder
         ctx.fillStyle = color;
@@ -543,7 +557,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
 
     // Can't sample empty tiles
     if (tileId === -1) {
-      showToast('Cannot sample empty tile', 'warning');
+      showToast('Cannot sample empty tile', 'error');
       return;
     }
 
@@ -628,7 +642,8 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       // Select existing entity
       setSelectedEntity(existingEntity);
       showToast('Entity selected', 'info');
-    } else if (selectedEntityType) {
+    } // Entity placement moved to new Editor layout
+    /* else if (selectedEntityType) {
       // Place new entity
       const newEntity: Entity = {
         id: `entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -648,7 +663,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
       showToast(`${selectedEntityType} placed`, 'success');
     } else {
       showToast('Select an entity type first', 'info');
-    }
+    } */
   };
 
   const handleUpdateEntity = (updatedEntity: Entity) => {
@@ -775,19 +790,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
             onSelectSelection={setSelectedSelection} 
             selection={selectedSelection} 
           />
-          <EntityPalette
-            selectedEntityType={selectedEntityType}
-            onSelectEntityType={setSelectedEntityType}
-            selectedSpriteId={selectedSpriteId}
-            onSelectSprite={setSelectedSpriteId}
-            availableSprites={availableSprites}
-          />
-          <EntityPropertiesPanel
-            entity={selectedEntity}
-            onUpdateEntity={handleUpdateEntity}
-            onDeleteEntity={handleDeleteEntity}
-            availableSprites={availableSprites}
-          />
+
         </Box>
         <Box sx={{ flex: 1 }}>
           <Paper sx={{ p: 1, overflow: 'auto', height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: '#f5f5f5' }}>

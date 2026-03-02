@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
+import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
 
 export const useKeyboardShortcuts = () => {
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
@@ -13,6 +14,13 @@ export const useKeyboardShortcuts = () => {
       }
 
       const key = e.key.toLowerCase();
+      
+      // Escape key - deselect entity
+      if (key === 'escape') {
+        useEntitySelectionStore.getState().setSelectedEntity(null);
+        e.preventDefault();
+        return;
+      }
       
       // Panel toggles
       if (key === 'b' && (e.ctrlKey || e.metaKey)) {
@@ -41,7 +49,7 @@ export const useKeyboardShortcuts = () => {
             e.preventDefault();
           }
           break;
-        case 'v':
+        case 'n':
           setActiveTool('entity');
           e.preventDefault();
           break;

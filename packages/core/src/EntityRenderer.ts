@@ -1,5 +1,4 @@
 import type { Entity } from '@packages/types';
-import { EntityType } from '@packages/types';
 import { Renderer } from './Renderer';
 import { SpriteRenderer } from './SpriteRenderer';
 
@@ -32,18 +31,18 @@ export class EntityRenderer {
     const pixelX = this.entity.x * this.tileWidth;
     const pixelY = this.entity.y * this.tileHeight;
 
-    // Render based on entity type
+    // Render based on whether entity has a sprite
     if (this.spriteRenderer) {
-      // For PlayerSpawn and NPC entities with sprites
+      // For entities with sprites (NPCs, etc.)
       this.spriteRenderer.render(renderer, pixelX, pixelY, this.tileWidth, this.tileHeight);
     } else {
-      // For Interaction entities or entities without sprites
+      // For entities without sprites, show placeholder
       this.renderPlaceholder(renderer, pixelX, pixelY);
     }
   }
 
   private renderPlaceholder(renderer: Renderer, x: number, y: number) {
-    // Draw a simple colored square as placeholder for interaction entities
+    // Draw a simple colored square as placeholder for entities without sprites
     const ctx = renderer.getContext();
     
     ctx.save();
@@ -64,16 +63,9 @@ export class EntityRenderer {
   }
 
   private getPlaceholderColor(): string {
-    switch (this.entity.type) {
-      case EntityType.PlayerSpawn:
-        return '#00FF00'; // Green
-      case EntityType.NPC:
-        return '#0000FF'; // Blue
-      case EntityType.Interaction:
-        return '#FFFF00'; // Yellow
-      default:
-        return '#FF00FF'; // Magenta for unknown types
-    }
+    // Use a default color for all entities without sprites
+    // In the future, this could be based on trigger type or other properties
+    return '#9C27B0'; // Purple for entities without sprites
   }
 
   public getEntity(): Entity {

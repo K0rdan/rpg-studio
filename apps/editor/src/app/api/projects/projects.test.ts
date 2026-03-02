@@ -2,19 +2,27 @@ import { MongoClient, Db, ObjectId } from 'mongodb';
 import { POST, GET } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
 import { NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+
+jest.mock('next/headers', () => ({
+  headers: jest.fn().mockResolvedValue(new Headers()),
+}));
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
   closeDatabaseConnection: jest.fn(),
 }));
 
-jest.mock('@/auth', () => ({
-  auth: jest.fn(),
+jest.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: jest.fn(),
+    },
+  },
 }));
 
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
-const mockedAuth = auth as jest.Mock;
+const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
 
 describe('Project API', () => {
   let connection: MongoClient;
@@ -30,7 +38,7 @@ describe('Project API', () => {
 
   beforeEach(async () => {
     // Default authenticated session
-    mockedAuth.mockResolvedValue({ user: { id: userId } });
+    mockedGetSession.mockResolvedValue({ user: { id: userId } });
 
     // Clean up collections
     await db.collection('projects').deleteMany({});
@@ -42,7 +50,7 @@ describe('Project API', () => {
 
   describe('POST /api/projects', () => {
     it('should return 401 if not authenticated', async () => {
-      mockedAuth.mockResolvedValueOnce(null);
+      mockedGetSession.mockResolvedValueOnce(null);
 
       const mockRequest = {
         json: jest.fn().mockResolvedValue({ name: 'Test Project' }),
@@ -88,7 +96,7 @@ describe('Project API', () => {
 
   describe('GET /api/projects', () => {
     it('should return 401 if not authenticated', async () => {
-      mockedAuth.mockResolvedValueOnce(null);
+      mockedGetSession.mockResolvedValueOnce(null);
 
       const response = await GET();
 

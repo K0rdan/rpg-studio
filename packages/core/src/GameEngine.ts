@@ -5,6 +5,8 @@ import { Scene } from './Scene';
 import { MapRenderer } from './MapRenderer';
 import { SpriteRenderer } from './SpriteRenderer';
 import { AssetLoader } from './AssetLoader';
+import { PlayerController } from './PlayerController';
+import { EntityRenderer } from './EntityRenderer';
 import type { GameProject, Map, Tileset, Character, Sprite } from '@packages/types';
 
 export class GameEngine {
@@ -15,9 +17,13 @@ export class GameEngine {
   private assetLoader: AssetLoader;
   private isRunning: boolean = false;
   private scale: number;
+  private enablePlayerControls: boolean;
+  private playerController: PlayerController | null = null;
+  private entityRenderers: EntityRenderer[] = [];
 
-  constructor(canvas: HTMLCanvasElement, options?: { scale?: number }) {
+  constructor(canvas: HTMLCanvasElement, options?: { scale?: number; enablePlayerControls?: boolean }) {
     this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
+    this.enablePlayerControls = options?.enablePlayerControls ?? true; // Default true for preview, false for editor
     
     this.renderer = new Renderer(canvas);
     // Initialize default dimensions if 0
@@ -51,6 +57,20 @@ export class GameEngine {
       this.renderer.clear();
       this.scene.update(deltaTime, this.input);
       this.scene.render(this.renderer);
+
+      // Render entities (NPCs, doors, etc.)
+      this.entityRenderers.forEach(renderer => {
+        renderer.update(deltaTime);
+        renderer.render(this.renderer);
+      });
+
+      // Render player on top (only update if controls are enabled)
+      if (this.playerController) {
+        if (this.enablePlayerControls) {
+          this.playerController.update(deltaTime, this.input);
+        }
+        this.playerController.render(this.renderer);
+      }
     });
   }
 
@@ -76,8 +96,8 @@ export class GameEngine {
         id: 'ts1', // default fallback
         name: 'Fixed Tileset',
         image_source: '/tileset_fixed.png',
-        tile_width: 128,
-        tile_height: 128
+        tile_width: 32,
+        tile_height: 32
       };
     }
 
@@ -113,6 +133,36 @@ export class GameEngine {
     );
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
+
+    // Load entities from map
+    if (currentMap.entities && currentMap.entities.length > 0) {
+      console.log(`GameEngine: Loading ${currentMap.entities.length} entity/entities from map`);
+      
+      // Find player entity
+      const playerEntity = currentMap.entities.find(e => e.type === 'player');
+      if (playerEntity) {
+        console.log('GameEngine: Creating player controller at', playerEntity.x, playerEntity.y);
+        this.playerController = new PlayerController(
+          playerEntity,
+          tileset.tile_width,
+          tileset.tile_height
+        );
+      } else {
+        console.warn('GameEngine: No player entity found in map');
+      }
+
+      // TODO: Create renderers for other entities (NPCs, doors, etc.) when they have sprites
+      // For now, we skip rendering entities without sprites to avoid purple placeholder overlays
+      // const otherEntities = currentMap.entities.filter(e => e.type !== 'player');
+      // this.entityRenderers = otherEntities.map(entity => {
+      //   console.log(`GameEngine: Creating renderer for entity "${entity.name}" at (${entity.x}, ${entity.y})`);
+      //   return new EntityRenderer(entity, null, tileset.tile_width, tileset.tile_height);
+      // });
+      
+      console.log(`GameEngine: Skipped entity renderers (no sprites available)`);
+    } else {
+      console.log('GameEngine: No entities in map');
+    }
 
     // TODO: Load entities from map and create character instances
     // The old character loading code below is commented out because project.characters

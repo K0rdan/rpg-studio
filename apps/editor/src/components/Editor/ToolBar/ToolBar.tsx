@@ -7,14 +7,18 @@ import {
   FormatColorFill as FillIcon,
   Backspace as EraserIcon,
   CropSquare as SelectIcon,
+  Person as EntityIcon,
   FolderOpen as ProjectExplorerIcon,
   Save as SaveIcon,
   Settings as SettingsIcon,
+  PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { ToolButton } from './ToolButton';
 import { useEditorStore } from '@/stores/editorStore';
 import { useMapEngine } from '@/hooks/useMapEngine';
 import { useToast } from '@/context/ToastContext';
+import { usePreview } from '@/context/PreviewContext';
+import { useEntities } from '@/hooks/useEntities';
 import { useEffect } from 'react';
 
 export const ToolBar = () => {
@@ -32,6 +36,8 @@ export const ToolBar = () => {
   
   const { currentMap } = useMapEngine(projectId);
   const { showToast } = useToast();
+  const preview = usePreview();
+  const { entities } = useEntities(projectId, currentMap?.id || '');
 
   const handleSave = async () => {
     if (!currentMap || !isDirty) return;
@@ -74,18 +80,47 @@ export const ToolBar = () => {
     console.log('Settings clicked');
   };
 
-  // Keyboard shortcut for save (Cmd+S / Ctrl+S)
+  const handlePreview = async () => {
+    // Check if player entity exists
+    const hasPlayer = entities?.some(e => e.type === 'player');
+    if (!hasPlayer) {
+      showToast('Add a player entity to preview the game', 'info');
+      return;
+    }
+
+    try {
+      // Fetch preview data from API
+      const response = await fetch(`/api/projects/${projectId}/preview`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch preview data');
+      }
+      
+      const data = await response.json();
+      
+      // Open preview modal
+      preview.play(data);
+    } catch (error) {
+      console.error('Error loading preview:', error);
+      showToast('Failed to load preview', 'error');
+    }
+  };
+
+  // Keyboard shortcuts (Cmd+S / Ctrl+S for save, Cmd+P / Ctrl+P for preview)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        handlePreview();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentMap, isDirty, projectId]); // Dependencies for handleSave
+  }, [currentMap, isDirty, projectId, entities]); // Dependencies for handleSave and handlePreview
 
   return (
     <Box
@@ -129,6 +164,12 @@ export const ToolBar = () => {
           onClick={() => setActiveTool('select')}
           disabled
         />
+        <ToolButton
+          icon={<EntityIcon />}
+          tooltip="Entity (N)"
+          active={activeTool === 'entity'}
+          onClick={() => setActiveTool('entity')}
+        />
       </Box>
 
       {/* Divider */}
@@ -149,6 +190,16 @@ export const ToolBar = () => {
 
       {/* Bottom: Actions */}
       <Box id="toolbar-actions">
+        <ToolButton
+          icon={<PlayArrowIcon />}
+          tooltip={
+            !entities || entities.length === 0 ? 'Add entities to preview' :
+            !entities.some(e => e.type === 'player') ? 'Add a player entity to preview' :
+            'Preview Game (Ctrl+P)'
+          }
+          onClick={handlePreview}
+          disabled={!entities || !entities.some(e => e.type === 'player')}
+        />
         <ToolButton
           icon={<SaveIcon />}
           tooltip={

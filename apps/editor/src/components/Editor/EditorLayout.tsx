@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import { ToolBar } from './ToolBar/ToolBar';
 import { ProjectExplorer } from './ProjectExplorer/ProjectExplorer';
@@ -30,15 +31,25 @@ export const EditorLayout = () => {
   const setContextPanelWidth = useEditorStore((state) => state.setContextPanelWidth);
   const setRightSidebarWidth = useEditorStore((state) => state.setRightSidebarWidth);
 
-  // Check if something is selected for context panel
+  // Check if something is selected for context panel OR if entity/brush tool is active
   const selectedType = useSelectionStore((state) => state.type);
   const selectedId = useSelectionStore((state) => state.id);
-  const hasSelection = selectedType && selectedId;
+  const activeTool = useEditorStore((state) => state.tools.activeTool);
+  const hasSelection = (selectedType && selectedId) || activeTool === 'entity' || activeTool === 'brush';
 
   // Calculate max width for left panel group: 40% of viewport - toolbar width
-  const maxLeftPanelGroupWidth = typeof window !== 'undefined' 
-    ? Math.floor(window.innerWidth * 0.4) - TOOLBAR_WIDTH
-    : 600;
+  // Use state to avoid hydration mismatch
+  const [maxLeftPanelGroupWidth, setMaxLeftPanelGroupWidth] = useState(600);
+  
+  useEffect(() => {
+    const updateMaxWidth = () => {
+      setMaxLeftPanelGroupWidth(Math.floor(window.innerWidth * 0.4) - TOOLBAR_WIDTH);
+    };
+    
+    updateMaxWidth();
+    window.addEventListener('resize', updateMaxWidth);
+    return () => window.removeEventListener('resize', updateMaxWidth);
+  }, []);
 
   // Calculate max width for context panel: remaining space after project tree
   const maxContextPanelWidth = Math.max(300, maxLeftPanelGroupWidth - leftSidebarWidth);
@@ -51,7 +62,7 @@ export const EditorLayout = () => {
       {/* Main Content Area */}
       <Box id="editor-main-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panels: Project Tree + Context Panel (max 40% viewport - toolbar) */}
-        {leftSidebarOpen && (
+        {(leftSidebarOpen || hasSelection) && (
           <Box
             id="left-panel-group"
             sx={{ 
@@ -61,18 +72,20 @@ export const EditorLayout = () => {
             }}
           >
             {/* Project Tree */}
-            <ResizablePanel
-              id="project-tree"
-              defaultWidth={leftSidebarWidth}
-              minWidth={200}
-              maxWidth={Math.min(400, maxLeftPanelGroupWidth - (hasSelection ? 300 : 0))}
-              position="left"
-              onWidthChange={setLeftSidebarWidth}
-            >
-              <ProjectExplorer />
-            </ResizablePanel>
+            {leftSidebarOpen && (
+              <ResizablePanel
+                id="project-tree"
+                defaultWidth={leftSidebarWidth}
+                minWidth={200}
+                maxWidth={Math.min(400, maxLeftPanelGroupWidth - (hasSelection ? 300 : 0))}
+                position="left"
+                onWidthChange={setLeftSidebarWidth}
+              >
+                <ProjectExplorer />
+              </ResizablePanel>
+            )}
             
-            {/* Context Panel - Only show when something is selected */}
+            {/* Context Panel - Show when something is selected OR entity tool is active */}
             {hasSelection && (
               <ResizablePanel
                 id="context-panel"

@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation';
 import { GameEngine } from '@packages/core';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useViewportStore } from '@/stores/viewportStore';
+import { useMapStore } from '@/stores/mapStore';
 import type { GameProject, Map, Tileset } from '@packages/types';
 
 interface UseMapEngineReturn {
@@ -61,6 +62,8 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
         // Set first map as current if available
         if (mapsData.length > 0) {
           setCurrentMap(mapsData[0]);
+          // Set active map ID in store
+          useMapStore.getState().setActiveMapId(mapsData[0].id);
         }
       } catch (err) {
         console.error('Error fetching project data:', err);
@@ -81,8 +84,8 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
 
     const initEngine = async () => {
       try {
-        // Create GameEngine instance with current zoom level
-        const engine = new GameEngine(canvasRef.current!, { scale: zoom });
+        // Create GameEngine instance with current zoom level (disable player controls in editor)
+        const engine = new GameEngine(canvasRef.current!, { scale: zoom, enablePlayerControls: false });
         engineRef.current = engine;
 
         // Initialize with project data

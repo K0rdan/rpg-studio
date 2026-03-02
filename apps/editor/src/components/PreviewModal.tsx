@@ -81,7 +81,7 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
     console.log('Maps:', data.maps);
     console.log('Tilesets:', data.tilesets);
     
-    const engine = new GameEngine(canvasRef.current);
+    const engine = new GameEngine(canvasRef.current, { scale: 1, enablePlayerControls: true }); // Use 1x scale and enable player controls
     console.log('✅ GameEngine instance created');
     
     // Test if tileset loads (for UI status)

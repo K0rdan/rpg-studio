@@ -27,9 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body 
         className={`${geistSans.variable} ${geistMono.variable}`}
+        suppressHydrationWarning
         style={{ 
           margin: 0, 
           padding: 0, 

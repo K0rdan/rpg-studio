@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 /**
  * POST /api/projects/[projectId]/tilesets/save-generated
@@ -14,7 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }

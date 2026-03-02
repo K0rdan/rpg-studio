@@ -3,7 +3,8 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { getGeminiClient, buildTilesetPrompt } from '@/lib/gemini';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import type { TilesetGenerationRequest } from '@packages/types';
 
 /**
@@ -16,7 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -70,11 +71,16 @@ export async function POST(
     // Extract image from response (base64 inline data)
     let imageBuffer: Buffer | null = null;
     let imageBase64: string | null = null;
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        imageBase64 = part.inlineData.data;
-        imageBuffer = Buffer.from(imageBase64, 'base64');
-        break;
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData) {
+          imageBase64 = part.inlineData.data || null;
+          if (imageBase64) {
+            imageBuffer = Buffer.from(imageBase64, 'base64');
+          }
+          break;
+        }
       }
     }
 

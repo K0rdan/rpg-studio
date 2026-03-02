@@ -5,7 +5,8 @@ import { getTilesetStorage } from '@/lib/storage';
 import type { Tileset } from '@packages/types';
 import { SUPPORTED_MIME_TYPES } from '@packages/storage';
 import { InvalidMimeTypeError, UploadFailedError } from '@packages/storage';
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -19,7 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -113,7 +114,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }

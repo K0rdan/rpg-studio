@@ -11,6 +11,7 @@ interface EditorLayoutState {
   tilePaletteHeight: number;
 }
 
+// Tool state
 interface ToolState {
   activeTool: ToolType;
   brushSize: number;
@@ -18,6 +19,7 @@ interface ToolState {
   selectedTileId: number | null;
 }
 
+// Painting state
 interface PaintingState {
   isPainting: boolean;
   lastPaintedTile: { x: number; y: number } | null;

@@ -3,7 +3,11 @@ import { GET, POST } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+
+jest.mock('next/headers', () => ({
+  headers: jest.fn().mockResolvedValue(new Headers()),
+}));
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
@@ -14,13 +18,17 @@ jest.mock('@/lib/storage', () => ({
   getTilesetStorage: jest.fn(),
 }));
 
-jest.mock('@/auth', () => ({
-  auth: jest.fn(),
+jest.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: jest.fn(),
+    },
+  },
 }));
 
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
 const mockedGetTilesetStorage = getTilesetStorage as jest.Mock;
-const mockedAuth = auth as jest.Mock;
+const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
 
 describe('Tileset API', () => {
   let connection: MongoClient;
@@ -49,7 +57,7 @@ describe('Tileset API', () => {
 
   beforeEach(async () => {
     // Default authenticated session
-    mockedAuth.mockResolvedValue({ user: { id: userId } });
+    mockedGetSession.mockResolvedValue({ user: { id: userId } });
 
     // Clean up collections
     await db.collection('projects').deleteMany({});
@@ -177,7 +185,7 @@ describe('Tileset API', () => {
 
   describe('POST /api/projects/[projectId]/tilesets', () => {
     it('should return 401 if not authenticated', async () => {
-      mockedAuth.mockResolvedValueOnce(null);
+      mockedGetSession.mockResolvedValueOnce(null);
 
       const mockRequest = {
         formData: jest.fn(),
@@ -191,7 +199,7 @@ describe('Tileset API', () => {
     });
 
     it('should return 403 if user does not own project', async () => {
-      mockedAuth.mockResolvedValueOnce({ user: { id: 'other-user-456' } });
+      mockedGetSession.mockResolvedValueOnce({ user: { id: 'other-user-456' } });
 
       const mockRequest = {
         formData: jest.fn(),

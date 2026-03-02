@@ -28,26 +28,27 @@ declare global {
 
 Cypress.Commands.add('login', () => {
   cy.session('test-user', () => {
-    // Step 1: Go to sign-in page
-    cy.visit('/api/auth/signin');
+    // Step 1: Go to custom sign-in page
+    cy.visit('/login');
     cy.wait(1000); // Wait for page to load
     
-    // Step 2: Fill in the password field (for Test User Credentials provider)
-    cy.get('input[name="password"]').should('be.visible').clear().type('test-password');
+    // Step 2: Fill in the dev password fields
+    cy.contains('label', 'Email address').parent().find('input').should('be.visible').clear().type('test@rpg-studio.dev');
+    cy.contains('label', 'Password (Dev only)').parent().find('input').should('be.visible').clear().type('test-password');
     
-    // Step 3: Click "Sign in with Test User (Dev Only)" button to submit
-    cy.contains('Sign in with Test User (Dev Only)').click();
+    // Step 3: Click "Dev Login with Password" button to submit
+    cy.contains('Dev Login with Password').click();
     
     // Step 4: Wait for redirect and session to be established
     cy.wait(3000);
     
     // Step 5: Verify we're logged in
-    cy.url().should('not.include', '/auth/signin');
-    cy.url().should('not.include', '/auth/error');
+    cy.url().should('not.include', '/login');
+    cy.url().should('not.include', '/error');
   }, {
     validate() {
       // Validate session exists
-      cy.request('/api/auth/session').its('body').should('have.property', 'user');
+      cy.request('/api/auth/get-session').its('body').should('have.property', 'user');
     },
   });
 });

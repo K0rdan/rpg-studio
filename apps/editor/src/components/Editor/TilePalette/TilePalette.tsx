@@ -7,7 +7,7 @@ import { TileGrid } from './TileGrid';
 import type { Tileset } from '@packages/types';
 
 interface TilePaletteProps {
-  tilesetId: string;
+  tilesetId?: string;
 }
 
 export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
@@ -18,20 +18,32 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch single tileset
+  // Fetch tileset (specific one or first available)
   useEffect(() => {
-    if (!tilesetId || !projectId) return;
+    if (!projectId) return;
 
     const fetchTileset = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/projects/${projectId}/tilesets/${tilesetId}`);
-        if (!response.ok) throw new Error('Failed to fetch tileset');
-
-        const data = await response.json();
-        setTileset(data);
+        if (tilesetId) {
+          // Fetch specific tileset
+          const response = await fetch(`/api/projects/${projectId}/tilesets/${tilesetId}`);
+          if (!response.ok) throw new Error('Failed to fetch tileset');
+          const data = await response.json();
+          setTileset(data);
+        } else {
+          // Fetch first available tileset
+          const response = await fetch(`/api/tilesets?projectId=${projectId}`);
+          if (!response.ok) throw new Error('Failed to fetch tilesets');
+          const data = await response.json();
+          if (data.length > 0) {
+            setTileset(data[0]);
+          } else {
+            setError('No tilesets available');
+          }
+        }
       } catch (err) {
         console.error('Error fetching tileset:', err);
         setError(err instanceof Error ? err.message : 'Failed to load tileset');

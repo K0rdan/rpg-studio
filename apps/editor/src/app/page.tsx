@@ -1,4 +1,5 @@
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -12,7 +13,8 @@ export default async function Home() {
   let authError = false;
   
   try {
-    session = await auth();
+    const sessionRes = await auth.api.getSession({ headers: await headers() });
+    session = sessionRes;
   } catch (error) {
     console.error('[Home] Auth error (DB might be unavailable):', error instanceof Error ? error.message : error);
     authError = true;

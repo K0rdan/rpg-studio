@@ -1,4 +1,5 @@
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import NewProject from '@/components/NewProject';
 import ProjectList from '@/components/ProjectList';
@@ -15,7 +16,7 @@ export default async function ProjectsPage() {
   let dbError = false;
   
   try {
-    session = await auth();
+    session = await auth.api.getSession({ headers: await headers() });
   } catch (error) {
     console.error('[Projects] Auth error:', error instanceof Error ? error.message : error);
     // Redirect to home if auth fails

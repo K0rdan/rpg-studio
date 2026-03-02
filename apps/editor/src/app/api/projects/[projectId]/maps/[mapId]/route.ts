@@ -28,8 +28,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   try {
-    const { auth: getAuth } = await import('@/auth');
-    const session = await getAuth();
+    const { auth } = await import('@/lib/auth');
+    const { headers } = await import('next/headers');
+    const session = await auth.api.getSession({ headers: await headers() });
     
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });

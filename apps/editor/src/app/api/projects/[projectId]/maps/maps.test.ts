@@ -1,16 +1,27 @@
 import { MongoClient, Db, ObjectId } from 'mongodb';
 import { POST, GET } from './route';
-import { connectToDatabase } from '@/lib/mongodb';
 import { NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
+import { connectToDatabase } from '@/lib/mongodb';
+
+jest.mock('next/headers', () => ({
+  headers: jest.fn().mockResolvedValue(new Headers()),
+}));
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
 }));
 
 // Mock auth - maps route may not have auth yet, but adding for consistency
-jest.mock('@/auth', () => ({
-  auth: jest.fn(),
+jest.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: jest.fn(),
+    },
+  },
 }));
+
+const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
 
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
 
@@ -32,8 +43,8 @@ describe('Map API', () => {
 
   beforeEach(async () => {
     // Mock authenticated session
-    const { auth } = require('@/auth');
-    auth.mockResolvedValue({ user: { id: userId } });
+    const { auth } = require('@/lib/auth');
+    auth.api.getSession.mockResolvedValue({ user: { id: userId } });
 
     await db.collection('maps').deleteMany({});
     await db.collection('projects').deleteMany({});

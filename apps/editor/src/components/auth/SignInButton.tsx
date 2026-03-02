@@ -1,15 +1,14 @@
+"use client";
 
-import { signIn } from "@/auth"
- 
+import { Button } from "@mui/material";
+import { useRouter } from "next/navigation";
+
 export function SignInButton() {
+  const router = useRouter();
+
   return (
-    <form
-      action={async () => {
-        "use server"
-        await signIn()
-      }}
-    >
-      <button type="submit">Sign in</button>
-    </form>
-  )
+    <Button color="inherit" onClick={() => router.push("/login")}>
+      Sign In
+    </Button>
+  );
 }

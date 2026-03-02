@@ -1,4 +1,5 @@
-import { auth } from "@/auth"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
 import { UserMenu } from "@/components/auth/UserMenu"
 import { SignInButton } from "@/components/auth/SignInButton"
 import Link from 'next/link';
@@ -12,7 +13,10 @@ export default async function Header() {
   let session = null;
   
   try {
-    session = await auth();
+    const sessionRes = await auth.api.getSession({
+      headers: await headers()
+    });
+    session = sessionRes?.session ? sessionRes : null;
   } catch (error) {
     console.error('[Header] Auth error (DB might be unavailable):', error instanceof Error ? error.message : error);
     // Continue with null session - user will see sign-in button
