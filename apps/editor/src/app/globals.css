@@ -85,6 +85,10 @@ a {
   background-color: #2563eb; /* blue-600 */
 }
 
+.toast-warning {
+  background-color: #d97706; /* amber-600 */
+}
+
 .toast-content {
   display: flex;
   align-items: center;

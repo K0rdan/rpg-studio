@@ -80,7 +80,8 @@ export async function GET(
             updatedAt: tileset.updatedAt,
           };
         } catch (error) {
-          console.error(`Failed to generate URL for tileset ${tileset._id}:`, error);
+          const reason = error instanceof Error ? error.message : String(error);
+          console.warn(`[tilesets/${projectId}] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
           // Return tileset without URL if storage fails
           return {
             id: tileset._id.toHexString(),
@@ -276,7 +277,7 @@ export async function POST(
     // Update project's tilesets array
     await db.collection('projects').updateOne(
       { _id: new ObjectId(projectId) },
-      { $push: { tilesets: tilesetId.toHexString() } }
+      { $push: { tilesets: tilesetId.toHexString() } as any }
     );
 
     // Generate image URL

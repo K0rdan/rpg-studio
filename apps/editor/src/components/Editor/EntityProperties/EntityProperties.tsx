@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, Divider, Button } from '@mui/material';
 import { Delete } from '@mui/icons-material';
-import { Entity, Command, CommandType, TriggerType, ShowMessageCommand, TeleportPlayerCommand, GiveItemCommand } from '@packages/types';
+import { Entity, Command, CommandType, TriggerType, ShowMessageCommand, TeleportPlayerCommand, GiveItemCommand, DEFAULT_PLAYER_PROPERTIES, PlayerProperties } from '@packages/types';
 import { CommandList } from './CommandList';
 import { AddCommandDialog } from './AddCommandDialog';
 import { EditShowMessageDialog } from './EditShowMessageDialog';
 import { EditTeleportPlayerDialog } from './EditTeleportPlayerDialog';
 import { EditGiveItemDialog } from './EditGiveItemDialog';
+import { PlayerPropertiesPanel } from './PlayerPropertiesPanel';
 
 interface EntityPropertiesProps {
   entity: Entity | null;
@@ -20,6 +21,14 @@ export const EntityProperties = ({ entity, onUpdateEntity, onDeleteEntity }: Ent
   const [addCommandDialogOpen, setAddCommandDialogOpen] = useState(false);
   const [editingCommandIndex, setEditingCommandIndex] = useState<number | null>(null);
   const [editingCommandType, setEditingCommandType] = useState<CommandType | null>(null);
+
+  /** true when the selected entity is the player — drives conditional render */
+  const isPlayer = entity?.type === 'player';
+
+  const handleUpdatePlayerProperties = (updated: PlayerProperties) => {
+    if (!entity) return;
+    onUpdateEntity({ ...entity, playerProperties: updated });
+  };
 
   if (!entity) {
     return (
@@ -151,38 +160,48 @@ export const EntityProperties = ({ entity, onUpdateEntity, onDeleteEntity }: Ent
         />
       </Box>
 
-      {/* Trigger */}
-      <FormControl
-        fullWidth
-        margin="normal"
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            color: '#fff',
-            '& fieldset': { borderColor: '#444' },
-            '&:hover fieldset': { borderColor: '#666' },
-            '&.Mui-focused fieldset': { borderColor: '#2196F3' },
-          },
-          '& .MuiInputLabel-root': { color: '#aaa' },
-        }}
-      >
-        <InputLabel>Trigger</InputLabel>
-        <Select value={entity.trigger} onChange={(e) => handleUpdateField('trigger', e.target.value)} label="Trigger">
-          <MenuItem value={TriggerType.ActionButton}>Action Button (Space/Enter)</MenuItem>
-          <MenuItem value={TriggerType.PlayerTouch}>Player Touch</MenuItem>
-          <MenuItem value={TriggerType.Autorun}>Autorun</MenuItem>
-          <MenuItem value={TriggerType.MapLoad}>Map Load</MenuItem>
-        </Select>
-      </FormControl>
+      {/* Player-specific properties (replaces Trigger + Commands for player entities) */}
+      {isPlayer ? (
+        <PlayerPropertiesPanel
+          playerProperties={entity.playerProperties ?? { ...DEFAULT_PLAYER_PROPERTIES }}
+          onChange={handleUpdatePlayerProperties}
+        />
+      ) : (
+        <>
+          {/* Trigger */}
+          <FormControl
+            fullWidth
+            margin="normal"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                color: '#fff',
+                '& fieldset': { borderColor: '#444' },
+                '&:hover fieldset': { borderColor: '#666' },
+                '&.Mui-focused fieldset': { borderColor: '#2196F3' },
+              },
+              '& .MuiInputLabel-root': { color: '#aaa' },
+            }}
+          >
+            <InputLabel>Trigger</InputLabel>
+            <Select value={entity.trigger ?? ''} onChange={(e) => handleUpdateField('trigger', e.target.value)} label="Trigger">
+              <MenuItem value={TriggerType.ActionButton}>Action Button (Space/Enter)</MenuItem>
+              <MenuItem value={TriggerType.PlayerTouch}>Player Touch</MenuItem>
+              <MenuItem value={TriggerType.Autorun}>Autorun</MenuItem>
+              <MenuItem value={TriggerType.MapLoad}>Map Load</MenuItem>
+            </Select>
+          </FormControl>
 
-      <Divider sx={{ my: 3, borderColor: '#444' }} />
+          <Divider sx={{ my: 3, borderColor: '#444' }} />
 
-      {/* Commands */}
-      <CommandList
-        commands={entity.commands}
-        onAddCommand={handleAddCommand}
-        onEditCommand={handleEditCommand}
-        onDeleteCommand={handleDeleteCommand}
-      />
+          {/* Commands */}
+          <CommandList
+            commands={entity.commands}
+            onAddCommand={handleAddCommand}
+            onEditCommand={handleEditCommand}
+            onDeleteCommand={handleDeleteCommand}
+          />
+        </>
+      )}
 
       {/* Dialogs */}
       <AddCommandDialog

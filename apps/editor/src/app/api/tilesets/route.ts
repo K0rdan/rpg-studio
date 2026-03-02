@@ -53,15 +53,21 @@ export async function GET(req: NextRequest) {
                     tile_height: tileset.tile_height,
                   };
                 } catch (error) {
-                  console.error(`Failed to generate URL for tileset ${tileset._id}:`, error);
-                  return null;
+                  const reason = error instanceof Error ? error.message : String(error);
+                  console.warn(`[tilesets] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
+                  // Return tileset without image rather than silently dropping it
+                  return {
+                    id: tileset._id.toHexString(),
+                    name: tileset.name,
+                    image_source: null,
+                    tile_width: tileset.tile_width,
+                    tile_height: tileset.tile_height,
+                  };
                 }
               })
             );
 
-            // Filter out nulls and combine with static tilesets
-            const validProjectTilesets = projectTilesetsWithUrls.filter((t) => t !== null);
-            return NextResponse.json([...staticTilesets, ...validProjectTilesets], { status: 200 });
+            return NextResponse.json([...staticTilesets, ...projectTilesetsWithUrls], { status: 200 });
           }
         }
       } catch (error) {

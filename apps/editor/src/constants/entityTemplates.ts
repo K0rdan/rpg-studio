@@ -1,4 +1,4 @@
-import { TriggerType, CommandType, Entity } from '@packages/types';
+import { TriggerType, CommandType, Entity, DEFAULT_PLAYER_PROPERTIES } from '@packages/types';
 
 export interface EntityTemplate {
   id: string;
@@ -18,9 +18,9 @@ export const ENTITY_TEMPLATES: EntityTemplate[] = [
       name: 'Player',
       type: 'player',
       template: 'player',
-      trigger: TriggerType.ActionButton,
       commands: [],
       enabled: true,
+      playerProperties: { ...DEFAULT_PLAYER_PROPERTIES },
     },
   },
   {

@@ -262,6 +262,7 @@ export const MapCanvas = () => {
         const existingPlayer = entities.find(e => e.type === 'player');
         if (existingPlayer) {
           console.warn('Only one player entity allowed per map');
+          showToast('A Player spawn already exists on this map. Only one is allowed.', 'warning');
           return;
         }
       }

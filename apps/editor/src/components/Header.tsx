@@ -18,8 +18,10 @@ export default async function Header() {
     });
     session = sessionRes?.session ? sessionRes : null;
   } catch (error) {
-    console.error('[Header] Auth error (DB might be unavailable):', error instanceof Error ? error.message : error);
-    // Continue with null session - user will see sign-in button
+    // DB or auth service unavailable (e.g. IP-restricted network, cold start).
+    // Degrade gracefully: show Sign-In button as if logged out.
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`[Header] Auth service unavailable — showing signed-out state. Reason: ${reason}`);
   }
   
   return (

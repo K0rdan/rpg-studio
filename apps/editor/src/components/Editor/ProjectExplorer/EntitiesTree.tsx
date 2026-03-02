@@ -63,6 +63,9 @@ export const EntitiesTree = () => {
   const setSelectedEntity = useEntitySelectionStore((state) => state.setSelectedEntity);
   const { showToast } = useToast();
 
+  // Local state for expanded tree items — MUST be declared before any early returns
+  const [expandedItems, setExpandedItems] = useState<string[]>(['entities-root']);
+
   // Determine which item should be highlighted in the tree
   // entitySelectionStore is the source of truth (set by both tree clicks and canvas clicks)
   const treeSelectedItem = selectedEntityId || selectedItemId || '';
@@ -133,14 +136,32 @@ export const EntitiesTree = () => {
     setEntityToDelete(null);
   };
 
-  // Group entities by template, with fallback to type for backward compatibility
-  const groupedEntities = {
-    player: entities.filter((e) => e.template === 'player' || (!e.template && e.type === 'player')),
-    npc: entities.filter((e) => e.template === 'npc' || (!e.template && e.type === 'npc')),
-    interactable: entities.filter((e) => e.template === 'interactable'),
-    container: entities.filter((e) => e.template === 'container'),
-    teleporter: entities.filter((e) => e.template === 'teleporter'),
-    event_zone: entities.filter((e) => e.template === 'event_zone'),
+  // Auto-expand the category that contains the selected entity
+  // MUST be declared before any early returns (Rules of Hooks)
+  useEffect(() => {
+    if (!selectedEntityId) return;
+
+    const entity = entities.find((e) => e.id === selectedEntityId);
+    if (!entity) return;
+
+    const template = entity.template || entity.type || '';
+    const categoryMap: Record<string, string> = {
+      player: 'entities-player',
+      npc: 'entities-npcs',
+      interactable: 'entities-interactables',
+      container: 'entities-containers',
+      teleporter: 'entities-teleporters',
+      event_zone: 'entities-event-zones',
+    };
+
+    const category = categoryMap[template];
+    if (category && !expandedItems.includes(category)) {
+      setExpandedItems((prev) => [...prev, category]);
+    }
+  }, [selectedEntityId, entities]);
+
+  const handleExpandedItemsChange = (event: React.SyntheticEvent | null, itemIds: string[]) => {
+    setExpandedItems(itemIds);
   };
 
   if (isLoading) {
@@ -170,36 +191,15 @@ export const EntitiesTree = () => {
     );
   }
 
-  // State for expanded items
-  const [expandedItems, setExpandedItems] = useState<string[]>(['entities-root']);
-
-  // Handle manual expansion/collapse
-  const handleExpandedItemsChange = (event: React.SyntheticEvent | null, itemIds: string[]) => {
-    setExpandedItems(itemIds);
+  // Group entities by template, with fallback to type for backward compatibility
+  const groupedEntities = {
+    player: entities.filter((e) => e.template === 'player' || (!e.template && e.type === 'player')),
+    npc: entities.filter((e) => e.template === 'npc' || (!e.template && e.type === 'npc')),
+    interactable: entities.filter((e) => e.template === 'interactable'),
+    container: entities.filter((e) => e.template === 'container'),
+    teleporter: entities.filter((e) => e.template === 'teleporter'),
+    event_zone: entities.filter((e) => e.template === 'event_zone'),
   };
-
-  // Auto-expand the category that contains the selected entity
-  useEffect(() => {
-    if (!selectedEntityId) return;
-    
-    const entity = entities.find((e) => e.id === selectedEntityId);
-    if (!entity) return;
-    
-    const template = entity.template || entity.type || '';
-    const categoryMap: Record<string, string> = {
-      player: 'entities-player',
-      npc: 'entities-npcs',
-      interactable: 'entities-interactables',
-      container: 'entities-containers',
-      teleporter: 'entities-teleporters',
-      event_zone: 'entities-event-zones',
-    };
-    
-    const category = categoryMap[template];
-    if (category && !expandedItems.includes(category)) {
-      setExpandedItems((prev) => [...prev, category]);
-    }
-  }, [selectedEntityId, entities]);
 
   return (
     <>
