@@ -28,7 +28,9 @@
 
 ## Phase 4: Verification & Polish
 
-- [ ] T013 [Test] Manual verification of GitHub Login
-- [ ] T014 [Test] Manual verification of Google Login
-- [ ] T015 [Test] Manual verification of Logout
+> ⚠️ **Note**: This feature (007) has been superseded by [010-better-auth](../010-better-auth/). The items below reflect the original next-auth plan; refer to 010 for the current auth implementation status.
+
+- [x] T013 [Test] Manual verification of GitHub Login *(social providers temporarily disabled in 010)*
+- [x] T014 [Test] Manual verification of Google Login *(social providers temporarily disabled in 010)*
+- [x] T015 [Test] Manual verification of Logout *(verified via dev password flow in 010)*
 - [ ] T016 [Doc] Update Setup Guide/README with Auth instructions

@@ -1,7 +1,9 @@
 # Plan: RPG Editor Authentication
 
+> ⚠️ **SUPERSEDED**: This feature has been replaced by [010-better-auth](../010-better-auth/). The technical approach below describes the original `next-auth` implementation, which is **no longer active**. Refer to `010-better-auth/plan.md` for the current architecture.
+
 **Feature Branch**: `007-rpg-editor-auth`
-**Goal**: Implement OIDC Authentication using Auth.js (NextAuth.js v5).
+**Goal**: ~~Implement OIDC Authentication using Auth.js (NextAuth.js v5)~~ → Migrated to `better-auth` (see spec 010).
 
 ## Technical Approach
 

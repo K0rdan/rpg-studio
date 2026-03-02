@@ -19,8 +19,8 @@ This document breaks down the implementation of the Storage Usage feature into a
 - [x] T005 [P] Update `GameProject` type in `packages/types/src/project.ts` to include `tilesets: string[]`
 - [x] T005a [P] Update `GameProject` type to include `userId: string`
 - [x] T005b [P] Create `User` type in `packages/types/src/user.ts` (id, name, email)
-- [ ] T006 [P] Create MongoDB schema/documentation for tilesets collection
-- [ ] T007 [P] Define extended Tileset type for database (with projectId, storageLocation, timestamps)
+- [x] T006 [P] Create MongoDB schema/documentation for tilesets collection
+- [x] T007 [P] Define extended Tileset type for database (with projectId, storageLocation, timestamps)
 
 ## Phase 3: API Routes - Tileset CRUD
 
@@ -35,47 +35,47 @@ This document breaks down the implementation of the Storage Usage feature into a
   - [x] T009g Generate and return image URL
   - [x] T009h Update project's tilesets array
   - [x] T009i Validate project ownership (userId match)
-- [ ] T010 [US2] Create failing test for tileset list API endpoint
-- [ ] T011 [US2] Implement `GET /api/projects/[projectId]/tilesets` endpoint
-  - [ ] T011a Query MongoDB for project tilesets
-  - [ ] T011b Generate image URLs for each tileset
-  - [ ] T011c Return formatted tileset list
-- [ ] T012 [US2] Create failing test for tileset get by ID endpoint
-- [ ] T013 [US2] Implement `GET /api/projects/[projectId]/tilesets/[tilesetId]` endpoint
-  - [ ] T013a Query MongoDB for tileset by ID
-  - [ ] T013b Verify tileset belongs to project
-  - [ ] T013c Generate and return image URL
-- [ ] T014 [US4] Create failing test for tileset delete endpoint
-- [ ] T015 [US4] Implement `DELETE /api/projects/[projectId]/tilesets/[tilesetId]` endpoint
-  - [ ] T015a Check if tileset is used by any maps
-  - [ ] T015b Delete from Azure Storage using `@packages/storage`
-  - [ ] T015c Delete from MongoDB
-  - [ ] T015d Remove from project's tilesets array
-  - [ ] T015e Return appropriate error if tileset is in use
-  - [ ] T015f Validate project ownership before deletion
+- [x] T010 [US2] Create failing test for tileset list API endpoint
+- [x] T011 [US2] Implement `GET /api/projects/[projectId]/tilesets` endpoint
+  - [x] T011a Query MongoDB for project tilesets
+  - [x] T011b Generate image URLs for each tileset
+  - [x] T011c Return formatted tileset list
+- [x] T012 [US2] Create failing test for tileset get by ID endpoint
+- [x] T013 [US2] Implement `GET /api/projects/[projectId]/tilesets/[tilesetId]` endpoint
+  - [x] T013a Query MongoDB for tileset by ID
+  - [x] T013b Verify tileset belongs to project
+  - [x] T013c Generate and return image URL
+- [x] T014 [US4] Create failing test for tileset delete endpoint
+- [x] T015 [US4] Implement `DELETE /api/projects/[projectId]/tilesets/[tilesetId]` endpoint
+  - [x] T015a Check if tileset is used by any maps
+  - [x] T015b Delete from Azure Storage using `@packages/storage`
+  - [x] T015c Delete from MongoDB
+  - [x] T015d Remove from project's tilesets array
+  - [x] T015e Return appropriate error if tileset is in use
+  - [x] T015f Validate project ownership before deletion
 
 ## Phase 4: UI Components - Tileset Management
 
-- [ ] T016 [US1] Create `TilesetUpload.tsx` component
-  - [ ] T016a File input for image selection
-  - [ ] T016b Form fields: name, tile_width, tile_height
-  - [ ] T016c File validation (format, size) with error messages
-  - [ ] T016d Upload button with loading state
-  - [ ] T016e Success/error toast notifications
-- [ ] T017 [US2] Create `TilesetCard.tsx` component
-  - [ ] T017a Display tileset thumbnail
-  - [ ] T017b Display tileset name and dimensions
-  - [ ] T017c Delete button with confirmation
-  - [ ] T017d Loading state for thumbnail
-- [ ] T018 [US2] Create `TilesetList.tsx` component
-  - [ ] T018a Fetch and display tilesets list
-  - [ ] T018b Empty state when no tilesets
-  - [ ] T018c Grid/list layout with tileset cards
-  - [ ] T018d Integration with TilesetUpload component
-- [ ] T019 [US2] Add tilesets section to project dashboard/page
-  - [ ] T019a Add navigation/link to tilesets page
-  - [ ] T019b Create tilesets page route
-  - [ ] T019c Integrate TilesetList component
+- [x] T016 [US1] Create `TilesetUpload.tsx` component
+  - [x] T016a File input for image selection
+  - [x] T016b Form fields: name, tile_width, tile_height
+  - [x] T016c File validation (format, size) with error messages
+  - [x] T016d Upload button with loading state
+  - [x] T016e Success/error toast notifications
+- [x] T017 [US2] Create `TilesetCard.tsx` component
+  - [x] T017a Display tileset thumbnail
+  - [x] T017b Display tileset name and dimensions
+  - [x] T017c Delete button with confirmation
+  - [x] T017d Loading state for thumbnail
+- [x] T018 [US2] Create `TilesetList.tsx` component
+  - [x] T018a Fetch and display tilesets list
+  - [x] T018b Empty state when no tilesets
+  - [x] T018c Grid/list layout with tileset cards
+  - [x] T018d Integration with TilesetUpload component
+- [x] T019 [US2] Add tilesets section to project dashboard/page
+  - [x] T019a Add navigation/link to tilesets page
+  - [x] T019b Create tilesets page route
+  - [x] T019c Integrate TilesetList component
 
 ## Phase 5: Map Editor Integration
 

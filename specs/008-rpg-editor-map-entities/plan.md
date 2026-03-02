@@ -1,127 +1,104 @@
-# Implementation Plan - Map Entity Placement
+# Implementation Plan: [FEATURE]
 
-## Phase 1: Type Definitions (1-2 hours)
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-### 1.1 Create Entity Types
-- Create `packages/types/src/entity.ts`
-- Define `EntityType` enum
-- Define `BaseEntity`, `PlayerSpawnEntity`, `NPCEntity`, `InteractionEntity`
-- Define `Entity` union type
-- Export from `packages/types/src/index.ts`
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
-### 1.2 Update Map Type
-- Update `packages/types/src/map.ts`
-- Add optional `entities?: Entity[]` field to Map interface
+## Summary
 
-### 1.3 Build Types Package
-- Run `npm run build` in `packages/types`
-- Verify no TypeScript errors
+[Extract from feature spec: primary requirement + technical approach from research]
 
-## Phase 2: Core Engine (3-4 hours)
+## Technical Context
 
-### 2.1 Create EntityRenderer
-- Create `packages/core/src/EntityRenderer.ts`
-- Implement entity rendering at tile positions
-- Use `SpriteRenderer` for charset animations
-- Support different visual representations per entity type
-- Handle entity scaling to match tile size
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
 
-### 2.2 Update Scene
-- Modify `packages/core/src/Scene.ts`
-- Add `entities` array to Scene state
-- Load entities from `Map.entities` array
-- Create `EntityRenderer` instances for each entity
-- Render entities in correct layer order (after map, before UI)
-- Add entity lookup methods (by ID, by position)
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [single/web/mobile - determines source structure]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
-### 2.3 Update GameEngine
-- Modify `packages/core/src/GameEngine.ts`
-- Load sprite assets for all entities during init
-- Initialize player position from `player_spawn` entity (if present)
-- Create NPC instances with charset animations
-- Fallback to current behavior if no player spawn exists
+## Constitution Check
 
-### 2.4 Unit Tests
-- Create `packages/core/src/EntityRenderer.test.ts`
-- Test entity rendering at correct positions
-- Test sprite animation integration
-- Test different entity types render correctly
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-## Phase 3: Editor UI (6-8 hours)
+[Gates determined based on constitution file]
 
-### 3.1 Entity Palette Component
-- Create `apps/editor/src/components/EntityPalette.tsx`
-- Display available entity types (Player Spawn, NPC, Interaction)
-- Allow selecting entity type for placement
-- Show sprite preview for entities with sprites
-- Support selecting sprite for entity
+## Project Structure
 
-### 3.2 Entity Properties Panel
-- Create `apps/editor/src/components/EntityPropertiesPanel.tsx`
-- Edit entity name
-- Select sprite for player spawn and NPC entities
-- Edit entity-specific properties
-- Delete entity button
-- Display entity position (read-only or editable)
+### Documentation (this feature)
 
-### 3.3 Update MapEditor
-- Modify `apps/editor/src/components/MapEditor.tsx`
-- Add "Entity" tool to drawing tools (keyboard shortcut: 'N')
-- Handle entity placement on canvas click
-- Display entities as visual indicators on map canvas
-- Support selecting and editing existing entities
-- Handle entity deletion (Delete key when entity selected)
-- Render entity icons/sprites on map editor canvas
-- Update mouse position calculation for entity placement
+```text
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+```
 
-### 3.4 Update Map API
-- Modify `apps/editor/src/app/api/projects/[projectId]/maps/[mapId]/route.ts`
-- Include entities in map JSON serialization
-- Validate entity data on save (required fields, valid sprite references)
-- Ensure backward compatibility (maps without entities)
+### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
-## Phase 4: Player Integration (2-3 hours)
+```text
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
 
-### 4.1 Update Player Initialization
-- Modify player initialization in `apps/player`
-- Load entities from map data
-- Position player at `player_spawn` entity location
-- Render NPCs with charset animations
-- Display interaction points (visual indicator)
+tests/
+├── contract/
+├── integration/
+└── unit/
 
-## Phase 5: Testing & Verification (4-5 hours)
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
 
-### 5.1 Unit Tests
-- Run core package tests: `cd packages/core && npm run test`
-- Verify all existing tests pass
-- Verify new EntityRenderer tests pass
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
 
-### 5.2 E2E Tests
-- Create `apps/editor/cypress/e2e/map_entity_placement.cy.ts`
-- Test entity tool selection and placement
-- Test entity property editing
-- Test entity deletion
-- Test entity persistence (save/load)
-- Test multiple entities on same map
-- Run E2E tests: `cd apps/editor && npm run cypress:run`
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
 
-### 5.3 Manual Testing
-- Test entity placement in editor
-- Test entity rendering in player
-- Test charset animations display correctly
-- Validate entity data persistence
-- Test with zoom controls
-- Test backward compatibility (old maps without entities)
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
+```
 
-## Phase 6: Documentation (1 hour)
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
-### 6.1 Update Technical Documentation
-- Document entity system in `specs/TECHNICAL_DOCUMENTATION.md`
-- Add entity placement to user guide
-- Document keyboard shortcuts
+## Complexity Tracking
 
-### 6.2 Update README
-- Add feature to `specs/README.md`
-- Link to spec folder
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-## Estimated Total Time: 17-23 hours
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
