@@ -132,4 +132,75 @@ describe('PlayerController', () => {
       expect(controller.getPosition().y).toBeGreaterThanOrEqual(0);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Animation switching
+  // -----------------------------------------------------------------------
+  describe('animation switching via SpriteRenderer', () => {
+    /** Tracks setAnimation calls on a mock sprite renderer */
+    class MockSpriteRenderer {
+      public lastAnimation: string = 'idle';
+      setAnimation(name: string) { this.lastAnimation = name; }
+      update(_dt: number) {}
+      render() {}
+    }
+
+    it('sets walk_down when ArrowDown is held', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const sr = new MockSpriteRenderer() as any;
+      controller.setSpriteRenderer(sr);
+      const input = new MockInputManager();
+      input.pressKey('ArrowDown');
+      controller.update(16, input);
+      expect(sr.lastAnimation).toBe('walk_down');
+    });
+
+    it('sets walk_up when ArrowUp is held', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const sr = new MockSpriteRenderer() as any;
+      controller.setSpriteRenderer(sr);
+      const input = new MockInputManager();
+      input.pressKey('ArrowUp');
+      controller.update(16, input);
+      expect(sr.lastAnimation).toBe('walk_up');
+    });
+
+    it('sets walk_right when ArrowRight is held', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const sr = new MockSpriteRenderer() as any;
+      controller.setSpriteRenderer(sr);
+      const input = new MockInputManager();
+      input.pressKey('ArrowRight');
+      controller.update(16, input);
+      expect(sr.lastAnimation).toBe('walk_right');
+    });
+
+    it('sets walk_left when ArrowLeft is held', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const sr = new MockSpriteRenderer() as any;
+      controller.setSpriteRenderer(sr);
+      const input = new MockInputManager();
+      input.pressKey('ArrowLeft');
+      controller.update(16, input);
+      expect(sr.lastAnimation).toBe('walk_left');
+    });
+
+    it('sets idle when no keys are held', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const sr = new MockSpriteRenderer() as any;
+      sr.lastAnimation = 'walk_down'; // pre-set to a non-idle state
+      controller.setSpriteRenderer(sr);
+      const input = new MockInputManager();
+      // no keys pressed
+      controller.update(16, input);
+      expect(sr.lastAnimation).toBe('idle');
+    });
+
+    it('does not throw when no SpriteRenderer is set', () => {
+      const controller = new PlayerController(makePlayerEntity(), TILE_W, TILE_H);
+      const input = new MockInputManager();
+      input.pressKey('ArrowDown');
+      expect(() => controller.update(16, input)).not.toThrow();
+    });
+  });
 });

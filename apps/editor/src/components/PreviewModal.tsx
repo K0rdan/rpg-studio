@@ -18,7 +18,7 @@ import Slide from '@mui/material/Slide';
 import { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 import { GameEngine } from '@packages/core';
-import { GameProject, Map, Tileset } from '@packages/types';
+import { GameProject, Map, Tileset, Sprite } from '@packages/types';
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
@@ -36,6 +36,7 @@ interface PreviewModalProps {
     project: GameProject;
     maps: Map[];
     tilesets?: Tileset[];
+    sprites?: Sprite[];
   };
 }
 
@@ -47,6 +48,8 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
   const [showTestPattern, setShowTestPattern] = useState(false);
   const [tilesetLoaded, setTilesetLoaded] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  /** Names of sprites that have a DB record but no accessible image URL. */
+  const [unavailableSprites, setUnavailableSprites] = useState<string[]>([]);
 
   // Callback ref to detect when canvas is mounted
   const canvasCallbackRef = (node: HTMLCanvasElement | null) => {
@@ -104,18 +107,48 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
     }
     
     console.log('🔄 Calling engine.init()...');
-    engine.init(data.project, data.maps, data.tilesets || [])
-      .then(() => {
+
+    // Wrap everything async in an IIFE (useEffect callbacks cannot be async)
+    (async () => {
+      // Fetch sprites for this project so the player charset can be loaded
+      let sprites: Sprite[] = data.sprites || [];
+      if (sprites.length === 0 && data.project?.id) {
+        try {
+          const spritesRes = await fetch(`/api/projects/${data.project.id}/sprites`);
+          if (spritesRes.ok) {
+            sprites = await spritesRes.json();
+            console.log(`✅ Fetched ${sprites.length} sprite(s) for preview`);
+          }
+        } catch (err) {
+          console.warn('Could not fetch sprites for preview:', err);
+        }
+      }
+
+      // Identify which sprites referenced by map entities have no accessible URL
+      const entitySpriteIds = new Set(
+        (data.maps?.[0]?.entities ?? []).map((e: { spriteId?: string }) => e.spriteId).filter(Boolean)
+      );
+      const unavailable = sprites
+        .filter(s => entitySpriteIds.has(s.id) && !s.image_source)
+        .map(s => s.name);
+      if (unavailable.length > 0) {
+        setUnavailableSprites(unavailable);
+        console.warn('Preview: unavailable sprites:', unavailable);
+      } else {
+        setUnavailableSprites([]);
+      }
+
+      try {
+        await engine.init(data.project, data.maps, data.tilesets || [], sprites);
         console.log('✅ engine.init() completed successfully');
         console.log('🎬 Starting game loop...');
         engine.start();
         engineRef.current = engine;
         console.log('✅ GameEngine fully initialized and started');
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('❌ engine.init() failed:', error);
-        console.error('Error stack:', error.stack);
-      });
+      }
+    })();
   }, [isOpen, canvasReady, data]); // Watch canvasReady state
 
   // Cleanup on unmount
@@ -241,6 +274,35 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
         </Toolbar>
       </AppBar>
       <Box sx={{ flex: 1, bgcolor: '#000', display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+        {/* Storage unavailability warning banner */}
+        {unavailableSprites.length > 0 && (
+          <Box
+            sx={{
+              bgcolor: '#3d2600',
+              borderBottom: '1px solid #FF8C00',
+              px: 2,
+              py: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+            }}
+          >
+            <Typography sx={{ fontSize: 18, lineHeight: 1 }}>⚠️</Typography>
+            <Box>
+              <Typography variant="caption" sx={{ color: '#FF8C00', fontWeight: 700, display: 'block' }}>
+                Asset storage temporarily unavailable
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#ffa040' }}>
+                The following charset(s) could not be loaded and will appear as an amber{' '}
+                <strong>⚠</strong> on the map:{' '}
+                <strong>{unavailableSprites.join(', ')}</strong>.
+                Gameplay is not affected.
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* Debug Info Panel */}
         <Box sx={{ bgcolor: '#1a1a1a', color: '#fff', p: 2, fontSize: '0.75rem', fontFamily: 'monospace' }}>
           <Typography variant="caption" sx={{ display: 'block' }}>

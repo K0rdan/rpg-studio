@@ -91,6 +91,25 @@ export class InMemoryTilesetStorage implements TilesetStorage {
     }
   }
 
+  async uploadFile(storageKey: string, data: Buffer | ArrayBuffer, mimeType: string): Promise<string> {
+    this.validateMimeType(mimeType);
+
+    let buffer: Buffer;
+    if (Buffer.isBuffer(data)) {
+      buffer = data;
+    } else {
+      buffer = Buffer.from(data);
+    }
+
+    this.storage.set(storageKey, buffer);
+    return storageKey;
+  }
+
+  async deleteFile(storageKey: string): Promise<void> {
+    // Idempotent — no error if key doesn't exist
+    this.storage.delete(storageKey);
+  }
+
   async getTilesetImageUrl(params: GetTilesetImageUrlParams): Promise<string> {
     const buffer = this.storage.get(params.location.storageKey);
     

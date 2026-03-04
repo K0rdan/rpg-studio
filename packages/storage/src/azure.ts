@@ -179,6 +179,67 @@ export class AzureTilesetStorage implements TilesetStorage {
     }
   }
 
+  async uploadFile(storageKey: string, data: Buffer | ArrayBuffer, mimeType: string): Promise<string> {
+    try {
+      this.validateMimeType(mimeType);
+
+      let buffer: Buffer;
+      if (Buffer.isBuffer(data)) {
+        buffer = data;
+      } else {
+        buffer = Buffer.from(data);
+      }
+
+      const blockBlobClient = this.containerClient.getBlockBlobClient(storageKey);
+      await blockBlobClient.upload(buffer, buffer.length, {
+        blobHTTPHeaders: { blobContentType: mimeType },
+      });
+
+      return storageKey;
+    } catch (error) {
+      if (error instanceof InvalidMimeTypeError) throw error;
+
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('network') ||
+        error.message.includes('ECONNREFUSED')
+      );
+      if (isNetworkError) {
+        throw new NetworkError(
+          `Network error during file upload: ${(error as Error).message}`,
+          error as Error
+        );
+      }
+      throw new UploadFailedError(
+        `Failed to upload file: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  async deleteFile(storageKey: string): Promise<void> {
+    try {
+      const blockBlobClient = this.containerClient.getBlockBlobClient(storageKey);
+      await blockBlobClient.deleteIfExists();
+    } catch (error) {
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('network') ||
+        error.message.includes('ECONNREFUSED')
+      );
+      if (isNetworkError) {
+        throw new NetworkError(
+          `Network error during file deletion: ${(error as Error).message}`,
+          error as Error
+        );
+      }
+      // Swallow 404 — idempotent
+      if (error instanceof Error && error.message.includes('404')) return;
+      throw new NetworkError(
+        `Failed to delete file: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
   async getTilesetImageUrl(params: GetTilesetImageUrlParams): Promise<string> {
     try {
       const blobPath = params.location.storageKey;

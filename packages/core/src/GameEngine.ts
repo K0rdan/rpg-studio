@@ -74,7 +74,7 @@ export class GameEngine {
     });
   }
 
-  public async init(project: GameProject, maps: Map[], tilesets: Tileset[] = []) {
+  public async init(project: GameProject, maps: Map[], tilesets: Tileset[] = [], sprites?: Sprite[]) {
     console.log('🎮 GameEngine.init() CALLED');
     console.log('  → Project:', project?.name || project);
     console.log('  → Maps count:', maps?.length);
@@ -137,32 +137,79 @@ export class GameEngine {
     // Load entities from map
     if (currentMap.entities && currentMap.entities.length > 0) {
       console.log(`GameEngine: Loading ${currentMap.entities.length} entity/entities from map`);
-      
+
+      const tw = tileset.tile_width;
+      const th = tileset.tile_height;
+
+      // Helper: load a Sprite's image and build a SpriteRenderer, or null on failure
+      const loadSpriteRenderer = async (sprite: Sprite): Promise<SpriteRenderer | null> => {
+        if (!sprite.image_source) return null;
+        try {
+          const result = await this.assetLoader.loadImage(sprite.image_source, { timeout: 10000, retries: 2 });
+          if (!result.asset) return null;
+          return new SpriteRenderer(sprite, result.asset);
+        } catch (err) {
+          console.warn(`GameEngine: Failed to load sprite "${sprite.name}":`, err);
+          return null;
+        }
+      };
+
       // Find player entity
       const playerEntity = currentMap.entities.find(e => e.type === 'player');
       if (playerEntity) {
         console.log('GameEngine: Creating player controller at', playerEntity.x, playerEntity.y);
-        this.playerController = new PlayerController(
-          playerEntity,
-          tileset.tile_width,
-          tileset.tile_height
-        );
+        this.playerController = new PlayerController(playerEntity, tw, th);
+
+        // Load charset sprite for the player if one is attached
+        if (playerEntity.spriteId && sprites) {
+          const spriteData = sprites.find((s: Sprite) => s.id === playerEntity.spriteId);
+          if (spriteData) {
+            if (!spriteData.image_source) {
+              // Sprite document exists in DB but URL couldn't be generated (storage offline)
+              console.warn(`GameEngine: Sprite "${spriteData.name}" has no image URL — storage may be offline`);
+              this.playerController.markSpriteUnavailable(spriteData.name);
+            } else {
+              const sr = await loadSpriteRenderer(spriteData);
+              if (sr) {
+                this.playerController.setSpriteRenderer(sr);
+                console.log(`GameEngine: Player sprite loaded — "${spriteData.name}"`);
+              } else {
+                // URL was present but image load failed at runtime
+                console.warn(`GameEngine: Failed to load image for sprite "${spriteData.name}"`);
+                this.playerController.markSpriteUnavailable(spriteData.name);
+              }
+            }
+          } else {
+            console.warn(`GameEngine: Player sprite id="${playerEntity.spriteId}" not found in provided sprites`);
+          }
+        }
       } else {
         console.warn('GameEngine: No player entity found in map');
       }
 
-      // TODO: Create renderers for other entities (NPCs, doors, etc.) when they have sprites
-      // For now, we skip rendering entities without sprites to avoid purple placeholder overlays
-      // const otherEntities = currentMap.entities.filter(e => e.type !== 'player');
-      // this.entityRenderers = otherEntities.map(entity => {
-      //   console.log(`GameEngine: Creating renderer for entity "${entity.name}" at (${entity.x}, ${entity.y})`);
-      //   return new EntityRenderer(entity, null, tileset.tile_width, tileset.tile_height);
-      // });
-      
-      console.log(`GameEngine: Skipped entity renderers (no sprites available)`);
+      // Create renderers for non-player entities that have a sprite assigned
+      const otherEntities = currentMap.entities.filter(e => e.type !== 'player');
+      this.entityRenderers = await Promise.all(
+        otherEntities.map(async (entity) => {
+          let spriteRenderer: SpriteRenderer | null = null;
+          if (entity.spriteId && sprites) {
+            const spriteData = sprites.find(s => s.id === entity.spriteId);
+            if (spriteData) {
+              spriteRenderer = await loadSpriteRenderer(spriteData);
+              if (spriteRenderer) {
+                console.log(`GameEngine: Sprite loaded for entity "${entity.name}"`);
+              }
+            }
+          }
+          return new EntityRenderer(entity, spriteRenderer, tw, th);
+        })
+      );
+
+      console.log(`GameEngine: Created ${this.entityRenderers.length} entity renderer(s)`);
     } else {
       console.log('GameEngine: No entities in map');
     }
+
 
     // TODO: Load entities from map and create character instances
     // The old character loading code below is commented out because project.characters

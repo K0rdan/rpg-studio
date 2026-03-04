@@ -52,6 +52,34 @@ export interface TilesetStorage {
    * @note This operation should be idempotent (no error if assets don't exist)
    */
   deleteTilesetAssets(params: DeleteTilesetAssetsParams): Promise<void>;
+
+  /**
+   * Upload a file to an explicit storage key (path).
+   *
+   * Unlike `uploadTilesetImage`, this method does NOT own the path convention —
+   * the caller provides the full key, e.g. `users/{uid}/projects/{pid}/sprites/{id}.png`.
+   * Use this for asset types that don't fit the tileset folder structure.
+   *
+   * @param storageKey Full blob path (e.g. "users/uid/projects/pid/sprites/sid.png")
+   * @param data       File data as Buffer or ArrayBuffer
+   * @param mimeType   MIME type of the file
+   * @returns          The same storageKey, for convenience
+   * @throws InvalidMimeTypeError if mimeType is not supported
+   * @throws UploadFailedError if upload fails
+   * @throws NetworkError if network operation fails
+   */
+  uploadFile(storageKey: string, data: Buffer | ArrayBuffer, mimeType: string): Promise<string>;
+
+  /**
+   * Delete a single file at an explicit storage key.
+   *
+   * Counterpart to `uploadFile` — the caller provides the full path.
+   * This operation is idempotent (no error if the file doesn't exist).
+   *
+   * @param storageKey Full blob path (e.g. "users/uid/projects/pid/sprites/sid.png")
+   * @throws NetworkError if a network failure prevents the operation
+   */
+  deleteFile(storageKey: string): Promise<void>;
 }
 
 

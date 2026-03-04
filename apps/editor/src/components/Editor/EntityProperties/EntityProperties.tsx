@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, Divider, Button } from '@mui/material';
 import { Delete } from '@mui/icons-material';
 import { Entity, Command, CommandType, TriggerType, ShowMessageCommand, TeleportPlayerCommand, GiveItemCommand, DEFAULT_PLAYER_PROPERTIES, PlayerProperties } from '@packages/types';
@@ -10,6 +11,9 @@ import { EditShowMessageDialog } from './EditShowMessageDialog';
 import { EditTeleportPlayerDialog } from './EditTeleportPlayerDialog';
 import { EditGiveItemDialog } from './EditGiveItemDialog';
 import { PlayerPropertiesPanel } from './PlayerPropertiesPanel';
+import { SpriteUploadCard } from './SpriteUploadCard';
+import { SpritePicker } from './SpritePicker';
+import { useProjectSprites } from '@/hooks/useProjectSprites';
 
 interface EntityPropertiesProps {
   entity: Entity | null;
@@ -18,6 +22,10 @@ interface EntityPropertiesProps {
 }
 
 export const EntityProperties = ({ entity, onUpdateEntity, onDeleteEntity }: EntityPropertiesProps) => {
+  const params = useParams();
+  const projectId = params?.projectId as string | null;
+  const { sprites, isLoading: spritesLoading, uploadSprite } = useProjectSprites(projectId);
+
   const [addCommandDialogOpen, setAddCommandDialogOpen] = useState(false);
   const [editingCommandIndex, setEditingCommandIndex] = useState<number | null>(null);
   const [editingCommandType, setEditingCommandType] = useState<CommandType | null>(null);
@@ -28,6 +36,16 @@ export const EntityProperties = ({ entity, onUpdateEntity, onDeleteEntity }: Ent
   const handleUpdatePlayerProperties = (updated: PlayerProperties) => {
     if (!entity) return;
     onUpdateEntity({ ...entity, playerProperties: updated });
+  };
+
+  const handleSpriteUploaded = (sprite: import('@packages/types').Sprite) => {
+    if (!entity) return;
+    onUpdateEntity({ ...entity, spriteId: sprite.id });
+  };
+
+  const handleSpritePickerChange = (spriteId: string | undefined) => {
+    if (!entity) return;
+    onUpdateEntity({ ...entity, spriteId });
   };
 
   if (!entity) {
@@ -162,12 +180,26 @@ export const EntityProperties = ({ entity, onUpdateEntity, onDeleteEntity }: Ent
 
       {/* Player-specific properties (replaces Trigger + Commands for player entities) */}
       {isPlayer ? (
-        <PlayerPropertiesPanel
-          playerProperties={entity.playerProperties ?? { ...DEFAULT_PLAYER_PROPERTIES }}
-          onChange={handleUpdatePlayerProperties}
-        />
+        <>
+          <PlayerPropertiesPanel
+            playerProperties={entity.playerProperties ?? { ...DEFAULT_PLAYER_PROPERTIES }}
+            onChange={handleUpdatePlayerProperties}
+          />
+          <SpriteUploadCard
+            currentSprite={sprites.find(s => s.id === entity.spriteId) ?? null}
+            onSpriteUploaded={handleSpriteUploaded}
+            onUpload={uploadSprite}
+          />
+        </>
       ) : (
         <>
+          <SpritePicker
+            sprites={sprites}
+            isLoading={spritesLoading}
+            currentSpriteId={entity.spriteId}
+            onChange={handleSpritePickerChange}
+          />
+
           {/* Trigger */}
           <FormControl
             fullWidth
