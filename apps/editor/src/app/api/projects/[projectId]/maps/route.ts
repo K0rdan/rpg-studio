@@ -6,7 +6,7 @@ import type { Map } from '@packages/types';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
     const { db } = await connectToDatabase();
-    const { name, width, height } = await req.json();
+    const { name, width, height, tilesetId } = await req.json();
     const { projectId } = await params;
 
     if (!name || !width || !height) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       name,
       width,
       height,
-      tilesetId: 'ts1',
+      tilesetId: tilesetId || '',
       layers: [{
         name: 'Layer 1',
         data: new Array(width * height).fill(-1)
