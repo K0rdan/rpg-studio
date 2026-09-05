@@ -1,6 +1,7 @@
 import { MongoClient, Db, ObjectId } from 'mongodb';
 import { GET, DELETE } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
+import { createMongoClient } from '@/lib/mongoClient';
 import { getTilesetStorage } from '@/lib/storage';
 import { NextRequest } from 'next/server';
 
@@ -27,8 +28,9 @@ describe('Tileset by ID API', () => {
   };
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
-    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
+    connection = createMongoClient(globalThis.__ATLAS_URI__!);
+    await connection.connect();
+    db = connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
 
     // Setup mock storage
@@ -52,6 +54,7 @@ describe('Tileset by ID API', () => {
       maps: [],
       characters: [],
       tilesets: [],
+      userId: 'test-user-123',
     });
 
     // Create a test tileset
@@ -150,6 +153,7 @@ describe('Tileset by ID API', () => {
 
       // Verify storage deletion was called
       expect(mockStorage.deleteTilesetAssets).toHaveBeenCalledWith({
+        userId: 'test-user-123',
         projectId,
         tilesetId,
       });
@@ -211,3 +215,4 @@ describe('Tileset by ID API', () => {
     });
   });
 });
+

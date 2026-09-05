@@ -144,6 +144,7 @@ export async function DELETE(
     const storage = getTilesetStorage();
     try {
       await storage.deleteTilesetAssets({
+        userId: String(project.userId ?? ''),
         projectId,
         tilesetId,
       });
@@ -156,7 +157,7 @@ export async function DELETE(
     await tilesetsCollection.deleteOne({ _id: new ObjectId(tilesetId) });  // Use ObjectId
 
     // Remove from project's tilesets array
-    await db.collection('projects').updateOne(
+    await db.collection<{ tilesets: string[] }>('projects').updateOne(
       { _id: new ObjectId(projectId) },
       { $pull: { tilesets: tilesetId } }
     );
@@ -167,5 +168,6 @@ export async function DELETE(
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
+
 
 

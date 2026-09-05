@@ -1,11 +1,11 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { magicLink } from "better-auth/plugins";
-import { MongoClient } from "mongodb";
 import { createTransport } from "nodemailer";
+import { createMongoClient } from "@/lib/mongoClient";
 
 // Synchronous MongoClient initialization for Next.js App Router
-const client = new MongoClient(process.env.ATLAS_URI || "");
+const client = createMongoClient(process.env.ATLAS_URI || "");
 const db = client.db(process.env.ATLAS_DATABASE_NAME || "");
 
 export const auth = betterAuth({

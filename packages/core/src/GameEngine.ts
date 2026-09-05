@@ -7,7 +7,7 @@ import { SpriteRenderer } from './SpriteRenderer';
 import { AssetLoader } from './AssetLoader';
 import { PlayerController } from './PlayerController';
 import { EntityRenderer } from './EntityRenderer';
-import type { GameProject, Map, Tileset, Character, Sprite } from '@packages/types';
+import type { GameProject, Map, Tileset, Sprite } from '@packages/types';
 
 export class GameEngine {
   private renderer: Renderer;

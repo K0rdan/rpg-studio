@@ -63,10 +63,12 @@ export const EditTeleportPlayerDialog = ({ open, command, onClose, onSave }: Edi
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          bgcolor: '#2d2d2d',
-          color: '#fff',
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: '#2d2d2d',
+            color: '#fff',
+          },
         },
       }}
     >

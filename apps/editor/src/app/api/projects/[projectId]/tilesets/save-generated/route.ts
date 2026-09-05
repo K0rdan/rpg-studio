@@ -87,7 +87,7 @@ export async function POST(
     await tilesetsCollection.insertOne(tilesetDoc);
 
     // Update project's tilesets array
-    await db.collection('projects').updateOne(
+    await db.collection<{ tilesets: string[] }>('projects').updateOne(
       { _id: new ObjectId(projectId) },
       { $push: { tilesets: tilesetId.toHexString() } }
     );

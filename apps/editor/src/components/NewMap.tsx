@@ -110,7 +110,7 @@ export default function NewMap({ projectId, onMapCreated }: NewMapProps) {
                 variant="outlined"
                 value={width}
                 onChange={(e) => setWidth(Number(e.target.value))}
-                inputProps={{ min: 1 }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
               <TextField
                 margin="dense"
@@ -121,7 +121,7 @@ export default function NewMap({ projectId, onMapCreated }: NewMapProps) {
                 variant="outlined"
                 value={height}
                 onChange={(e) => setHeight(Number(e.target.value))}
-                inputProps={{ min: 1 }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
             </Stack>
           </DialogContent>

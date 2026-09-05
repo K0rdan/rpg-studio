@@ -202,7 +202,7 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
                   value={tileWidth}
                   onChange={(e) => setTileWidth(parseInt(e.target.value, 10) || 1)}
                   required
-                  inputProps={{ min: 1 }}
+                  slotProps={{ htmlInput: { min: 1 } }}
                   error={!!errors.tileWidth}
                   helperText={errors.tileWidth}
                   disabled={loading}
@@ -214,7 +214,7 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
                   value={tileHeight}
                   onChange={(e) => setTileHeight(parseInt(e.target.value, 10) || 1)}
                   required
-                  inputProps={{ min: 1 }}
+                  slotProps={{ htmlInput: { min: 1 } }}
                   error={!!errors.tileHeight}
                   helperText={errors.tileHeight}
                   disabled={loading}
@@ -241,5 +241,6 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
     </>
   );
 }
+
 
 

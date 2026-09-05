@@ -16,7 +16,7 @@
   "devDependencies": {
     "@packages/tsconfig": "^1.0.0",
     "@packages/types": "^1.0.0",
-    "jsdom": "^26.1.0",
-    "vitest": "^4.0.18"
+    "jsdom": "^30.0.1",
+    "vitest": "^5.0.0"
   }
 }

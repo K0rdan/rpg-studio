@@ -79,7 +79,7 @@ export default function LayerManager({
                 >
                   {index + 1}
                 </Box>
-                <Typography variant="body2" fontWeight={isActive ? 'bold' : 'normal'}>
+                <Typography variant="body2" sx={{ fontWeight: isActive ? 'bold' : 'normal' }}>
                   {layer.name}
                 </Typography>
               </Box>

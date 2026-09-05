@@ -1,8 +1,6 @@
 {
   "extends": "@packages/tsconfig/base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "baseUrl": ".",
     "paths": {
       "@packages/types": ["../types/src/index.ts"]
     }

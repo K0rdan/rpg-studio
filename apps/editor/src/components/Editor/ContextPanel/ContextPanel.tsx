@@ -10,10 +10,8 @@ import { useMapStore } from '@/stores/mapStore';
 import { useEntities } from '@/hooks/useEntities';
 import { useToast } from '@/context/ToastContext';
 import { EmptyState } from './EmptyState';
-import { MapProperties } from './MapProperties';
 import { TilePalette } from '../TilePalette/TilePalette';
 import { EntityPalette } from '../EntityPalette/EntityPalette';
-import { EntityProperties } from '../EntityProperties';
 import type { Entity } from '@packages/types';
 
 export const ContextPanel = () => {
@@ -78,11 +76,6 @@ export const ContextPanel = () => {
 
   // Render content based on selection type or active tool
   const renderContent = () => {
-    // Show Entity Properties when an entity is selected
-    if (selectedEntityId && selectedEntity) {
-      return <EntityProperties entity={selectedEntity} onUpdateEntity={handleUpdateEntity} onDeleteEntity={handleDeleteEntity} />;
-    }
-    
     // Show Entity Palette when entity tool is active (no entity selected)
     if (activeTool === 'entity') {
       return <EntityPalette />;
@@ -102,11 +95,10 @@ export const ContextPanel = () => {
       case 'tileset':
         return <TilePalette tilesetId={selectedId} />;
       case 'map':
-        // Show Tile Palette when a map is selected (for painting)
-        // Get the tileset ID from the map's tilesetId
-        return <MapProperties mapId={selectedId} />;
+        // Map selected → show Tile Palette for painting.
+        // Map properties (name, size, tileset) live in the right Inspector panel.
+        return <TilePalette />;
       case 'entity':
-        // Entity properties shown above when selectedEntityId is set
         return <EmptyState />;
       default:
         return <EmptyState />;

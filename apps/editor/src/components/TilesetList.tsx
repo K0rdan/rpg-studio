@@ -85,7 +85,7 @@ export default function TilesetList({ projectId }: TilesetListProps) {
       ) : (
         <Grid container spacing={3}>
           {tilesets.map((tileset) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={tileset.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={tileset.id}>
               <TilesetCard
                 tileset={tileset}
                 projectId={projectId}
@@ -98,5 +98,6 @@ export default function TilesetList({ projectId }: TilesetListProps) {
     </Box>
   );
 }
+
 
 

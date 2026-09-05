@@ -1,5 +1,5 @@
 import { Box, Typography, Button } from '@mui/material';
-import { ErrorOutline } from '@mui/icons-material';
+import { ErrorOutlined } from '@mui/icons-material';
 
 interface CanvasErrorProps {
   error: string;
@@ -19,7 +19,7 @@ export const CanvasError = ({ error, onRetry }: CanvasErrorProps) => {
         p: 4,
       }}
     >
-      <ErrorOutline sx={{ fontSize: 48, color: 'error.main' }} />
+      <ErrorOutlined sx={{ fontSize: 48, color: 'error.main' }} />
       <Typography variant="h6" color="error">
         Failed to load map
       </Typography>

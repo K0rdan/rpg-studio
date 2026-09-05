@@ -46,10 +46,12 @@ export const PlayerPropertiesPanel = ({ playerProperties, onChange }: PlayerProp
         onChange={(e) => handleChange('speed', e.target.value)}
         fullWidth
         margin="normal"
-        inputProps={{ min: 0.5, max: 20, step: 0.5 }}
+        slotProps={{
+          htmlInput: { min: 0.5, max: 20, step: 0.5 },
+          formHelperText: { sx: { color: '#777' } },
+        }}
         helperText="How many tiles the player moves per second"
         sx={fieldSx}
-        FormHelperTextProps={{ sx: { color: '#777' } }}
       />
 
       {/* Health */}
@@ -61,7 +63,7 @@ export const PlayerPropertiesPanel = ({ playerProperties, onChange }: PlayerProp
           onChange={(e) => handleChange('health', e.target.value)}
           fullWidth
           margin="normal"
-          inputProps={{ min: 1, max: 9999, step: 1 }}
+          slotProps={{ htmlInput: { min: 1, max: 9999, step: 1 } }}
           sx={fieldSx}
         />
         <TextField
@@ -71,7 +73,7 @@ export const PlayerPropertiesPanel = ({ playerProperties, onChange }: PlayerProp
           onChange={(e) => handleChange('maxHealth', e.target.value)}
           fullWidth
           margin="normal"
-          inputProps={{ min: 1, max: 9999, step: 1 }}
+          slotProps={{ htmlInput: { min: 1, max: 9999, step: 1 } }}
           sx={fieldSx}
         />
       </Box>

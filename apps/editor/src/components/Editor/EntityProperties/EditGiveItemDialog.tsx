@@ -54,10 +54,12 @@ export const EditGiveItemDialog = ({ open, command, onClose, onSave }: EditGiveI
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          bgcolor: '#2d2d2d',
-          color: '#fff',
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: '#2d2d2d',
+            color: '#fff',
+          },
         },
       }}
     >
@@ -95,7 +97,7 @@ export const EditGiveItemDialog = ({ open, command, onClose, onSave }: EditGiveI
           fullWidth
           margin="normal"
           required
-          inputProps={{ min: 1 }}
+          slotProps={{ htmlInput: { min: 1 } }}
           sx={{
             '& .MuiOutlinedInput-root': {
               color: '#fff',

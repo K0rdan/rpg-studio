@@ -111,7 +111,7 @@ export class AssetLoader {
   private loadImageOnce(path: string, timeout: number): Promise<AssetLoadResult> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: ReturnType<typeof setTimeout>;
 
       const cleanup = () => {
         clearTimeout(timeoutId);

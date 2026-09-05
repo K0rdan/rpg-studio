@@ -23,7 +23,7 @@ export default function MapProperties({ mapData, tilesets, onChange }: MapProper
           type="number"
           value={mapData.width}
           onChange={(e) => onChange('width', Number(e.target.value))}
-          inputProps={{ min: 1 }}
+          slotProps={{ htmlInput: { min: 1 } }}
           sx={{ width: 100 }}
         />
         <TextField
@@ -31,7 +31,7 @@ export default function MapProperties({ mapData, tilesets, onChange }: MapProper
           type="number"
           value={mapData.height}
           onChange={(e) => onChange('height', Number(e.target.value))}
-          inputProps={{ min: 1 }}
+          slotProps={{ htmlInput: { min: 1 } }}
           sx={{ width: 100 }}
         />
         <TextField

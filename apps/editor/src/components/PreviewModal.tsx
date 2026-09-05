@@ -241,7 +241,7 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
       fullScreen
       open={isOpen}
       onClose={handleStop}
-      TransitionComponent={Transition}
+      slots={{ transition: Transition }}
     >
       <AppBar sx={{ position: 'relative' }}>
         <Toolbar>

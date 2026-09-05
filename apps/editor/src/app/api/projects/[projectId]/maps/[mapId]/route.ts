@@ -70,7 +70,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
       return NextResponse.json({ message: 'Map not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Map saved successfully' }, { status: 200 });
+    // Return the updated map document
+    const updatedMap = await db.collection('maps').findOne({ _id: new ObjectId(mapId) });
+    return NextResponse.json({ ...updatedMap, id: mapId }, { status: 200 });
   } catch (error) {
     console.error('Error updating map:', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });

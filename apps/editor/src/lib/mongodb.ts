@@ -1,9 +1,10 @@
 // lib/mongodb.ts
 import { MongoClient, Db } from 'mongodb';
+import { createMongoClient } from '@/lib/mongoClient';
 
 declare global {
-  var __ATLAS_URI__: string | undefined;
-  var __ATLAS_DATABASE_NAME__: string | undefined;
+  var __ATLAS_URI__: string;
+  var __ATLAS_DATABASE_NAME__: string;
 }
 
 const uri =
@@ -35,7 +36,7 @@ export async function connectToDatabase() {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(uri!, {});
+  const client = createMongoClient(uri!);
   /* eslint-disable no-await-in-loop */
   let retries = 3;
   while (retries > 0) {

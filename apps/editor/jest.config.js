@@ -14,7 +14,7 @@ const customJestConfig = {
     '^@/(.*)': '<rootDir>/src/$1',
     '^@packages/(.*)$': '<rootDir>/../../packages/$1/src',
   },
-  transformIgnorePatterns: ['/node_modules/(?!mongodb|bson|@azure)/'],
+  transformIgnorePatterns: ['/node_modules/(?!@azure)/'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

@@ -5,7 +5,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CropSquareIcon from '@mui/icons-material/CropSquare';
 import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
 import ColorizeIcon from '@mui/icons-material/Colorize';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import { DrawingTool, TOOL_LABELS, TOOL_SHORTCUTS } from '@/types/DrawingTool';
 
@@ -19,7 +19,7 @@ const TOOL_ICONS = {
   [DrawingTool.RECTANGLE]: CropSquareIcon,
   [DrawingTool.FILL]: FormatColorFillIcon,
   [DrawingTool.EYEDROPPER]: ColorizeIcon,
-  [DrawingTool.ERASER]: DeleteOutlineIcon,
+  [DrawingTool.ERASER]: DeleteOutlinedIcon,
   [DrawingTool.ENTITY]: PersonPinCircleIcon,
 };
 

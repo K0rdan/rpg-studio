@@ -1,44 +1,73 @@
 # Dependencies
-node_modules
+node_modules/
 .pnp
-.pnp.js
+.pnp.*
 
 # Testing
-coverage
-.nyc_output
+coverage/
+.nyc_output/
+.jest-cache/
+junit.xml
 
-# Next.js
+# Next.js / Vite / Docusaurus
 .next/
 out/
 build/
 dist/
+dist-ssr/
 .swc/
+.docusaurus/
+.cache/
 
 # Turborepo
-.turbo
+.turbo/
 
 # Environment variables
 **/.env*
 
 # Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# IDEs and Editors
-.idea
-.vscode
+# IDEs and OS
+.idea/
+.vscode/
 *.swp
 *.swo
-.DS_Store
 *.sublime-project
 *.sublime-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
 
 # Cypress
 **/cypress/videos*
 **/cypress/screenshots*
+**/cypress/downloads*
 
-# Misc
-.vercel
+# Hosting / caches
+.vercel/
+.eslintcache
 *.tsbuildinfo
+
+# Secrets and local credentials
+*.pem
+*.p12
+*.pfx
+*.key
+credentials.json
+serviceAccount*.json
+
+# Accidental tsc emit next to TypeScript sources
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
+# Vite / local overrides
+*.local

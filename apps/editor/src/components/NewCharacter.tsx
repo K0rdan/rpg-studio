@@ -105,7 +105,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
                 variant="outlined"
                 value={hp}
                 onChange={(e) => setHp(Number(e.target.value))}
-                inputProps={{ min: 1 }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
               <TextField
                 margin="dense"
@@ -116,7 +116,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
                 variant="outlined"
                 value={maxHp}
                 onChange={(e) => setMaxHp(Number(e.target.value))}
-                inputProps={{ min: 1 }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
               <TextField
                 margin="dense"
@@ -127,7 +127,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
                 variant="outlined"
                 value={attack}
                 onChange={(e) => setAttack(Number(e.target.value))}
-                inputProps={{ min: 0 }}
+                slotProps={{ htmlInput: { min: 0 } }}
               />
               <TextField
                 margin="dense"
@@ -138,7 +138,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
                 variant="outlined"
                 value={defense}
                 onChange={(e) => setDefense(Number(e.target.value))}
-                inputProps={{ min: 0 }}
+                slotProps={{ htmlInput: { min: 0 } }}
               />
             </Stack>
           </DialogContent>

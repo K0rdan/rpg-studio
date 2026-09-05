@@ -1,6 +1,7 @@
 import { MongoClient, Db, ObjectId } from 'mongodb';
 import { POST, GET } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
+import { createMongoClient } from '@/lib/mongoClient';
 import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/mongodb', () => ({
@@ -15,8 +16,9 @@ describe('Character API', () => {
   const projectId = new ObjectId().toHexString();
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
-    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
+    connection = createMongoClient(globalThis.__ATLAS_URI__!);
+    await connection.connect();
+    db = connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
   });
 

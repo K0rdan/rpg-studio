@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import type { GameProject } from '@packages/types';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
@@ -14,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ proj
       return NextResponse.json({ message: 'Project not found' }, { status: 404 });
     }
 
-    const formattedProject: GameProject = {
+    const formattedProject = {
       ...project,
       id: project._id.toHexString(),
     };

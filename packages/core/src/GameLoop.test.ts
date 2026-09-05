@@ -11,10 +11,10 @@ describe('GameLoop', () => {
     gameLoop = new GameLoop(callback as any);
     
     // Mock requestAnimationFrame
-    global.requestAnimationFrame = vi.fn((cb) => {
+    globalThis.requestAnimationFrame = vi.fn((cb) => {
       return setTimeout(() => cb(performance.now()), 16) as unknown as number;
     });
-    global.cancelAnimationFrame = vi.fn((id) => clearTimeout(id));
+    globalThis.cancelAnimationFrame = vi.fn((id) => clearTimeout(id));
   });
 
   afterEach(() => {

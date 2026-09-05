@@ -3,6 +3,7 @@ import { POST, GET } from './route';
 import { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { createMongoClient } from '@/lib/mongoClient';
 
 jest.mock('next/headers', () => ({
   headers: jest.fn().mockResolvedValue(new Headers()),
@@ -32,8 +33,9 @@ describe('Map API', () => {
   const userId = 'test-user-123';
 
   beforeAll(async () => {
-    connection = await MongoClient.connect(globalThis.__ATLAS_URI__!);
-    db = await connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
+    connection = createMongoClient(globalThis.__ATLAS_URI__!);
+    await connection.connect();
+    db = connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
   });
 
