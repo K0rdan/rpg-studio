@@ -29,6 +29,7 @@ interface MapState {
   isDirty: boolean;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   activeLayer: number;
+  isolateLayers: boolean;
 }
 
 interface EditorState {
@@ -46,6 +47,7 @@ interface EditorState {
   
   // Actions
   toggleLeftSidebar: () => void;
+  setLeftSidebarOpen: (open: boolean) => void;
   toggleRightSidebar: () => void;
   setLeftSidebarWidth: (width: number) => void;
   setContextPanelWidth: (width: number) => void;
@@ -63,10 +65,11 @@ interface EditorState {
   setMapDirty: (isDirty: boolean) => void;
   setSaveStatus: (status: MapState['saveStatus']) => void;
   setActiveLayer: (layer: number) => void;
+  setIsolateLayers: (isolate: boolean) => void;
 }
 
 const DEFAULT_LAYOUT: EditorLayoutState = {
-  leftSidebarOpen: false,  // Hidden by default (VS Code style)
+  leftSidebarOpen: false,  // Opened on editor load when viewport is wide enough
   rightSidebarOpen: true,
   leftSidebarWidth: 250,
   contextPanelWidth: 350,
@@ -90,6 +93,7 @@ const DEFAULT_MAP: MapState = {
   isDirty: false,
   saveStatus: 'idle',
   activeLayer: 0,
+  isolateLayers: false,
 };
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -101,6 +105,11 @@ export const useEditorStore = create<EditorState>((set) => ({
   toggleLeftSidebar: () =>
     set((state) => ({
       layout: { ...state.layout, leftSidebarOpen: !state.layout.leftSidebarOpen },
+    })),
+
+  setLeftSidebarOpen: (open: boolean) =>
+    set((state) => ({
+      layout: { ...state.layout, leftSidebarOpen: open },
     })),
   
   toggleRightSidebar: () =>
@@ -171,5 +180,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   setActiveLayer: (layer: number) =>
     set((state) => ({
       map: { ...state.map, activeLayer: layer },
+    })),
+
+  setIsolateLayers: (isolate: boolean) =>
+    set((state) => ({
+      map: { ...state.map, isolateLayers: isolate },
     })),
 }));

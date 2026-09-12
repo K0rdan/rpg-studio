@@ -3,6 +3,7 @@ import { TILESETS } from '@/config/tilesets';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
+import { requireApiSession, requireProjectAccess } from '@/lib/apiAuth';
 
 /**
  * GET /api/tilesets?projectId=<projectId>
@@ -19,61 +20,73 @@ export async function GET(req: NextRequest) {
     // Always include static tilesets
     const staticTilesets = TILESETS;
 
-    // If projectId is provided, also fetch project tilesets
-    if (projectId) {
-      try {
-        const { db } = await connectToDatabase();
-        const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-
-        if (project) {
-          const tilesetIds = project.tilesets || [];
-          if (tilesetIds.length > 0) {
-            const tilesetsCollection = db.collection('tilesets');
-            const projectTilesets = await tilesetsCollection
-              .find({
-                _id: { $in: tilesetIds.map((id: string) => new ObjectId(id)) },
-                projectId,
-              })
-              .toArray();
-
-            // Generate image URLs for project tilesets
-            const storage = getTilesetStorage();
-            const projectTilesetsWithUrls = await Promise.all(
-              projectTilesets.map(async (tileset) => {
-                try {
-                  const imageUrl = await storage.getTilesetImageUrl({
-                    location: { storageKey: tileset.storageLocation },
-                  });
-
-                  return {
-                    id: tileset._id.toHexString(),
-                    name: tileset.name,
-                    image_source: imageUrl,
-                    tile_width: tileset.tile_width,
-                    tile_height: tileset.tile_height,
-                  };
-                } catch (error) {
-                  const reason = error instanceof Error ? error.message : String(error);
-                  console.warn(`[tilesets] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
-                  // Return tileset without image rather than silently dropping it
-                  return {
-                    id: tileset._id.toHexString(),
-                    name: tileset.name,
-                    image_source: null,
-                    tile_width: tileset.tile_width,
-                    tile_height: tileset.tile_height,
-                  };
-                }
-              })
-            );
-
-            return NextResponse.json([...staticTilesets, ...projectTilesetsWithUrls], { status: 200 });
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching project tilesets:', error);
-        // Fall through to return static tilesets only
+    if (!projectId) {
+      const session = await requireApiSession();
+      if (!session.ok) {
+        return session.response;
       }
+
+      return NextResponse.json(staticTilesets, { status: 200 });
+    }
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const tilesetIds = access.project.tilesets || [];
+    if (tilesetIds.length === 0) {
+      return NextResponse.json(staticTilesets, { status: 200 });
+    }
+
+    try {
+      const { db } = await connectToDatabase();
+      const projectTilesets = await db.collection('tilesets')
+        .find({
+          _id: { $in: tilesetIds.map((id: string) => new ObjectId(id)) },
+          projectId,
+        })
+        .toArray();
+
+      // Generate image URLs for project tilesets
+      const storage = getTilesetStorage();
+      const projectTilesetsWithUrls = await Promise.all(
+        projectTilesets.map(async (tileset) => {
+          try {
+            const imageUrl = await storage.getTilesetImageUrl({
+              location: { storageKey: tileset.storageLocation },
+            });
+
+            return {
+              id: tileset._id.toHexString(),
+              name: tileset.name,
+              image_source: imageUrl,
+              tile_width: tileset.tile_width,
+              tile_height: tileset.tile_height,
+              source_tile_width: tileset.source_tile_width,
+              source_tile_height: tileset.source_tile_height,
+            };
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.warn(`[tilesets] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
+            // Return tileset without image rather than silently dropping it
+            return {
+              id: tileset._id.toHexString(),
+              name: tileset.name,
+              image_source: null,
+              tile_width: tileset.tile_width,
+              tile_height: tileset.tile_height,
+              source_tile_width: tileset.source_tile_width,
+              source_tile_height: tileset.source_tile_height,
+            };
+          }
+        })
+      );
+
+      return NextResponse.json([...staticTilesets, ...projectTilesetsWithUrls], { status: 200 });
+    } catch (error) {
+      console.error('Error fetching project tilesets:', error);
+      // Fall through to return static tilesets only
     }
 
     // Return only static tilesets

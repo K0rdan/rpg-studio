@@ -2,11 +2,13 @@ import { GameLoop } from './GameLoop';
 import { Renderer } from './Renderer';
 import { InputManager } from './InputManager';
 import { Scene } from './Scene';
-import { MapRenderer } from './MapRenderer';
+import { MapRenderer, type MapViewOptions } from './MapRenderer';
 import { SpriteRenderer } from './SpriteRenderer';
 import { AssetLoader } from './AssetLoader';
 import { PlayerController } from './PlayerController';
 import { EntityRenderer } from './EntityRenderer';
+import { resolveMapTileset } from './resolveTileset';
+import { sortDepthItems, type DepthRenderItem } from './renderDepth';
 import type { GameProject, Map, Tileset, Sprite } from '@packages/types';
 
 export class GameEngine {
@@ -20,6 +22,8 @@ export class GameEngine {
   private enablePlayerControls: boolean;
   private playerController: PlayerController | null = null;
   private entityRenderers: EntityRenderer[] = [];
+  private mapRenderer: MapRenderer | null = null;
+  private mapViewOptions: MapViewOptions | null = null;
 
   constructor(canvas: HTMLCanvasElement, options?: { scale?: number; enablePlayerControls?: boolean }) {
     this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
@@ -56,21 +60,18 @@ export class GameEngine {
     this.gameLoop = new GameLoop((deltaTime: number) => {
       this.renderer.clear();
       this.scene.update(deltaTime, this.input);
-      this.scene.render(this.renderer);
 
-      // Render entities (NPCs, doors, etc.)
-      this.entityRenderers.forEach(renderer => {
+      this.entityRenderers.forEach((renderer) => {
         renderer.update(deltaTime);
-        renderer.render(this.renderer);
       });
 
-      // Render player on top (only update if controls are enabled)
       if (this.playerController) {
         if (this.enablePlayerControls) {
           this.playerController.update(deltaTime, this.input);
         }
-        this.playerController.render(this.renderer);
       }
+
+      this.renderWorld();
     });
   }
 
@@ -89,16 +90,11 @@ export class GameEngine {
     console.log('  → Using map:', currentMap.name);
 
     // Find tileset
-    let tileset = tilesets.find(t => t.id === currentMap.tilesetId);
-    if (!tileset) {
-      // Fallback
-      tileset = {
-        id: 'ts1', // default fallback
-        name: 'Fixed Tileset',
-        image_source: '/tileset_fixed.png',
-        tile_width: 32,
-        tile_height: 32
-      };
+    const tileset = resolveMapTileset(currentMap, tilesets);
+    if (tileset.id !== currentMap.tilesetId) {
+      console.warn(
+        `GameEngine: Map "${currentMap.name}" has no usable tileset ("${currentMap.tilesetId}" is missing or has no image), falling back to "${tileset.id}"`
+      );
     }
 
     console.log('GameEngine: Loading tileset image:', tileset.image_source);
@@ -131,6 +127,8 @@ export class GameEngine {
       tileset.tile_width, 
       tileset.tile_height
     );
+    this.mapRenderer = mapRenderer;
+    mapRenderer.setViewOptions(this.mapViewOptions);
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
 
@@ -235,11 +233,11 @@ export class GameEngine {
         frame_width: 256, 
         frame_height: 256,
         animations: {
-          idle: [0], 
-          walk_down: [0, 1, 2, 3],
-          walk_left: [4, 5, 6, 7],
-          walk_right: [8, 9, 10, 11],
-          walk_up: [12, 13, 14, 15]
+          idle: [1],
+          walk_down: [0, 1, 2],
+          walk_left: [3, 4, 5],
+          walk_right: [6, 7, 8],
+          walk_up: [9, 10, 11]
         }
       };
 
@@ -292,6 +290,9 @@ export class GameEngine {
     this.pause();
     this.renderer.clear();
     this.scene = new Scene();
+    this.mapRenderer = null;
+    this.playerController = null;
+    this.entityRenderers = [];
   }
 
   /**
@@ -299,9 +300,42 @@ export class GameEngine {
    * Useful for real-time editing in the editor
    */
   public updateMapData(map: Map): void {
-    const mapRenderers = this.scene.getMapRenderers();
-    if (mapRenderers.length > 0) {
-      mapRenderers[0].updateMapData(map);
+    this.mapRenderer?.updateMapData(map);
+  }
+
+  public setMapViewOptions(options: MapViewOptions | null): void {
+    this.mapViewOptions = options;
+    this.mapRenderer?.setViewOptions(options);
+  }
+
+  private renderWorld(): void {
+    this.mapRenderer?.renderPriority(this.renderer, 'below');
+
+    const depthItems: DepthRenderItem[] =
+      this.mapRenderer?.createSameDepthItems(this.renderer) ?? [];
+
+    this.entityRenderers.forEach((entityRenderer, index) => {
+      const entity = entityRenderer.getEntity();
+      depthItems.push({
+        id: `entity-${entity.id}`,
+        depth: entityRenderer.getRenderDepth(),
+        kind: 'actor',
+        order: index,
+        render: () => entityRenderer.render(this.renderer),
+      });
+    });
+
+    if (this.playerController) {
+      depthItems.push({
+        id: 'player',
+        depth: this.playerController.getRenderDepth(),
+        kind: 'actor',
+        order: this.entityRenderers.length,
+        render: () => this.playerController?.render(this.renderer),
+      });
     }
+
+    sortDepthItems(depthItems).forEach((item) => item.render());
+    this.mapRenderer?.renderPriority(this.renderer, 'above');
   }
 }

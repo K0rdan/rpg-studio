@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 /**
  * POST /api/projects/[projectId]/tilesets/save-generated
@@ -15,28 +14,15 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = session.user.id;
-
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    // Verify project exists and ownership
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
-    const projectUserId = project.userId instanceof ObjectId 
-      ? project.userId.toHexString() 
-      : project.userId;
-    
-    if (projectUserId && projectUserId !== userId) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-    }
+    const { db } = await connectToDatabase();
+    const { userId } = access;
 
     // Parse request body
     const body = await req.json();

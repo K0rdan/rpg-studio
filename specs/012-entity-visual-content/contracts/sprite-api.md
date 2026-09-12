@@ -31,10 +31,10 @@ Upload a spritesheet image and create a Sprite document.
   "frame_height": 64,
   "animations": {
     "idle": [1],
-    "walk_down": [0, 1, 2, 3],
-    "walk_left": [4, 5, 6, 7],
-    "walk_right": [8, 9, 10, 11],
-    "walk_up": [12, 13, 14, 15]
+    "walk_down": [0, 1, 2],
+    "walk_left": [3, 4, 5],
+    "walk_right": [6, 7, 8],
+    "walk_up": [9, 10, 11]
   },
   "projectId": "proj123",
   "createdAt": "2026-03-02T22:00:00Z"

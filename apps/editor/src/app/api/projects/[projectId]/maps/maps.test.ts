@@ -75,6 +75,14 @@ describe('Map API', () => {
     expect(data.name).toBe('Test Map');
     expect(data.width).toBe(10);
     expect(data.height).toBe(10);
+    expect(data.layers).toEqual([
+      {
+        name: 'Layer 1',
+        data: new Array(100).fill(-1),
+        visible: true,
+        priority: 'below',
+      },
+    ]);
 
     const project = await db.collection('projects').findOne({ _id: projectId });
     expect(project?.maps).toHaveLength(1);

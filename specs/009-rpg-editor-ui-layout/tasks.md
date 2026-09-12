@@ -720,25 +720,24 @@
 #### Task 8.2: Responsive Design
 **Estimated Time**: 6 hours  
 **Priority**: Medium  
-**Status**: ⏳ Not Started
+**Status**: ✅ Partial (explorer default visibility)
 
-**Description**: Implement responsive design for different screen sizes.
+**Description**: Open the Project Explorer on load when the viewport can still fit a usable canvas.
 
 **Files to Modify**:
+- `apps/editor/src/lib/editorLayout.ts`
 - `apps/editor/src/components/Editor/EditorLayout.tsx`
-- `apps/editor/src/components/Editor/ProjectExplorer/ProjectExplorer.tsx`
 
 **Implementation Steps**:
-1. Add MUI useMediaQuery hook
-2. Auto-collapse panels on small screens (< 960px)
-3. Show mobile warning on very small screens
-4. Test on 1920x1080 and 2560x1440
-5. Adjust panel sizes for different breakpoints
+1. Compute remaining width: toolbar + explorer + inspector + min canvas (640px)
+2. Open explorer once on editor page load when the budget is met
+3. Keep Inspector open; do not restore explorer open/closed from localStorage
+4. Test at 1920x1080 (open) and below ~1246px with default chrome (closed)
 
 **Acceptance Criteria**:
-- [ ] Layout works on 1920x1080
-- [ ] Layout works on 2560x1440
-- [ ] Panels auto-collapse on small screens
+- [x] Layout works on 1920x1080 (explorer open)
+- [x] Layout works on 2560x1440 (explorer open)
+- [x] Explorer stays closed when the canvas budget is not met
 - [ ] Mobile warning shows on mobile
 
 ---

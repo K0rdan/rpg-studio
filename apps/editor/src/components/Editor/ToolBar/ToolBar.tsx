@@ -15,8 +15,9 @@ import {
 } from '@mui/icons-material';
 import { ToolButton } from './ToolButton';
 import { useEditorStore } from '@/stores/editorStore';
-import { useMapEngine } from '@/hooks/useMapEngine';
+import { useMapStore } from '@/stores/mapStore';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import { usePreview } from '@/context/PreviewContext';
 import { useEntities } from '@/hooks/useEntities';
 import { useEffect } from 'react';
@@ -34,18 +35,19 @@ export const ToolBar = () => {
   const setSaveStatus = useEditorStore((state) => state.setSaveStatus);
   const setMapDirty = useEditorStore((state) => state.setMapDirty);
   
-  const { currentMap } = useMapEngine(projectId);
+  // Read the map the canvas is editing, so a save ships the painted tiles.
+  const currentMap = useMapStore((state) => state.currentMap);
   const { showToast } = useToast();
   const preview = usePreview();
   const { entities } = useEntities(projectId, currentMap?.id || '');
 
   const handleSave = async () => {
-    if (!currentMap || !isDirty) return;
+    if (!currentMap || !isDirty) return true;
     
     setSaveStatus('saving');
     
     try {
-      const response = await fetch(`/api/projects/${projectId}/maps/${currentMap.id}`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps/${currentMap.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,6 +67,7 @@ export const ToolBar = () => {
       
       // Reset status after 2 seconds
       setTimeout(() => setSaveStatus('idle'), 2000);
+      return true;
     } catch (error) {
       console.error('Error saving map:', error);
       setSaveStatus('error');
@@ -72,6 +75,7 @@ export const ToolBar = () => {
       
       // Reset status after 3 seconds
       setTimeout(() => setSaveStatus('idle'), 3000);
+      return false;
     }
   };
 
@@ -88,9 +92,13 @@ export const ToolBar = () => {
       return;
     }
 
+    // The preview endpoint reads the database, so unsaved tiles must be
+    // persisted first or the player would run on a stale map.
+    if (!(await handleSave())) return;
+
     try {
       // Fetch preview data from API
-      const response = await fetch(`/api/projects/${projectId}/preview`);
+      const response = await apiFetch(`/api/projects/${projectId}/preview`);
       if (!response.ok) {
         throw new Error('Failed to fetch preview data');
       }

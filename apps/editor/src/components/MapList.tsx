@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Map } from '@packages/types';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -27,7 +28,7 @@ export default function MapList({ projectId, maps }: MapListProps) {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/maps/${mapId}`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps/${mapId}`, {
         method: 'DELETE',
       });
 

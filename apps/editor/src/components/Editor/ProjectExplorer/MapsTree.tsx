@@ -26,10 +26,10 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { Map as MapIcon, Add, Delete } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
-import { useSelectionStore } from '@/stores/selectionStore';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
-import { useMapStore } from '@/stores/mapStore';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
+import { clearMapSelection, selectMap } from '@/lib/mapSelection';
 import type { Map, Tileset } from '@packages/types';
 
 const darkFieldSx = {
@@ -67,7 +67,7 @@ function CreateMapDialog({ open, projectId, onClose, onCreated }: CreateMapDialo
   // Fetch available tilesets for the picker
   useEffect(() => {
     if (!open || !projectId) return;
-    fetch(`/api/tilesets?projectId=${projectId}`)
+    apiFetch(`/api/tilesets?projectId=${projectId}`)
       .then(r => r.ok ? r.json() : [])
       .then((data: Tileset[]) => {
         setTilesets(data);
@@ -92,7 +92,7 @@ function CreateMapDialog({ open, projectId, onClose, onCreated }: CreateMapDialo
     }
     setCreating(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/maps`, {
+      const res = await apiFetch(`/api/projects/${projectId}/maps`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), width, height, tilesetId: tilesetId || undefined }),
@@ -233,17 +233,14 @@ export const MapsTree = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mapToDelete, setMapToDelete] = useState<Map | null>(null);
 
-  const setSelection = useSelectionStore((state) => state.setSelection);
   const selectedItemId = useProjectExplorerStore((state) => state.selectedItemId);
-  const setSelectedItem = useProjectExplorerStore((state) => state.setSelectedItem);
-  const setActiveMapId = useMapStore((state) => state.setActiveMapId);
   const { showToast } = useToast();
 
   const fetchMaps = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const response = await fetch(`/api/projects/${projectId}/maps`);
+      const response = await apiFetch(`/api/projects/${projectId}/maps`);
       if (!response.ok) throw new Error('Failed to fetch maps');
       setMaps(await response.json());
     } catch (err) {
@@ -266,9 +263,7 @@ export const MapsTree = () => {
       setMaps(prev => prev.filter(m => m.id !== deletedId));
 
       if (selectedItemId === deletedId) {
-        setSelection(null, null, null);
-        setSelectedItem(null, null);
-        setActiveMapId(null);
+        clearMapSelection();
       }
     };
 
@@ -276,20 +271,12 @@ export const MapsTree = () => {
     return () => {
       window.removeEventListener('rpgstudio:map-deleted', handleMapDeleted as EventListener);
     };
-  }, [selectedItemId, setActiveMapId, setSelectedItem, setSelection]);
-
-  const handleMapSelect = (map: Map) => {
-    setSelectedItem(map.id, 'map');
-    setSelection('map', map.id, map);
-    setActiveMapId(map.id); // ← tells MapCanvas which map to render
-  };
+  }, [selectedItemId]);
 
   const handleMapCreated = (map: Map) => {
     setMaps(prev => [...prev, map]);
-    // Auto-select + activate so the canvas switches to the new map immediately
-    setSelectedItem(map.id, 'map');
-    setSelection('map', map.id, map);
-    setActiveMapId(map.id); // ← critical: without this the canvas stays on mapsData[0]
+    // Auto-select so the canvas, inspector and palette switch to the new map
+    selectMap(map);
   };
 
   // ---- Deletion Handlers ----
@@ -324,7 +311,7 @@ export const MapsTree = () => {
     if (!mapToDelete) return;
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/maps/${mapToDelete.id}`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps/${mapToDelete.id}`, {
         method: 'DELETE',
       });
       
@@ -336,9 +323,7 @@ export const MapsTree = () => {
       
       // If deleted map was selected, clear selection
       if (selectedItemId === mapToDelete.id) {
-        setSelection(null, null, null);
-        setSelectedItem(null, null);
-        setActiveMapId(null);
+        clearMapSelection();
       }
       
       showToast(`Deleted map "${mapToDelete.name}"`, 'success');
@@ -449,7 +434,7 @@ export const MapsTree = () => {
                     </Tooltip>
                   </Box>
                 }
-                onClick={() => handleMapSelect(map)}
+                onClick={() => selectMap(map)}
                 onContextMenu={(e) => handleContextMenu(e, map)}
               />
             ))

@@ -4,6 +4,8 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { TileGrid } from './TileGrid';
+import { apiFetch } from '@/lib/apiFetch';
+import { useTileSelectionStore } from '@/stores/tileSelectionStore';
 import type { Tileset } from '@packages/types';
 
 interface TilePaletteProps {
@@ -13,6 +15,10 @@ interface TilePaletteProps {
 export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
   const params = useParams();
   const projectId = params?.projectId as string;
+
+  // Without an explicit tileset, show the one the map canvas actually renders with.
+  const activeTilesetId = useTileSelectionStore((state) => state.selectedTilesetId);
+  const effectiveTilesetId = tilesetId ?? activeTilesetId ?? undefined;
 
   const [tileset, setTileset] = useState<Tileset | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,15 +33,15 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
         setLoading(true);
         setError(null);
 
-        if (tilesetId) {
+        if (effectiveTilesetId) {
           // Fetch specific tileset
-          const response = await fetch(`/api/projects/${projectId}/tilesets/${tilesetId}`);
+          const response = await apiFetch(`/api/projects/${projectId}/tilesets/${effectiveTilesetId}`);
           if (!response.ok) throw new Error('Failed to fetch tileset');
           const data = await response.json();
           setTileset(data);
         } else {
           // Fetch first available tileset
-          const response = await fetch(`/api/tilesets?projectId=${projectId}`);
+          const response = await apiFetch(`/api/tilesets?projectId=${projectId}`);
           if (!response.ok) throw new Error('Failed to fetch tilesets');
           const data = await response.json();
           if (data.length > 0) {
@@ -53,7 +59,7 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
     };
 
     fetchTileset();
-  }, [tilesetId, projectId]);
+  }, [effectiveTilesetId, projectId]);
 
   if (loading) {
     return (

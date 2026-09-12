@@ -22,6 +22,7 @@ export const ToolButton = ({
         <IconButton
           onClick={onClick}
           disabled={disabled}
+          aria-label={tooltip}
           sx={{
             width: 40,
             height: 40,

@@ -2,24 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Map } from '@packages/types';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
+    const { projectId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
     const { name, width, height, tilesetId } = await req.json();
-    const { projectId } = await params;
 
     if (!name || !width || !height) {
       return NextResponse.json({ message: 'Map name, width, and height are required' }, { status: 400 });
     }
 
-    // Check if project exists
     const projectsCollection = db.collection('projects');
-    const project = await projectsCollection.findOne({ _id: new ObjectId(projectId) });
-    
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
-    }
 
     const newMap: Omit<Map, 'id'> = {
       name,
@@ -28,7 +29,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       tilesetId: tilesetId || '',
       layers: [{
         name: 'Layer 1',
-        data: new Array(width * height).fill(-1)
+        data: new Array(width * height).fill(-1),
+        visible: true,
+        priority: 'below',
       }],
     };
 
@@ -56,16 +59,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
-    const mapIds = (project.maps || []).map((id: string) => new ObjectId(id));
+    const { db } = await connectToDatabase();
+    const mapIds = (access.project.maps || []).map((id: string) => new ObjectId(id));
     
     if (mapIds.length === 0) {
       return NextResponse.json([], { status: 200 });

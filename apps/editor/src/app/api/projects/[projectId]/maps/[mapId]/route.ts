@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   try {
+    const { projectId, mapId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
-    const { mapId } = await params;
 
     const map = await db.collection('maps').findOne({ _id: new ObjectId(mapId) });
 
@@ -28,30 +34,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   try {
-    const { auth } = await import('@/lib/auth');
-    const { headers } = await import('next/headers');
-    const session = await auth.api.getSession({ headers: await headers() });
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const { projectId, mapId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
     const { db } = await connectToDatabase();
-    const { projectId, mapId } = await params;
     const updates = await req.json();
-
-    // Verify project ownership
-    const project = await db.collection('projects').findOne({
-      _id: new ObjectId(projectId),
-      userId: session.user.id,
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { message: 'Project not found or unauthorized' },
-        { status: 403 }
-      );
-    }
 
     // Remove id from updates if present to avoid immutable field error
     delete updates.id;
@@ -81,8 +72,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ projectId: string; mapId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId, mapId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { db } = await connectToDatabase();
 
     const result = await db.collection('maps').deleteOne({ _id: new ObjectId(mapId) });
 

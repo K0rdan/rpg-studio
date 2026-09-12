@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
@@ -38,7 +39,7 @@ export default function TilesetCard({ tileset, projectId, onDeleted }: TilesetCa
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/projects/${projectId}/tilesets/${tileset.id}`,
         {
           method: 'DELETE',

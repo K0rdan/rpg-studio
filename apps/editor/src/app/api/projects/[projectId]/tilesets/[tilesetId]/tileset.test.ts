@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { createMongoClient } from '@/lib/mongoClient';
 import { getTilesetStorage } from '@/lib/storage';
 import { NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
@@ -14,13 +15,27 @@ jest.mock('@/lib/storage', () => ({
   getTilesetStorage: jest.fn(),
 }));
 
+jest.mock('next/headers', () => ({
+  headers: jest.fn().mockResolvedValue(new Headers()),
+}));
+
+jest.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: jest.fn(),
+    },
+  },
+}));
+
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
 const mockedGetTilesetStorage = getTilesetStorage as jest.Mock;
+const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
 
 describe('Tileset by ID API', () => {
   let connection: MongoClient;
   let db: Db;
   const projectId = new ObjectId().toHexString();
+  const userId = 'test-user-123';
   let tilesetId: string;
   let mockStorage: {
     getTilesetImageUrl: jest.Mock;
@@ -42,6 +57,8 @@ describe('Tileset by ID API', () => {
   });
 
   beforeEach(async () => {
+    mockedGetSession.mockResolvedValue({ user: { id: userId } });
+
     // Clean up collections
     await db.collection('projects').deleteMany({});
     await db.collection('tilesets').deleteMany({});
@@ -54,7 +71,7 @@ describe('Tileset by ID API', () => {
       maps: [],
       characters: [],
       tilesets: [],
-      userId: 'test-user-123',
+      userId,
     });
 
     // Create a test tileset

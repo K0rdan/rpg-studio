@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import type { Entity } from '@packages/types';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 
 interface CreateEntityDialogProps {
   open: boolean;
@@ -79,7 +80,7 @@ export const CreateEntityDialog = ({
         commands: [],
       };
 
-      const response = await fetch(`/api/projects/${projectId}/maps/${mapId}/entities`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps/${mapId}/entities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEntity),

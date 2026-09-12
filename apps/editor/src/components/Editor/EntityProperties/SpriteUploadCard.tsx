@@ -1,9 +1,24 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { Upload, CheckCircle, Warning } from '@mui/icons-material';
-import type { Sprite } from '@packages/types';
+import {
+  CHARSET_GRID_COLUMNS,
+  CHARSET_GRID_ROWS,
+  MAX_CHARSET_FRAME_DIMENSION,
+  MIN_CHARSET_FRAME_DIMENSION,
+  isValidCharsetFrameDimension,
+  type Sprite,
+} from '@packages/types';
 
 interface SpriteUploadCardProps {
   /** The currently attached sprite, or null if none */
@@ -33,31 +48,74 @@ const getImageDimensions = (file: File): Promise<{ width: number; height: number
 export const SpriteUploadCard = ({ currentSprite, onSpriteUploaded, onUpload }: SpriteUploadCardProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [detectedDims, setDetectedDims] = useState<{ fw: number; fh: number } | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [frameWidth, setFrameWidth] = useState(0);
+  const [frameHeight, setFrameHeight] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
     setUploadError(null);
 
     try {
-      // Detect image dimensions and derive per-frame sizes (4-col × 4-row RPG Maker grid)
       const { width, height } = await getImageDimensions(file);
-      const frame_width = Math.round(width / 4);
-      const frame_height = Math.round(height / 4);
-      setDetectedDims({ fw: frame_width, fh: frame_height });
+      setPendingFile(file);
+      setImageDimensions({ width, height });
+      setFrameWidth(width / CHARSET_GRID_COLUMNS);
+      setFrameHeight(height / CHARSET_GRID_ROWS);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+    }
+  };
 
-      const defaultName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      const sprite = await onUpload(file, defaultName, { frame_width, frame_height });
+  const clearPendingFile = () => {
+    setPendingFile(null);
+    setImageDimensions(null);
+    setFrameWidth(0);
+    setFrameHeight(0);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleUpload = async () => {
+    if (!pendingFile || !imageDimensions) return;
+
+    if (
+      !isValidCharsetFrameDimension(frameWidth)
+      || !isValidCharsetFrameDimension(frameHeight)
+    ) {
+      setUploadError(
+        `Frame dimensions must be whole numbers between ${MIN_CHARSET_FRAME_DIMENSION} and ${MAX_CHARSET_FRAME_DIMENSION} pixels`,
+      );
+      return;
+    }
+
+    if (
+      imageDimensions.width !== frameWidth * CHARSET_GRID_COLUMNS
+      || imageDimensions.height !== frameHeight * CHARSET_GRID_ROWS
+    ) {
+      setUploadError(
+        `Image dimensions must match a ${CHARSET_GRID_COLUMNS}×${CHARSET_GRID_ROWS} grid of the configured frame size`,
+      );
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const defaultName = pendingFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      const sprite = await onUpload(pendingFile, defaultName, {
+        frame_width: frameWidth,
+        frame_height: frameHeight,
+      });
       onSpriteUploaded(sprite);
+      clearPendingFile();
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -116,9 +174,11 @@ export const SpriteUploadCard = ({ currentSprite, onSpriteUploaded, onUpload }: 
             </Typography>
           )}
           <Typography variant="caption" sx={{ color: '#555', lineHeight: 1.2 }}>
-            {detectedDims
-              ? `PNG · ${detectedDims.fw * 4}×${detectedDims.fh * 4} px · ${detectedDims.fw}×${detectedDims.fh} per frame ✓`
-              : 'PNG · any size · 4-col × 4-row grid'}
+            {pendingFile && imageDimensions
+              ? `${pendingFile.name} · ${imageDimensions.width}×${imageDimensions.height} px`
+              : currentSprite
+                ? `${currentSprite.frame_width}×${currentSprite.frame_height} px per frame`
+                : `PNG · any frame size · ${CHARSET_GRID_COLUMNS}-col × ${CHARSET_GRID_ROWS}-row grid`}
           </Typography>
 
           <Button
@@ -138,7 +198,7 @@ export const SpriteUploadCard = ({ currentSprite, onSpriteUploaded, onUpload }: 
             }}
             variant="outlined"
           >
-            {uploading ? 'Uploading…' : currentSprite ? 'Replace' : 'Upload charset'}
+            {uploading ? 'Uploading…' : pendingFile ? 'Choose another' : currentSprite ? 'Replace' : 'Choose charset'}
           </Button>
 
           <input
@@ -168,6 +228,53 @@ export const SpriteUploadCard = ({ currentSprite, onSpriteUploaded, onUpload }: 
           </Tooltip>
         )}
       </Box>
+
+      {pendingFile && (
+        <Stack spacing={1} sx={{ mt: 1.5 }}>
+          <Stack direction="row" spacing={1}>
+            <TextField
+              label="Frame width"
+              type="number"
+              size="small"
+              value={frameWidth}
+              onChange={(event) => setFrameWidth(Number(event.target.value))}
+              disabled={uploading}
+              slotProps={{
+                htmlInput: {
+                  min: MIN_CHARSET_FRAME_DIMENSION,
+                  max: MAX_CHARSET_FRAME_DIMENSION,
+                  step: 1,
+                },
+              }}
+              fullWidth
+            />
+            <TextField
+              label="Frame height"
+              type="number"
+              size="small"
+              value={frameHeight}
+              onChange={(event) => setFrameHeight(Number(event.target.value))}
+              disabled={uploading}
+              slotProps={{
+                htmlInput: {
+                  min: MIN_CHARSET_FRAME_DIMENSION,
+                  max: MAX_CHARSET_FRAME_DIMENSION,
+                  step: 1,
+                },
+              }}
+              fullWidth
+            />
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="contained" disabled={uploading} onClick={handleUpload}>
+              {uploading ? 'Uploading…' : 'Upload'}
+            </Button>
+            <Button size="small" disabled={uploading} onClick={clearPendingFile}>
+              Cancel
+            </Button>
+          </Stack>
+        </Stack>
+      )}
 
       {uploadError && (
         <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mt: 0.5 }}>

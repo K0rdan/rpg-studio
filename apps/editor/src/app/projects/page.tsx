@@ -1,6 +1,4 @@
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { requireSession } from '@/lib/session';
 import NewProject from '@/components/NewProject';
 import ProjectList from '@/components/ProjectList';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -11,22 +9,9 @@ import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 
 export default async function ProjectsPage() {
-  let session = null;
+  const session = await requireSession();
   let projects: GameProject[] = [];
   let dbError = false;
-  
-  try {
-    session = await auth.api.getSession({ headers: await headers() });
-  } catch (error) {
-    console.error('[Projects] Auth error:', error instanceof Error ? error.message : error);
-    // Redirect to home if auth fails
-    redirect('/');
-  }
-  
-  // Redirect to home if not authenticated
-  if (!session?.user?.id) {
-    redirect('/');
-  }
 
   try {
     const { db } = await connectToDatabase();

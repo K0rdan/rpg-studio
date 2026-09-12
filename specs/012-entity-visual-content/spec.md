@@ -22,7 +22,7 @@ As a game designer, I want to attach a charset image to my Player entity so that
 
 **Acceptance Scenarios**:
 1. **Given** an existing Player entity, **When** I open Entity Properties, **Then** I see a "Charset" section with an "Upload charset image" button.
-2. **Given** I upload a 192×192 PNG (6 cols × 3 rows of 32×64 frames), **When** the upload completes, **Then** a preview of the charset thumbnail appears in Entity Properties.
+2. **Given** I upload a 3-column × 4-row charset and configure its frame width and height, **When** the upload completes, **Then** a preview of the charset thumbnail and its frame dimensions appear in Entity Properties.
 3. **Given** a charset is attached, **When** I open the game preview, **Then** the player renders using the first frame of the `idle` animation instead of the blue box.
 4. **Given** I hold an arrow key in the preview, **Then** the walk animation plays in the corresponding direction.
 
@@ -47,7 +47,7 @@ As a game designer, I want to attach a sprite to an NPC entity so it renders as 
 
 ### Functional Requirements — Types
 
-- **FR-001**: `packages/types` MUST define a `Charset` interface: spritesheet image URL, frame size, and a fixed set of RPG animation states (`idle`, `walk_up`, `walk_down`, `walk_left`, `walk_right`).
+- **FR-001**: A `Sprite` charset MUST define its spritesheet image URL, independently configurable frame width and frame height, and a fixed set of RPG animation states (`idle`, `walk_up`, `walk_down`, `walk_left`, `walk_right`).
 - **FR-002**: `Sprite` type must be extended (or a new `SpriteAsset` type added) to include `storageKey` for server-stored images and optional `projectId`.
 - **FR-003**: `Entity.charsetId?: string` — optional reference to a Charset document.
 - **FR-004**: `Entity.spriteId?: string` already exists; its semantics should be clarified (project-level sprite reference).
@@ -64,6 +64,7 @@ As a game designer, I want to attach a sprite to an NPC entity so it renders as 
 - **FR-009**: `EntityProperties` panel for Player: add a "Charset" card replacing/alongside the blue-box description; shows thumbnail + upload button.
 - **FR-010**: `EntityProperties` panel for other entity types: show a "Sprite" dropdown populated from project sprite library + attach/unattach button.
 - **FR-011**: Asset Manager must have a **Sprites** section for uploading and listing project sprites.
+- **FR-011a**: Charset upload and generation MUST accept independent positive integer frame dimensions, including square sizes such as 48×48 and 96×96, using a 3-column × 4-row layout.
 
 ### Functional Requirements — Game Engine
 
@@ -75,7 +76,7 @@ As a game designer, I want to attach a sprite to an NPC entity so it renders as 
 ### Non-Functional Requirements
 
 - **NFR-001**: Spritesheet images ≤ 4MB. Validate server-side.
-- **NFR-002**: Charset frame size defaults to 32×64 (1 tile wide, 2 tiles tall — standard RPG charset).
+- **NFR-002**: Charset frame size defaults to 32×64 for backward compatibility. Source frame dimensions only control spritesheet slicing; Player and NPC visuals are normalized to one map tile without changing entity position or collision.
 - **NFR-003**: Sprite asset storage follows the same Azure Blob / InMemory fallback pattern as tilesets.
 
 ---

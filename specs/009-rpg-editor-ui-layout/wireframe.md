@@ -12,26 +12,23 @@ The editor uses a 3-panel layout with the following structure:
 - **Menu Bar**: File, Edit, View, Tools, Help
 - **Toolbar**: Drawing tools (Brush, Fill, Eraser, Select, Entity, Region)
 
-### Left Panel: Project Explorer (250px default, 200-400px range)
-- **Maps Section**: Hierarchical tree of all maps
+### Left Toolbar + Project Explorer (250px default, 200-400px range)
+- **Vertical toolbar** (56px): drawing tools + Project Explorer toggle (Ctrl+B)
+- **Maps Section**: Hierarchical tree of all maps; first map selected on load
 - **Entities Section**: Player, NPCs, Enemies subfolders
 - **Assets Section**: Tilesets, Charsets, Sounds subfolders
 
+### Context Panel
+- **Tile Palette** when Brush is active (default): tileset of the selected map
+- **Entity Palette** when Entity tool is active
+
 ### Center Area
-- **Canvas Viewport**: Main editing area with grid overlay
-- **Tile Palette** (below canvas, 200px height):
-  - Tileset selector dropdown
-  - Filter dropdown (All, Grass, Stone, Water, etc.)
-  - Grid of tiles (16 columns, scrollable)
-  - Selected tile highlighted
+- **Canvas Viewport**: Main editing area with grid overlay; renders the selected map
 
 ### Right Panel: Inspector (300px default, 250-500px range)
-- **Map Properties** (when map selected):
-  - Name, Display Name, Size, Tileset, BGM
-- **Layers**:
-  - Ground, Objects, Collision, Events checkboxes
-- **Details**:
-  - Cursor position, Selected tile info
+- **Map Properties** (default on load when the project has maps):
+  - Name, Size, Tileset
+- **Entity Properties** when an entity is selected
 
 ## Key Features
 
@@ -78,18 +75,18 @@ The editor uses a 3-panel layout with the following structure:
 ## Responsive Behavior
 
 ### Desktop (1920x1080+)
-- All panels visible
-- Default panel sizes
+- Project Explorer open by default
+- Inspector open, Brush active, first map selected
 - Full functionality
 
 ### Laptop (1280-1920px)
-- All panels visible
-- Narrower default sizes
+- Project Explorer still open with default panel sizes (space-based rule, ~1246px required)
+- Inspector open
 - Full functionality
 
-### Small Screens (<1280px)
-- Panels auto-collapse
-- Overlay mode for sidebars
+### Small Screens (< ~1246px with default chrome)
+- Project Explorer stays closed until the user opens it
+- Inspector remains open
 - Mobile warning for very small screens
 
 ## Implementation Notes
@@ -103,23 +100,19 @@ The editor uses a 3-panel layout with the following structure:
 ### Component Structure
 ```
 EditorLayout
-├── TopBar
-│   ├── MenuBar
-│   └── Toolbar
-├── ResizablePanel (left)
+├── ToolBar (vertical, 56px)
+├── ResizablePanel (left, open on load if viewport is wide enough)
 │   └── ProjectExplorer
 │       ├── MapsTree
 │       ├── EntitiesTree
 │       └── AssetsTree
-├── CenterArea
-│   ├── MapCanvas
-│   └── TilePalette
-│       └── TileGrid
+├── ResizablePanel (context)
+│   └── ContextPanel
+│       └── TilePalette | EntityPalette
+├── MapCanvas
 └── ResizablePanel (right)
     └── Inspector
-        ├── MapInspector
-        ├── EntityInspector
-        └── TileInspector
+        └── MapProperties | EntityProperties
 ```
 
 ### State Management
@@ -148,15 +141,20 @@ EditorLayout
 
 ## Design Decisions
 
-### Why Tile Palette Below Canvas?
-- More horizontal space for viewing tiles
-- Easier to see multiple tiles at once
-- Natural workflow: look at canvas → look down at palette
+### Why Tile Palette in the Context Panel?
+- Canvas uses full height
+- Palette follows the selected map's tileset
+- Brush-on-load means the palette is immediately usable
 
-### Why Tools on Top?
+### Why a space-based explorer default?
+- A 1920px screen is not the only comfortable size
+- Keep a 640px canvas after toolbar + explorer + inspector
+- Do not fight the user after they close the explorer
+
+### Why Tools on a Vertical Toolbar?
 - Quick access without scrolling
-- Familiar placement (like most editors)
-- Keyboard shortcuts make them even faster
+- Explorer toggle sits with the other view/tool controls
+- Keyboard shortcuts (B, Ctrl+B, …) remain primary
 
 ### Why Optional Tile Tagging?
 - Works for both AI-generated and user-imported tilesets

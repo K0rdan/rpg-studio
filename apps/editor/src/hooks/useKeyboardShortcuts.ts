@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
+import { isTypingTarget } from '@/lib/keyboardTarget';
 
 export const useKeyboardShortcuts = () => {
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
@@ -9,7 +10,7 @@ export const useKeyboardShortcuts = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isTypingTarget(e.target)) {
         return;
       }
 

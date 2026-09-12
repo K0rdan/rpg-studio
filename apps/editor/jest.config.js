@@ -11,7 +11,9 @@ const customJestConfig = {
   preset: '@shelf/jest-mongodb',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/(.*)': '<rootDir>/src/$1',
+    '^@packages/types$': '<rootDir>/../../packages/types/src/index.ts',
     '^@packages/(.*)$': '<rootDir>/../../packages/$1/src',
   },
   transformIgnorePatterns: ['/node_modules/(?!@azure)/'],

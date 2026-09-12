@@ -5,8 +5,7 @@ import { getTilesetStorage } from '@/lib/storage';
 import type { Tileset } from '@packages/types';
 import { SUPPORTED_MIME_TYPES } from '@packages/storage';
 import { InvalidMimeTypeError, UploadFailedError } from '@packages/storage';
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -20,32 +19,17 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = session.user.id;
-
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    // Verify project exists
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
-    // Validate ownership - ensure both values are strings for comparison
-    const projectUserId = project.userId instanceof ObjectId 
-      ? project.userId.toHexString() 
-      : project.userId;
-    
-    if (projectUserId && projectUserId !== userId) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-    }
+    const { db } = await connectToDatabase();
 
     // Get tileset IDs from project
-    const tilesetIds = project.tilesets || [];
+    const tilesetIds = access.project.tilesets || [];
 
     if (tilesetIds.length === 0) {
       return NextResponse.json([], { status: 200 });
@@ -75,6 +59,8 @@ export async function GET(
             image_source: imageUrl,
             tile_width: tileset.tile_width,
             tile_height: tileset.tile_height,
+            source_tile_width: tileset.source_tile_width,
+            source_tile_height: tileset.source_tile_height,
             projectId: tileset.projectId,
             createdAt: tileset.createdAt,
             updatedAt: tileset.updatedAt,
@@ -89,6 +75,8 @@ export async function GET(
             image_source: '', // Empty URL indicates error
             tile_width: tileset.tile_width,
             tile_height: tileset.tile_height,
+            source_tile_width: tileset.source_tile_width,
+            source_tile_height: tileset.source_tile_height,
             projectId: tileset.projectId,
             createdAt: tileset.createdAt,
             updatedAt: tileset.updatedAt,
@@ -115,29 +103,15 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = session.user.id;
-
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    // Verify project exists
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
-    // Validate ownership - ensure both values are strings for comparison
-    const projectUserId = project.userId instanceof ObjectId 
-      ? project.userId.toHexString() 
-      : project.userId;
-    
-    if (projectUserId && projectUserId !== userId) {
-      return NextResponse.json({ message: 'Forbidden: You do not own this project' }, { status: 403 });
-    }
+    const { db } = await connectToDatabase();
+    const { userId } = access;
 
     // Parse multipart form data
     const formData = await req.formData();

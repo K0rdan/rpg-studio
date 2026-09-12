@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   try {
+    const { projectId, characterId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
-    const { characterId } = await params;
     const updates = await req.json();
 
     // Remove id from updates if present
@@ -30,8 +37,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId, characterId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { db } = await connectToDatabase();
 
     const result = await db.collection('characters').deleteOne({ _id: new ObjectId(characterId) });
 

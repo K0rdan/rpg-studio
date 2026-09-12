@@ -7,6 +7,7 @@ import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import { apiFetch } from '@/lib/apiFetch';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import StopIcon from '@mui/icons-material/Stop';
@@ -114,7 +115,7 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
       let sprites: Sprite[] = data.sprites || [];
       if (sprites.length === 0 && data.project?.id) {
         try {
-          const spritesRes = await fetch(`/api/projects/${data.project.id}/sprites`);
+          const spritesRes = await apiFetch(`/api/projects/${data.project.id}/sprites`);
           if (spritesRes.ok) {
             sprites = await spritesRes.json();
             console.log(`✅ Fetched ${sprites.length} sprite(s) for preview`);

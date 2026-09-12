@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { ObjectId } from 'mongodb';
+import sharp from 'sharp';
 import type { Sprite } from '@packages/types';
-import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
+import {
+  CHARSET_GRID_COLUMNS,
+  CHARSET_GRID_ROWS,
+  DEFAULT_CHARSET_ANIMATIONS,
+  DEFAULT_CHARSET_FRAME_SIZE,
+  isValidCharsetFrameDimension,
+} from '@packages/types';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 const MAX_SPRITE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
@@ -37,12 +45,14 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    const { db } = await connectToDatabase();
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
+    const { project } = access;
 
     const spriteIds = (project.sprites || []).map((id: string) => new ObjectId(id));
     if (spriteIds.length === 0) {
@@ -79,6 +89,7 @@ export async function GET(
           storageKey,
           projectId,
           createdAt: s.createdAt,
+          generation_metadata: s.generation_metadata,
         } satisfies Sprite;
       })
     );
@@ -100,12 +111,14 @@ export async function POST(
 ) {
   try {
     const { projectId } = await params;
-    const { db } = await connectToDatabase();
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
+    const { project } = access;
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -120,8 +133,36 @@ export async function POST(
       return NextResponse.json({ message: 'File too large (max 4MB)' }, { status: 400 });
     }
 
-    const frame_width = frameWidthRaw ? parseInt(String(frameWidthRaw)) : 32;
-    const frame_height = frameHeightRaw ? parseInt(String(frameHeightRaw)) : 64;
+    const frame_width = frameWidthRaw
+      ? Number(frameWidthRaw)
+      : DEFAULT_CHARSET_FRAME_SIZE.width;
+    const frame_height = frameHeightRaw
+      ? Number(frameHeightRaw)
+      : DEFAULT_CHARSET_FRAME_SIZE.height;
+    if (
+      !isValidCharsetFrameDimension(frame_width)
+      || !isValidCharsetFrameDimension(frame_height)
+    ) {
+      return NextResponse.json(
+        { message: 'Frame width and height must be positive integers within the supported range' },
+        { status: 400 },
+      );
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const imageMetadata = await sharp(buffer).metadata();
+    if (
+      imageMetadata.width !== frame_width * CHARSET_GRID_COLUMNS
+      || imageMetadata.height !== frame_height * CHARSET_GRID_ROWS
+    ) {
+      return NextResponse.json(
+        {
+          message: `Image dimensions must match a ${CHARSET_GRID_COLUMNS}×${CHARSET_GRID_ROWS} grid of the configured frame size`,
+        },
+        { status: 400 },
+      );
+    }
+
     let animations: Record<string, number[]> = DEFAULT_CHARSET_ANIMATIONS;
     if (animationsRaw) {
       try { animations = JSON.parse(animationsRaw); }
@@ -142,7 +183,6 @@ export async function POST(
 
     // Upload using the generic uploadFile() so the folder is sprites/ not tilesets/
     const storage = getTilesetStorage();
-    const buffer = Buffer.from(await file.arrayBuffer());
     await storage.uploadFile(storageKey, buffer, mimeType);
 
     // Register sprite on the project

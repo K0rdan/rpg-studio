@@ -4,6 +4,7 @@ import type { Character } from '@packages/types';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -33,7 +34,7 @@ export default function NewCharacter({ projectId }: NewCharacterProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/characters`, {
+      const response = await apiFetch(`/api/projects/${projectId}/characters`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

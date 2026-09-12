@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { GameProject } from '@packages/types';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -32,7 +33,7 @@ export default function ProjectList({ initialProjects }: ProjectListProps) {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await apiFetch(`/api/projects/${projectId}`, {
         method: 'DELETE',
       });
 

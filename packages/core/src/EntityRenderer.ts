@@ -72,6 +72,10 @@ export class EntityRenderer {
     return this.entity;
   }
 
+  public getRenderDepth(): number {
+    return (this.entity.y + 1) * this.tileHeight;
+  }
+
   public setEntity(entity: Entity) {
     this.entity = entity;
   }

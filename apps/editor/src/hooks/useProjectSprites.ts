@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Sprite } from '@packages/types';
+import { apiFetch } from '@/lib/apiFetch';
 
 export function useProjectSprites(projectId: string | null) {
   const [sprites, setSprites] = useState<Sprite[]>([]);
@@ -13,7 +14,7 @@ export function useProjectSprites(projectId: string | null) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/sprites`);
+      const res = await apiFetch(`/api/projects/${projectId}/sprites`);
       if (!res.ok) throw new Error(`Failed to load sprites: ${res.statusText}`);
       const data: Sprite[] = await res.json();
       setSprites(data);
@@ -41,7 +42,7 @@ export function useProjectSprites(projectId: string | null) {
     if (options?.frame_height) formData.append('frame_height', String(options.frame_height));
     if (options?.animations) formData.append('animations', JSON.stringify(options.animations));
 
-    const res = await fetch(`/api/projects/${projectId}/sprites`, {
+    const res = await apiFetch(`/api/projects/${projectId}/sprites`, {
       method: 'POST',
       body: formData,
     });
@@ -58,7 +59,7 @@ export function useProjectSprites(projectId: string | null) {
 
   const deleteSprite = async (spriteId: string): Promise<void> => {
     if (!projectId) throw new Error('No projectId');
-    const res = await fetch(`/api/projects/${projectId}/sprites/${spriteId}`, {
+    const res = await apiFetch(`/api/projects/${projectId}/sprites/${spriteId}`, {
       method: 'DELETE',
     });
     if (!res.ok && res.status !== 204) {

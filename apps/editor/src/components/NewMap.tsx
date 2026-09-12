@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -37,7 +38,7 @@ export default function NewMap({ projectId, onMapCreated }: NewMapProps) {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/maps`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { ObjectId } from 'mongodb';
 import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 /**
  * Builds the canonical Azure blob key for a sprite.
@@ -29,15 +30,21 @@ export async function GET(
 ) {
   try {
     const { projectId, spriteId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
+    const { project } = access;
 
     const sprite = await db.collection('sprites').findOne({ _id: new ObjectId(spriteId) });
     if (!sprite) {
       return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
     }
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    const userId = typeof project?.userId === 'string' ? project.userId : project?.userId?.toHexString?.() ?? 'unknown';
+    const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
     const mimeType = sprite.mimeType ?? 'image/png';
 
     // Reconstruct canonical key — sprites/ folder, not tilesets/
@@ -61,6 +68,7 @@ export async function GET(
       storageKey,
       projectId,
       createdAt: sprite.createdAt,
+      generation_metadata: sprite.generation_metadata,
     }, { status: 200 });
   } catch (error) {
     console.error('[sprite GET]', error);
@@ -77,12 +85,14 @@ export async function DELETE(
 ) {
   try {
     const { projectId, spriteId } = await params;
-    const { db } = await connectToDatabase();
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
+    const { project } = access;
 
     const sprite = await db.collection('sprites').findOne({ _id: new ObjectId(spriteId) });
     if (!sprite) {

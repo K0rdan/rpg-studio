@@ -10,19 +10,19 @@
 **Decision**: Use the standard RPG Maker-style charset layout as the baseline.
 
 Standard layout for a charset image:
-- **4 columns** of animation frames (walking cycle)  
-- **3 rows** of directions: `walk_down` (row 0), `walk_left` (row 1), `walk_right` (row 2), `walk_up` (row 3)
+- **3 columns** of animation frames (walking cycle)
+- **4 rows** of directions: `walk_down` (row 0), `walk_left` (row 1), `walk_right` (row 2), `walk_up` (row 3)
 - Default frame size: **32px wide × 64px tall** per frame (1 tile wide, 2 tiles tall)
 
 | Animation   | Frame indices (flat)  |
 |-------------|----------------------|
 | `idle`      | [1] (centre frame of walk_down — frame index 1) |
-| `walk_down` | [0, 1, 2, 3] |
-| `walk_left` | [4, 5, 6, 7] |
-| `walk_right`| [8, 9, 10, 11] |
-| `walk_up`   | [12, 13, 14, 15] |
+| `walk_down` | [0, 1, 2] |
+| `walk_left` | [3, 4, 5] |
+| `walk_right`| [6, 7, 8] |
+| `walk_up`   | [9, 10, 11] |
 
-> With 4 columns and 4 rows → 16 total frames. Image size = 128×256 px.
+> With 3 columns and 4 rows → 12 total frames. At 32×64 px per frame, image size = 96×256 px.
 
 **Rationale**: This is the most widely understood convention for 2D RPG charsets. Designers can use any compatible tileset tool (RPG Maker, LDtk, Tiled character generators, etc.)
 

@@ -88,10 +88,13 @@ export class PlayerController {
 
     // --- Charset render path ---
     if (this.spriteRenderer) {
-      const renderWidth = this.tileWidth;
-      const renderHeight = this.tileHeight * 2;
-      const renderY = pixelY - this.tileHeight; // shift up so feet sit at tileY
-      this.spriteRenderer.render(renderer, pixelX, renderY, renderWidth, renderHeight);
+      this.spriteRenderer.render(
+        renderer,
+        pixelX,
+        pixelY,
+        this.tileWidth,
+        this.tileHeight,
+      );
       return;
     }
 
@@ -127,5 +130,9 @@ export class PlayerController {
 
   public getPosition() {
     return { x: this.x, y: this.y };
+  }
+
+  public getRenderDepth(): number {
+    return (this.y + 1) * this.tileHeight;
   }
 }

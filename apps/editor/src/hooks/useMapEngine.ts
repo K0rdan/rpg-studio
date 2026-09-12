@@ -1,9 +1,14 @@
 import { useRef, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { GameEngine } from '@packages/core';
+import { GameEngine, resolveMapTileset } from '@packages/core';
+import { apiFetch } from '@/lib/apiFetch';
+import { DEFAULT_INACTIVE_OPACITY } from '@/lib/layerFocus';
+import { clampActiveLayer, normalizeMapLayers } from '@/lib/mapLayers';
+import { resolveInitialMap, selectMap } from '@/lib/mapSelection';
+import { useEditorStore } from '@/stores/editorStore';
+import { useMapStore } from '@/stores/mapStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useViewportStore } from '@/stores/viewportStore';
-import { useMapStore } from '@/stores/mapStore';
+import { useTileSelectionStore } from '@/stores/tileSelectionStore';
 import type { GameProject, Map, Tileset } from '@packages/types';
 
 interface UseMapEngineReturn {
@@ -19,17 +24,22 @@ interface UseMapEngineReturn {
 export function useMapEngine(projectId: string): UseMapEngineReturn {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  // Unsaved maps kept aside while the user works on another one, keyed by map id.
+  const editedMapsRef = useRef<Record<string, Map>>({});
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<GameProject | null>(null);
   const [maps, setMaps] = useState<Map[]>([]);
   const [tilesets, setTilesets] = useState<Tileset[]>([]);
-  const [currentMap, setCurrentMap] = useState<Map | null>(null);
+
+  const currentMap = useMapStore((state) => state.currentMap);
   
   const selectedId = useSelectionStore((state) => state.id);
   const selectedType = useSelectionStore((state) => state.type);
   const zoom = useViewportStore((state) => state.zoom);
+  const activeLayer = useEditorStore((state) => state.map.activeLayer);
+  const isolateLayers = useEditorStore((state) => state.map.isolateLayers);
 
   // Fetch project data
   useEffect(() => {
@@ -42,9 +52,9 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
 
         // Fetch all data in parallel
         const [projectRes, mapsRes, tilesetsRes] = await Promise.all([
-          fetch(`/api/projects/${projectId}`),
-          fetch(`/api/projects/${projectId}/maps`),
-          fetch(`/api/tilesets?projectId=${projectId}`)
+          apiFetch(`/api/projects/${projectId}`),
+          apiFetch(`/api/projects/${projectId}/maps`),
+          apiFetch(`/api/tilesets?projectId=${projectId}`)
         ]);
 
         if (!projectRes.ok) throw new Error('Failed to fetch project');
@@ -52,18 +62,24 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
         if (!tilesetsRes.ok) throw new Error('Failed to fetch tilesets');
 
         const projectData = await projectRes.json();
-        const mapsData = await mapsRes.json();
+        const mapsData: Map[] = await mapsRes.json();
         const tilesetsData = await tilesetsRes.json();
+        const normalizedMaps = mapsData.map(normalizeMapLayers);
 
         setProject(projectData);
-        setMaps(mapsData);
+        setMaps(normalizedMaps);
         setTilesets(tilesetsData);
         
-        // Set first map as current if available
-        if (mapsData.length > 0) {
-          setCurrentMap(mapsData[0]);
-          // Set active map ID in store
-          useMapStore.getState().setActiveMapId(mapsData[0].id);
+        // Open a map by default so the explorer, the inspector and the tile
+        // palette all describe the same map on load.
+        const { type, id } = useSelectionStore.getState();
+        const initialMap = resolveInitialMap(normalizedMaps, type === 'map' ? id : null);
+        if (initialMap) {
+          useMapStore.getState().setCurrentMap(initialMap);
+          const editor = useEditorStore.getState();
+          editor.setActiveLayer(clampActiveLayer(initialMap, editor.map.activeLayer));
+          editor.setIsolateLayers(false);
+          selectMap(initialMap);
         }
       } catch (err) {
         console.error('Error fetching project data:', err);
@@ -87,6 +103,12 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
         // Create GameEngine instance with current zoom level (disable player controls in editor)
         const engine = new GameEngine(canvasRef.current!, { scale: zoom, enablePlayerControls: false });
         engineRef.current = engine;
+        const editor = useEditorStore.getState();
+        engine.setMapViewOptions({
+          focusLayerIndex: editor.map.activeLayer,
+          isolate: editor.map.isolateLayers,
+          inactiveOpacity: DEFAULT_INACTIVE_OPACITY,
+        });
 
         // Initialize with project data
         await engine.init(project, [currentMap], tilesets);
@@ -119,57 +141,64 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     }
   }, [currentMap]);
 
+  useEffect(() => {
+    engineRef.current?.setMapViewOptions({
+      focusLayerIndex: activeLayer,
+      isolate: isolateLayers,
+      inactiveOpacity: DEFAULT_INACTIVE_OPACITY,
+    });
+  }, [activeLayer, isolateLayers]);
+
   // Handle map selection changes
   useEffect(() => {
-    if (selectedType === 'map' && selectedId && engineRef.current) {
-      const selectedMap = maps.find(m => m.id === selectedId);
-      if (selectedMap && selectedMap.id !== currentMap?.id) {
-        // Stop current engine
-        engineRef.current.stop();
-        
-        // Update current map
-        setCurrentMap(selectedMap);
-        
-        // Engine will re-initialize in the previous useEffect
-      }
+    if (selectedType !== 'map' || !selectedId || !engineRef.current) return;
+    if (selectedId === currentMap?.id) return;
+
+    const selectedMap = maps.find(m => m.id === selectedId);
+    if (!selectedMap) return;
+
+    // Stop current engine
+    engineRef.current.stop();
+
+    // Remember the edits of the map we leave and restore those of the map we
+    // open, so switching maps does not silently drop unsaved tiles.
+    if (currentMap) {
+      editedMapsRef.current[currentMap.id] = currentMap;
     }
+
+    // Engine will re-initialize in the previous useEffect
+    const nextMap = editedMapsRef.current[selectedId] ?? selectedMap;
+    useMapStore.getState().setCurrentMap(nextMap);
+    const editor = useEditorStore.getState();
+    editor.setActiveLayer(clampActiveLayer(nextMap, editor.map.activeLayer));
+    editor.setIsolateLayers(false);
   }, [selectedId, selectedType, maps, currentMap]);
 
   // Paint tile function
   const paintTile = (tileX: number, tileY: number, tileIndex: number) => {
-    if (!currentMap || !engineRef.current) return;
-    
-    const activeLayer = 0; // TODO: Get from editorStore
-    
-    // Update map data
-    const updatedMap = {
-      ...currentMap,
-      layers: currentMap.layers.map((layer, idx) => {
-        if (idx === activeLayer) {
-          const data = [...layer.data];
-          const index = tileY * currentMap.width + tileX;
-          
-          // Bounds check
-          if (index >= 0 && index < data.length) {
-            data[index] = tileIndex;
-          }
-          
-          return { ...layer, data };
-        }
-        return layer;
-      })
-    };
-    
-    setCurrentMap(updatedMap);
+    useMapStore.getState().paintTile({
+      layerIndex: useEditorStore.getState().map.activeLayer,
+      x: tileX,
+      y: tileY,
+      tileIndex,
+    });
   };
 
   // Update map function
   const updateMap = (map: Map) => {
-    setCurrentMap(map);
+    useMapStore.getState().setCurrentMap(map);
   };
 
-  // Get current tileset
-  const currentTileset = tilesets.length > 0 ? tilesets[0] : null;
+  // Resolve the same tileset the engine renders with, so screen-to-tile math and
+  // the tile palette stay aligned with what gets painted.
+  const currentTileset = currentMap ? resolveMapTileset(currentMap, tilesets) : null;
+  const setSelectedTileset = useTileSelectionStore((state) => state.setSelectedTileset);
+
+  useEffect(() => {
+    if (currentTileset) {
+      setSelectedTileset(currentTileset.id);
+    }
+  }, [currentTileset?.id, setSelectedTileset]);
 
   return {
     canvasRef,

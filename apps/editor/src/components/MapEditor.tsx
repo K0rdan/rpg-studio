@@ -9,6 +9,7 @@ import ToolSelector from './ToolSelector';
 // Entity components removed - using new entity system in Editor layout
 import { DrawingTool } from '@/types/DrawingTool';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import dynamic from 'next/dynamic';
 import { TILESETS } from '@/config/tilesets';
 
@@ -64,7 +65,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
 
   useEffect(() => {
     // Fetch tilesets including project-specific ones
-    fetch(`/api/tilesets?projectId=${projectId}`)
+    apiFetch(`/api/tilesets?projectId=${projectId}`)
       .then((res) => res.json())
       .then((data) => setTilesets(data))
       .catch((err) => console.error('Failed to load tilesets', err));
@@ -72,7 +73,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
 
   useEffect(() => {
     // Fetch all maps for the project
-    fetch(`/api/projects/${projectId}/maps`)
+    apiFetch(`/api/projects/${projectId}/maps`)
       .then((res) => res.json())
       .then((data) => setAllMaps(data))
       .catch((err) => console.error('Failed to load maps', err));
@@ -691,7 +692,7 @@ export default function MapEditor({ projectId, mapId, initialMapData }: MapEdito
     if (!mapData) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/maps/${mapData.id}`, {
+      const response = await apiFetch(`/api/projects/${projectId}/maps/${mapData.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

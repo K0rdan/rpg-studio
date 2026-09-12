@@ -28,6 +28,13 @@ export class AssetLoader {
       retries = 2
     } = options;
 
+    // An absent path is a data problem, not a transient network one: retrying it
+    // only burns the backoff delay before landing on the same fallback.
+    if (typeof path !== 'string' || path.trim() === '') {
+      console.warn('AssetLoader: No image path provided, using fallback immediately');
+      return this.loadFallback(path, fallbackImage, timeout, 'no image path provided');
+    }
+
     // Check cache first
     if (this.cache.has(path)) {
       console.log(`AssetLoader: Using cached image: ${path}`);
@@ -88,7 +95,16 @@ export class AssetLoader {
 
     // All retries failed, use fallback
     console.error(`❌ AssetLoader: Failed to load ${path} after ${retries + 1} attempts. Using fallback.`);
-    
+
+    return this.loadFallback(path, fallbackImage, timeout, lastError);
+  }
+
+  private async loadFallback(
+    path: string,
+    fallbackImage: string,
+    timeout: number,
+    lastError: string
+  ): Promise<AssetLoadResult> {
     try {
       const fallbackResult = await this.loadImageOnce(fallbackImage, timeout);
       return {
@@ -97,7 +113,7 @@ export class AssetLoader {
         error: `Failed to load ${path}: ${lastError}. Using fallback.`,
         path
       };
-    } catch (fallbackError) {
+    } catch {
       // Even fallback failed, create a programmatic fallback
       return {
         success: false,

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 import { getTilesetStorage } from '@/lib/storage';
+import { TILESETS } from '@/config/tilesets';
 import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
 
 function buildSpriteStorageKey(userId: string, projectId: string, spriteId: string, mimeType: string): string {
@@ -22,26 +22,17 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { projectId } = await params;
+
+  const access = await requireProjectAccess(projectId);
+  if (!access.ok) {
+    return access.response;
   }
 
-  const { projectId } = await params;
   const { db } = await connectToDatabase();
-  const userId = session.user.id;
+  const { userId, project } = access;
 
   try {
-    // Fetch project
-    const project = await db.collection('projects').findOne({
-      _id: new ObjectId(projectId),
-      userId,
-    });
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
     // Fetch all maps (entities are embedded in maps)
     const maps = await db.collection('maps').find({
       _id: { $in: (project.maps || []).map((id: string) => new ObjectId(id)) }
@@ -90,11 +81,31 @@ export async function GET(
       entities: m.entities || [], // Ensure entities array exists
     }));
 
-    const formattedTilesets = tilesets.map(t => ({
-      ...t,
-      id: t._id.toString(),
-      _id: undefined,
-    }));
+    // Tileset documents only store an opaque `storageLocation`, so the image URL
+    // has to be signed here. Without it the engine sees no usable image and falls
+    // back to the bundled tileset, which renders the wrong tiles in the preview.
+    const formattedTilesets = await Promise.all(
+      tilesets.map(async (t) => {
+        let image_source = '';
+        try {
+          image_source = await storage.getTilesetImageUrl({
+            location: { storageKey: t.storageLocation },
+          });
+        } catch {
+          console.warn(`[preview] Failed to generate URL for tileset ${t._id.toString()}`);
+        }
+
+        return {
+          id: t._id.toString(),
+          name: t.name,
+          image_source,
+          tile_width: t.tile_width,
+          tile_height: t.tile_height,
+          source_tile_width: t.source_tile_width,
+          source_tile_height: t.source_tile_height,
+        };
+      })
+    );
 
     // Return preview data
     return NextResponse.json({
@@ -103,7 +114,9 @@ export async function GET(
         name: project.name,
       },
       maps: formattedMaps,
-      tilesets: formattedTilesets,
+      // Static tilesets are part of the registry, not the project: a map painted
+      // with one of them must resolve the same image the editor painted with.
+      tilesets: [...TILESETS, ...formattedTilesets],
       sprites,
     });
   } catch (error) {

@@ -35,7 +35,14 @@ describe('Editor UI Layout', () => {
     cy.url().then((url) => {
       const parts = url.split('/').filter(Boolean);
       projectId = parts[parts.length - 1];
+      return cy.visit(`/projects/${projectId}/editor`);
     });
+
+    cy.contains('PROJECT EXPLORER').should('be.visible');
+    cy.get('button[aria-label="Create new map"]').click();
+    cy.get('input[placeholder="e.g. World Map"]').should('be.visible').type('Layout Map');
+    cy.contains('button', 'Create').click();
+    cy.contains('Layout Map').should('be.visible');
   });
 
   beforeEach(() => {
@@ -46,40 +53,159 @@ describe('Editor UI Layout', () => {
 
   describe('Layout Structure', () => {
     it('should display the 3-panel layout', () => {
-      // Check TopBar exists
-      cy.contains('PROJECT EXPLORER').should('be.visible');
-      cy.contains('INSPECTOR').should('be.visible');
-      cy.contains('TILE PALETTE').should('be.visible');
+      cy.get('#project-explorer').should('be.visible');
+      cy.contains('Map Properties').should('be.visible');
+      cy.get('#context-panel').should('be.visible');
     });
 
     it('should display the TopBar with tool buttons', () => {
-      // Verify all tool buttons are visible
       cy.get('button[aria-label*="Brush"]').should('be.visible');
       cy.get('button[aria-label*="Fill"]').should('be.visible');
       cy.get('button[aria-label*="Eraser"]').should('be.visible');
       cy.get('button[aria-label*="Select"]').should('be.visible');
       cy.get('button[aria-label*="Entity"]').should('be.visible');
-      cy.get('button[aria-label*="Region"]').should('be.visible');
     });
 
     it('should display the Project Explorer with tree sections', () => {
-      // Check for Maps, Entities, Assets sections
       cy.contains('Maps').should('be.visible');
       cy.contains('Entities').should('be.visible');
       cy.contains('Assets').should('be.visible');
     });
 
-    it('should display the Inspector panel', () => {
-      cy.contains('INSPECTOR').should('be.visible');
-      cy.contains('No selection').should('be.visible');
+    it('should display the Inspector with the first map', () => {
+      cy.contains('Map Properties').should('be.visible');
+      cy.contains('Layout Map').should('be.visible');
     });
 
     it('should display the canvas area', () => {
       cy.get('canvas').should('exist');
     });
 
-    it('should display the tile palette', () => {
-      cy.contains('TILE PALETTE').should('be.visible');
+    it('should display the tile palette in the context panel', () => {
+      cy.get('#context-panel').should('be.visible');
+    });
+  });
+
+  describe('Default workspace', () => {
+    it('opens the Project Explorer on a 1920px viewport', () => {
+      cy.viewport(1920, 1080);
+      cy.visit(`/projects/${projectId}/editor`);
+      cy.get('#project-explorer').should('be.visible');
+    });
+
+    it('keeps the Project Explorer closed when the viewport is too narrow', () => {
+      cy.viewport(1024, 800);
+      cy.visit(`/projects/${projectId}/editor`);
+      cy.get('#project-explorer').should('not.exist');
+    });
+
+    it('selects the first map in the explorer, inspector and canvas', () => {
+      cy.contains('Layout Map').should('be.visible');
+      cy.contains('Map Properties').should('be.visible');
+      cy.get('#map-canvas').should('exist');
+    });
+
+    it('toggles the Project Explorer with Ctrl+B', () => {
+      cy.get('#project-explorer').should('be.visible');
+      cy.get('body').type('{ctrl}b');
+      cy.get('#project-explorer').should('not.exist');
+      cy.get('body').type('{ctrl}b');
+      cy.get('#project-explorer').should('be.visible');
+    });
+  });
+
+  describe('Map Layers', () => {
+    it('creates, organizes, hides, deletes, and persists layers', () => {
+      cy.intercept('PUT', `/api/projects/${projectId}/maps/*`).as('saveLayers');
+
+      cy.get('[data-testid="layer-panel"]').should('be.visible');
+      cy.get('[data-testid^="layer-item-"]').should('have.length', 1);
+
+      cy.get('[data-testid="add-layer"]').click();
+      cy.get('[data-testid^="layer-item-"]').should('have.length', 2);
+
+      cy.get('[data-testid="layer-name-1"]')
+        .clear()
+        .type('Decorations')
+        .blur()
+        .should('have.value', 'Decorations');
+
+      cy.get('[data-testid="layer-priority-1"]').click();
+      cy.get('[role="option"]').contains('Above').click();
+
+      cy.get('[data-testid="toggle-layer-visibility-1"]').click();
+      cy.get('button[aria-label="Show Decorations"]').should('exist');
+
+      cy.get('button[aria-label="Move Decorations down"]').click();
+      cy.get('[data-testid="layer-panel"] input')
+        .first()
+        .should('have.value', 'Layer 1');
+      cy.get('button[aria-label="Move Decorations up"]').click();
+
+      cy.get('[data-testid="add-layer"]').click();
+      cy.get('[data-testid^="layer-item-"]').should('have.length', 3);
+      cy.get('button[aria-label="Delete Layer 3"]').click({ force: true });
+      cy.get('[data-testid^="layer-item-"]').should('have.length', 2);
+
+      cy.get('body').type('{ctrl}s');
+      cy.wait('@saveLayers').then(({ request }) => {
+        expect(request.body.layers).to.have.length(2);
+        expect(request.body.layers[1].name).to.equal('Decorations');
+        expect(request.body.layers[1].visible).to.equal(false);
+        expect(request.body.layers[1].priority).to.equal('above');
+      });
+
+      cy.reload();
+      cy.get('[data-testid="layer-panel"]').should('be.visible');
+      cy.get('[data-testid="layer-name-1"]').should('have.value', 'Decorations');
+      cy.get('button[aria-label="Show Decorations"]').should('exist');
+    });
+  });
+
+  describe('Layer Focus Aids', () => {
+    it('focuses, isolates, and marks empty cells without persisting presentation', () => {
+      cy.intercept('PUT', `/api/projects/${projectId}/maps/*`).as('saveFocus');
+
+      cy.get('[data-testid="layer-panel"]').should('be.visible');
+      cy.get('[data-testid="add-layer"]').click();
+      cy.get('[data-testid^="layer-item-"]').should('have.length.at.least', 2);
+
+      cy.get('[data-testid="layer-item-1"]').then(($row) => {
+        if ($row.attr('data-focused') !== 'true') {
+          cy.wrap($row).click();
+        }
+      });
+      cy.get('[data-testid="layer-item-1"]').should('have.attr', 'data-focused', 'true');
+      cy.get('[data-testid="layer-item-0"]').should('have.attr', 'data-focused', 'false');
+
+      cy.get('[data-testid="empty-cell-overlay"]')
+        .invoke('attr', 'data-empty-cell-count')
+        .then((count) => {
+          expect(Number(count)).to.be.greaterThan(0);
+        });
+
+      cy.get('[data-testid="toggle-layer-visibility-1"]').click({ altKey: true });
+      cy.get('[data-testid="layer-panel"]').should('have.attr', 'data-isolate', 'true');
+      cy.get('[data-testid="layer-item-1"]').should('have.attr', 'data-isolated', 'true');
+      cy.get('[data-testid="layer-isolate-indicator"]').should('contain', 'Isolated');
+
+      cy.get('[data-testid="layer-item-0"]').click();
+      cy.get('[data-testid="layer-item-0"]').should('have.attr', 'data-isolated', 'true');
+      cy.get('[data-testid="layer-item-1"]').should('have.attr', 'data-isolated', 'false');
+
+      cy.get('[data-testid="toggle-layer-visibility-0"]').click({ altKey: true });
+      cy.get('[data-testid="layer-panel"]').should('have.attr', 'data-isolate', 'false');
+      cy.get('[data-testid="layer-isolate-indicator"]').should('not.exist');
+
+      cy.get('body').type('{ctrl}s');
+      cy.wait('@saveFocus').then(({ request }) => {
+        expect(request.body).to.not.have.property('isolateLayers');
+        expect(request.body).to.not.have.property('focusLayerIndex');
+        request.body.layers.forEach((layer: { isolate?: unknown; opacity?: unknown }) => {
+          expect(layer).to.not.have.property('isolate');
+          expect(layer).to.not.have.property('opacity');
+        });
+      });
     });
   });
 
@@ -87,27 +213,24 @@ describe('Editor UI Layout', () => {
     it('should highlight Brush tool by default', () => {
       cy.get('button[aria-label*="Brush"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/); // Primary color
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i); // Primary color
     });
 
     it('should switch tools when clicking tool buttons', () => {
-      // Click Fill tool
-      cy.get('button[aria-label*="Fill"]').click();
-      cy.get('button[aria-label*="Fill"]')
+      cy.get('button[aria-label*="Entity"]').click();
+      cy.get('button[aria-label*="Entity"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
 
-      // Click Eraser tool
-      cy.get('button[aria-label*="Eraser"]').click();
-      cy.get('button[aria-label*="Eraser"]')
+      cy.get('button[aria-label*="Brush"]').click();
+      cy.get('button[aria-label*="Brush"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
     });
 
     it('should display tooltips on tool hover', () => {
-      // Hover over Brush tool
       cy.get('button[aria-label*="Brush"]').trigger('mouseover');
-      cy.contains('Brush Tool (B)').should('be.visible');
+      cy.contains('Brush (B)').should('be.visible');
     });
   });
 
@@ -116,42 +239,29 @@ describe('Editor UI Layout', () => {
       cy.get('body').type('b');
       cy.get('button[aria-label*="Brush"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
     });
 
     it('should switch to Fill tool with F key', () => {
       cy.get('body').type('f');
-      cy.get('button[aria-label*="Fill"]')
-        .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+      cy.get('button[aria-label*="Fill"]').should('have.css', 'background-color', 'rgb(13, 115, 119)');
     });
 
     it('should switch to Eraser tool with E key', () => {
       cy.get('body').type('e');
-      cy.get('button[aria-label*="Eraser"]')
-        .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+      cy.get('button[aria-label*="Eraser"]').should('have.css', 'background-color', 'rgb(13, 115, 119)');
     });
 
     it('should switch to Select tool with S key', () => {
       cy.get('body').type('s');
-      cy.get('button[aria-label*="Select"]')
-        .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+      cy.get('button[aria-label*="Select"]').should('have.css', 'background-color', 'rgb(13, 115, 119)');
     });
 
-    it('should switch to Entity tool with V key', () => {
-      cy.get('body').type('v');
+    it('should switch to Entity tool with N key', () => {
+      cy.get('body').type('n');
       cy.get('button[aria-label*="Entity"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
-    });
-
-    it('should switch to Region tool with R key', () => {
-      cy.get('body').type('r');
-      cy.get('button[aria-label*="Region"]')
-        .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
     });
   });
 
@@ -319,17 +429,16 @@ describe('Editor UI Layout', () => {
   });
 
   describe('Selection Handling', () => {
-    it('should update Inspector when selecting a tree item', () => {
-      // Initially shows "No selection"
-      cy.contains('No selection').should('be.visible');
-      
-      // Assets and Tilesets are already expanded by default
-      // Just verify they're visible
-      cy.contains('Assets').should('be.visible');
-      cy.contains('Tilesets').should('be.visible');
-      
-      // If there are tilesets, clicking one should update the inspector
-      // This test is conditional based on project state
+    it('should show map properties for the selected map', () => {
+      cy.contains('Map Properties').should('be.visible');
+      cy.contains('Layout Map').should('be.visible');
+    });
+
+    it('should show the inspector empty state when the project has no maps', () => {
+      cy.intercept('GET', `/api/projects/${projectId}/maps`, []).as('emptyMaps');
+      cy.visit(`/projects/${projectId}/editor`);
+      cy.wait('@emptyMaps');
+      cy.contains('Select a map or entity to inspect its properties.').should('be.visible');
     });
   });
 
@@ -337,7 +446,7 @@ describe('Editor UI Layout', () => {
     it('should complete a full workflow: navigate, select tool, interact', () => {
       // 1. Verify layout loaded
       cy.contains('PROJECT EXPLORER').should('be.visible');
-      cy.contains('INSPECTOR').should('be.visible');
+      cy.contains('Map Properties').should('be.visible');
       
       // 2. Select a tool using keyboard
       cy.get('body').type('b');
@@ -345,7 +454,7 @@ describe('Editor UI Layout', () => {
       // 3. Verify tool is selected
       cy.get('button[aria-label*="Brush"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
       
       // 4. Expand tree views
       cy.contains('Entities').click();
@@ -354,14 +463,11 @@ describe('Editor UI Layout', () => {
       cy.wait(300);
       
       // 5. Switch tools multiple times
-      cy.get('body').type('f');
-      cy.get('body').type('e');
-      cy.get('body').type('s');
+      cy.get('body').type('n');
       
-      // 6. Verify final tool selection
-      cy.get('button[aria-label*="Select"]')
+      cy.get('button[aria-label*="Entity"]')
         .should('have.css', 'color')
-        .and('match', /rgb\(25, 118, 210\)|rgb\(144, 202, 249\)/);
+        .and('match', /rgb\(255, 255, 255\)|#fff|#ffffff/i);
     });
   });
 

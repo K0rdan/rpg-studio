@@ -1,4 +1,5 @@
 export * from './character';
+export * from './charset-generation';
 export * from './entity';
 export * from './map';
 export * from './project';

@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, Typography, CircularProgress, Chip } from '@mui/material';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { Image, Warning } from '@mui/icons-material';
+import { Image as ImageIcon, Warning } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
+import { apiFetch } from '@/lib/apiFetch';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
 import type { Tileset, Sprite } from '@packages/types';
+import TilesetGenerateDialog from '@/components/TilesetGenerateDialog';
+import CharsetGenerateDialog from '@/components/CharsetGenerateDialog';
 
 export const AssetsTree = () => {
   const params = useParams();
@@ -28,30 +31,35 @@ export const AssetsTree = () => {
   const selectedItemId = useProjectExplorerStore((state) => state.selectedItemId);
   const setSelectedItem = useProjectExplorerStore((state) => state.setSelectedItem);
 
-  useEffect(() => {
+  const fetchAssets = useCallback(async () => {
     if (!projectId) return;
 
-    const fetchAssets = async () => {
-      try {
-        setLoading(true);
-        const [tilesetsRes, spritesRes] = await Promise.all([
-          fetch(`/api/tilesets?projectId=${projectId}`),
-          fetch(`/api/projects/${projectId}/sprites`),
-        ]);
+    try {
+      setLoading(true);
+      setError(null);
+      const [tilesetsRes, spritesRes] = await Promise.all([
+        apiFetch(`/api/projects/${projectId}/tilesets`),
+        apiFetch(`/api/projects/${projectId}/sprites`),
+      ]);
 
-        if (!tilesetsRes.ok) throw new Error('Failed to fetch tilesets');
-        setTilesets(await tilesetsRes.json());
+      if (!tilesetsRes.ok) throw new Error('Failed to fetch tilesets');
+      setTilesets(await tilesetsRes.json());
 
-        if (spritesRes.ok) setSprites(await spritesRes.json());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAssets();
+      if (!spritesRes.ok) throw new Error('Failed to fetch charsets');
+      setSprites(await spritesRes.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchAssets();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchAssets]);
 
   const unavailableSprites = sprites.filter(s => !s.image_source);
   const charsetsSectionCollapsed = !expandedItems.includes('assets-charsets');
@@ -83,26 +91,35 @@ export const AssetsTree = () => {
 
   /** Label for the Charsets parent node — shows an amber badge when any sprite is unavailable. */
   const charsetsLabel = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-      <span>🚶 Charsets</span>
-      {unavailableSprites.length > 0 && (
-        <Chip
-          icon={<Warning sx={{ fontSize: '11px !important', color: '#FF8C00 !important' }} />}
-          label={`${unavailableSprites.length} offline`}
-          size="small"
-          sx={{
-            height: 16,
-            fontSize: '0.6rem',
-            bgcolor: '#3d2600',
-            color: '#FF8C00',
-            border: '1px solid #FF8C00',
-            '& .MuiChip-label': { px: 0.5 },
-            '& .MuiChip-icon': { ml: 0.25 },
-            // Dim the badge slightly when the section is expanded (items show their own badge)
-            opacity: charsetsSectionCollapsed ? 1 : 0.6,
-          }}
-        />
-      )}
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <span>🚶 Charsets</span>
+        {unavailableSprites.length > 0 && (
+          <Chip
+            icon={<Warning sx={{ fontSize: '11px !important', color: '#FF8C00 !important' }} />}
+            label={`${unavailableSprites.length} offline`}
+            size="small"
+            sx={{
+              height: 16,
+              fontSize: '0.6rem',
+              bgcolor: '#3d2600',
+              color: '#FF8C00',
+              border: '1px solid #FF8C00',
+              '& .MuiChip-label': { px: 0.5 },
+              '& .MuiChip-icon': { ml: 0.25 },
+              opacity: charsetsSectionCollapsed ? 1 : 0.6,
+            }}
+          />
+        )}
+      </Box>
+      <CharsetGenerateDialog projectId={projectId} onCharsetGenerated={fetchAssets} iconOnly />
+    </Box>
+  );
+
+  const tilesetsLabel = (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+      <span>🖼 Tilesets</span>
+      <TilesetGenerateDialog projectId={projectId} onTilesetGenerated={fetchAssets} iconOnly />
     </Box>
   );
 
@@ -116,7 +133,7 @@ export const AssetsTree = () => {
       <TreeItem itemId="assets-root" label="🎨 Assets">
 
         {/* Tilesets */}
-        <TreeItem itemId="assets-tilesets" label="🖼 Tilesets">
+        <TreeItem itemId="assets-tilesets" label={tilesetsLabel}>
           {tilesets.length === 0 ? (
             <TreeItem
               itemId="assets-tilesets-empty"
@@ -133,7 +150,7 @@ export const AssetsTree = () => {
                 itemId={tileset.id}
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Image sx={{ fontSize: 16 }} />
+                    <ImageIcon sx={{ fontSize: 16 }} />
                     <Typography variant="body2">{tileset.name}</Typography>
                   </Box>
                 }
@@ -150,7 +167,7 @@ export const AssetsTree = () => {
               itemId="assets-charsets-empty"
               label={
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  No charsets — upload one via the Player entity
+                  No charsets yet
                 </Typography>
               }
             />
@@ -181,7 +198,7 @@ export const AssetsTree = () => {
                           }}
                         />
                       ) : (
-                        <Image sx={{ fontSize: 16 }} />
+                        <ImageIcon sx={{ fontSize: 16 }} />
                       )}
 
                       <Box sx={{ minWidth: 0 }}>

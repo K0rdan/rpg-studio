@@ -3,6 +3,8 @@ export * from './Renderer';
 export * from './InputManager';
 export * from './Scene';
 export * from './MapRenderer';
+export * from './resolveTileset';
+export * from './renderDepth';
 export * from './SpriteRenderer';
 export * from './EntityRenderer';
 export * from './AssetLoader';

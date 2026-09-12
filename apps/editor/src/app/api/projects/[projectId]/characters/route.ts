@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Character } from '@packages/types';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
+    const { projectId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
     const { name, hp, attack, defense } = await req.json();
-    const { projectId } = await params;
 
     if (!name) {
       return NextResponse.json({ message: 'Character name is required' }, { status: 400 });
@@ -47,16 +54,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
-    const characterIds = (project.characters || []).map((id: string) => new ObjectId(id));
+    const { db } = await connectToDatabase();
+    const characterIds = (access.project.characters || []).map((id: string) => new ObjectId(id));
     
     if (characterIds.length === 0) {
       return NextResponse.json([], { status: 200 });

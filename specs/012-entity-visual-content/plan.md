@@ -12,7 +12,7 @@ Entities currently render as placeholder squares. This feature adds a proper vis
 3. **PlayerController animation** — reads movement direction and calls `SpriteRenderer.setAnimation()` for `idle`, `walk_up/down/left/right`
 4. **Editor UI** — charset upload card in EntityProperties (player), sprite picker for NPCs, and Sprites tab in Asset Manager
 
-Standard charset convention: 4 columns × 4 rows, each frame 32×64 px (128×256 total image).
+Charset convention: 3 animation frames × 4 direction rows with independently configurable frame width and height. Existing assets default to 32×64 px; formats such as 48×48 and 96×96 are also supported.
 
 ---
 
@@ -57,7 +57,7 @@ Standard charset convention: 4 columns × 4 rows, each frame 32×64 px (128×256
 - Add `private spriteRenderer: SpriteRenderer | null = null`
 - Add `public setSpriteRenderer(sr: SpriteRenderer): void`
 - In `update()`: call `spriteRenderer.update(deltaTime)` and `spriteRenderer.setAnimation(getAnimationState(dx, dy))`
-- In `render()`: if `spriteRenderer`, render sprite at double tile height (32×64); else keep blue box fallback
+- In `render()`: if `spriteRenderer`, normalize the source frame to one map tile; else keep blue box fallback
 - Add private `getAnimationState(dx, dy)` helper
 
 #### [MODIFY] [GameEngine.ts](file:///Users/benjamin/Documents/_dev/_perso/rpg-studio/packages/core/src/GameEngine.ts)
@@ -135,7 +135,7 @@ Expected: zero type errors in changed files
 
 1. Start editor: `cd apps/editor && npm run dev`
 2. Open a project → go to Asset Manager → confirm **Sprites** tab appears
-3. Upload a 128×256 PNG charset (4×4 grid of 32×64 frames) → confirm thumbnail appears
+3. Upload a 3-column × 4-row PNG charset, confirm or edit its per-frame width and height, then confirm the thumbnail and dimensions appear
 4. Open map → select Player entity → confirm charset card shows in Entity Properties
 5. Attach the uploaded sprite to the Player entity → save
 6. Open preview → confirm player renders the charset's `idle` frame instead of blue square
@@ -151,6 +151,6 @@ Expected: zero type errors in changed files
 > [!IMPORTANT]
 > **Two design decisions to confirm before implementation:**
 >
-> 1. **Charset convention**: The plan uses the standard *4 cols × 4 directions* layout (walk_down, walk_left, walk_right, walk_up × 4 frames each = 16 frames, 128×256 at 32×64/frame). Is this the format you plan to use, or do you have a different spritesheet format in mind?
+> 1. **Charset convention**: The feature uses a *3 frames × 4 directions* layout (walk_down, walk_left, walk_right, walk_up × 3 frames each = 12 frames). Frame width and height are configured independently.
 >
 > 2. **Sprite reuse scope**: Sprites are scoped to a single project. Do you want sprites to be **global** (shared across all projects in the account), or is per-project correct?

@@ -10,6 +10,7 @@ import TilesetUpload from './TilesetUpload';
 import TilesetGenerateDialog from './TilesetGenerateDialog';
 import TilesetCard from './TilesetCard';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 
 interface Tileset {
   id: string;
@@ -32,7 +33,7 @@ export default function TilesetList({ projectId }: TilesetListProps) {
   const fetchTilesets = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/tilesets`);
+      const response = await apiFetch(`/api/projects/${projectId}/tilesets`);
       if (!response.ok) {
         throw new Error('Failed to fetch tilesets');
       }

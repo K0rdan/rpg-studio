@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
-import { getTilesetStorage } from '@/lib/storage';
+import sharp from 'sharp';
 import { getGeminiClient, buildTilesetPrompt } from '@/lib/gemini';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import type { TilesetGenerationRequest } from '@packages/types';
+import { requireProjectAccess } from '@/lib/apiAuth';
+import {
+  COMMON_TILE_SIZES,
+  TilesetStyle,
+  type TilesetGenerationRequest,
+} from '@packages/types';
+
+export const runtime = 'nodejs';
 
 /**
  * POST /api/projects/[projectId]/tilesets/generate
@@ -17,27 +20,11 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    const userId = session.user.id;
-
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    // Verify project exists and ownership
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
-    }
-
-    const projectUserId = project.userId instanceof ObjectId 
-      ? project.userId.toHexString() 
-      : project.userId;
-    
-    if (projectUserId && projectUserId !== userId) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
     // Parse request body
@@ -45,9 +32,16 @@ export async function POST(
     const { name, tile_width, tile_height, style, custom_prompt } = body;
 
     // Validation
-    if (!name || !tile_width || !tile_height || !style) {
+    const validTileSizes: readonly number[] = COMMON_TILE_SIZES;
+    if (
+      !name?.trim()
+      || !validTileSizes.includes(tile_width)
+      || !validTileSizes.includes(tile_height)
+      || !Object.values(TilesetStyle).includes(style)
+      || (style === TilesetStyle.CUSTOM && !custom_prompt?.trim())
+    ) {
       return NextResponse.json(
-        { message: 'Missing required fields: name, tile_width, tile_height, style' },
+        { message: 'Invalid tileset generation parameters' },
         { status: 400 }
       );
     }
@@ -88,12 +82,20 @@ export async function POST(
       throw new Error('No image data returned from Gemini API');
     }
 
+    const outputBuffer = await sharp(imageBuffer)
+      .resize(tile_width * 8, tile_height * 8, {
+        fit: 'fill',
+        kernel: sharp.kernel.nearest,
+      })
+      .png()
+      .toBuffer();
+
     // Return preview data WITHOUT saving to storage yet
     // The client will display this and send a separate request to save if approved
     return NextResponse.json({
-      preview_data: `data:image/png;base64,${imageBase64}`,
+      preview_data: `data:image/png;base64,${outputBuffer.toString('base64')}`,
       generation_params: {
-        name,
+        name: name.trim(),
         tile_width,
         tile_height,
         style,

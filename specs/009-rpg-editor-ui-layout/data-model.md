@@ -16,14 +16,22 @@ export interface EditorLayoutState {
 }
 ```
 
-**Default Values:**
-- `leftSidebarOpen`: `true`
+**Default Values (store):**
+- `leftSidebarOpen`: `false` (avoids SSR/hydration mismatch; `EditorLayout` then opens it on mount when the viewport is wide enough)
 - `rightSidebarOpen`: `true`
 - `leftSidebarWidth`: `250`
 - `rightSidebarWidth`: `300`
 - `tilePaletteHeight`: `200`
 
-**Persistence**: Stored in `localStorage` as `rpg-studio-layout`
+**Project Explorer default open rule** (`shouldOpenProjectExplorerByDefault` in `apps/editor/src/lib/editorLayout.ts`):
+
+```
+viewportWidth >= TOOLBAR_WIDTH (56) + leftSidebarWidth + (rightSidebarOpen ? rightSidebarWidth : 0) + MIN_CANVAS_WIDTH (640)
+```
+
+Applied once when the editor page loads. User toggles (Ctrl+B) and later resizes are not overwritten.
+
+**Persistence**: Stored in `localStorage` as `rpg-studio-layout`. On load, only `leftSidebarWidth`, `rightSidebarWidth` and `tilePaletteHeight` are restored. Explorer open/closed is recomputed from viewport width.
 
 ---
 
@@ -39,6 +47,14 @@ export interface SelectionState {
   id: string | null;
   data: any; // The actual selected object (Map, Entity, etc.)
 }
+```
+
+**On editor load:** if the project has maps, the first map is selected via `selectMap` (`apps/editor/src/lib/mapSelection.ts`). That helper writes explorer selection, inspector selection and `activeMapId` together. If a map is already selected and still exists in the list, it is kept instead of being replaced.
+
+```typescript
+resolveInitialMap(maps, selectedMapId): Map | null
+selectMap(map: Map): void
+clearMapSelection(): void
 ```
 
 **Examples:**
@@ -319,13 +335,15 @@ const mapContextMenu: ContextMenuItem[] = [
 
 ```json
 {
-  "leftSidebarOpen": true,
+  "leftSidebarOpen": false,
   "rightSidebarOpen": true,
   "leftSidebarWidth": 250,
   "rightSidebarWidth": 300,
   "tilePaletteHeight": 200
 }
 ```
+
+The full layout object is written, but only the three size fields are read back. `leftSidebarOpen` in storage is not used as the next-session default.
 
 ### Project Explorer State
 **Key**: `rpg-studio-explorer-{projectId}`

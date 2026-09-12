@@ -18,21 +18,39 @@ import {
   Box,
   Card,
   CardMedia,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useToast } from '@/context/ToastContext';
-import { TilesetStyle, COMMON_TILE_SIZES } from '@packages/types';
+import { apiFetch } from '@/lib/apiFetch';
+import {
+  TilesetStyle,
+  COMMON_TILE_SIZES,
+  type TilesetGenerationRequest,
+} from '@packages/types';
 
 interface TilesetGenerateDialogProps {
   projectId: string;
   onTilesetGenerated?: () => void;
+  iconOnly?: boolean;
+}
+
+interface TilesetGenerationParams extends TilesetGenerationRequest {
+  prompt: string;
+}
+
+interface TilesetGenerationResponse {
+  preview_data: string;
+  generation_params: TilesetGenerationParams;
 }
 
 export default function TilesetGenerateDialog({
   projectId,
   onTilesetGenerated,
+  iconOnly = false,
 }: TilesetGenerateDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -42,7 +60,7 @@ export default function TilesetGenerateDialog({
   const [customPrompt, setCustomPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<string | null>(null);
-  const [generationParams, setGenerationParams] = useState<any>(null);
+  const [generationParams, setGenerationParams] = useState<TilesetGenerationParams | null>(null);
   const { showToast } = useToast();
 
   const handleGenerate = async () => {
@@ -50,10 +68,14 @@ export default function TilesetGenerateDialog({
       showToast('Please enter a tileset name', 'error');
       return;
     }
+    if (style === TilesetStyle.CUSTOM && !customPrompt.trim()) {
+      showToast('Please describe the tileset to generate', 'error');
+      return;
+    }
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/tilesets/generate`, {
+      const response = await apiFetch(`/api/projects/${projectId}/tilesets/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,7 +92,7 @@ export default function TilesetGenerateDialog({
         throw new Error(error.message || 'Failed to generate tileset');
       }
 
-      const result = await response.json();
+      const result = await response.json() as TilesetGenerationResponse;
       
       // Show preview instead of immediately saving
       setPreviewData(result.preview_data);
@@ -92,7 +114,7 @@ export default function TilesetGenerateDialog({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/tilesets/save-generated`, {
+      const response = await apiFetch(`/api/projects/${projectId}/tilesets/save-generated`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,6 +132,7 @@ export default function TilesetGenerateDialog({
       showToast(`Tileset "${tileset.name}" saved successfully!`, 'success');
       
       // Reset form and close
+      setLoading(false);
       handleClose();
 
       if (onTilesetGenerated) {
@@ -133,32 +156,48 @@ export default function TilesetGenerateDialog({
   };
 
   const handleClose = () => {
-    if (!loading) {
-      setOpen(false);
-      setPreviewData(null);
-      setGenerationParams(null);
-      setName('');
-      setTileWidth(32);
-      setTileHeight(32);
-      setStyle(TilesetStyle.FANTASY);
-      setCustomPrompt('');
-    }
+    setOpen(false);
+    setPreviewData(null);
+    setGenerationParams(null);
+    setName('');
+    setTileWidth(32);
+    setTileHeight(32);
+    setStyle(TilesetStyle.FANTASY);
+    setCustomPrompt('');
   };
 
   return (
     <>
-      <Button
-        variant="contained"
-        color="secondary"
-        startIcon={<AutoAwesomeIcon />}
-        onClick={() => setOpen(true)}
-      >
-        Generate Tileset
-      </Button>
+      {iconOnly ? (
+        <Tooltip title="Generate tileset">
+          <IconButton
+            size="small"
+            aria-label="Generate tileset"
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpen(true);
+            }}
+          >
+            <AutoAwesomeIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Button
+          variant="contained"
+          color="secondary"
+          startIcon={<AutoAwesomeIcon />}
+          onClick={() => setOpen(true)}
+        >
+          Generate Tileset
+        </Button>
+      )}
 
       <Dialog 
         open={open} 
-        onClose={() => !loading && handleClose()} 
+        onClick={(event) => event.stopPropagation()}
+        onClose={() => {
+          if (!loading) handleClose();
+        }}
         maxWidth={previewData ? "md" : "sm"} 
         fullWidth
       >
@@ -194,7 +233,7 @@ export default function TilesetGenerateDialog({
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Do you want to save this tileset? You can regenerate if you're not satisfied.
+                Do you want to save this tileset? You can regenerate if you are not satisfied.
               </Typography>
             </Stack>
           ) : (

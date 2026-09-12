@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useViewportStore } from '@/stores/viewportStore';
+import { isTypingTarget } from '@/lib/keyboardTarget';
 
 /**
  * Hook to handle keyboard shortcuts for canvas zoom and pan
@@ -14,7 +15,7 @@ export function useCanvasShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isTypingTarget(e.target)) {
         return;
       }
 

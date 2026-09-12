@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Character } from '@packages/types';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/apiFetch';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -30,7 +31,7 @@ export default function CharacterEditor({ projectId, characterId, initialData }:
     setMessage('');
     setIsError(false);
     try {
-      const response = await fetch(`/api/projects/${projectId}/characters/${characterId}`, {
+      const response = await apiFetch(`/api/projects/${projectId}/characters/${characterId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

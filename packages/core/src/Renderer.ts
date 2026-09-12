@@ -38,6 +38,10 @@ export class Renderer {
     }
   }
 
+  public setAlpha(alpha: number) {
+    this.ctx.globalAlpha = alpha;
+  }
+
   public drawTile(
     image: CanvasImageSource,
     sx: number, sy: number, sWidth: number, sHeight: number,

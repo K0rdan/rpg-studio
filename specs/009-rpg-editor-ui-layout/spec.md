@@ -10,6 +10,8 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 - As a game designer, I want the tile palette below the canvas so that I have more horizontal space for viewing tiles.
 - As a game designer, I want drawing tools on the top toolbar so that I can quickly access them.
 - As a game designer, I want an inspector panel on the right so that I can view and edit properties of selected items.
+- As a game designer, I want the Project Explorer open on load when my screen is wide enough so that maps and assets are immediately reachable.
+- As a game designer, I want the first map selected on load so that the explorer, tile palette, inspector and canvas describe the same map.
 - As a game designer, I want to resize panels so that I can customize my workspace layout.
 - As a game designer, I want my panel sizes to persist so that my workspace stays configured how I like it.
 - As a game designer, I want keyboard shortcuts for common tools so that I can work efficiently.
@@ -29,18 +31,26 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 ## Requirements
 
 ### Layout Structure
-- **Top Bar**: Menu bar (File, Edit, View, Tools, Help) + Toolbar (drawing tools)
+- **Left Toolbar**: Vertical toolbar (56px) with drawing tools and a Project Explorer toggle (Ctrl+B)
 - **Left Panel**: Project Explorer (250px default, 200-400px range)
   - Maps section (hierarchical tree)
   - Entities section (Player, NPCs, Enemies subfolders)
   - Assets section (Tilesets, Charsets, Sounds subfolders)
-- **Center Area**: 
-  - Canvas viewport (main editing area)
-  - Tile Palette below canvas (200px height)
+- **Context Panel**: Contextual tools (Tile Palette when Brush is active, Entity Palette when Entity is active)
+- **Center Area**: Canvas viewport (main editing area, full remaining height)
 - **Right Panel**: Inspector (300px default, 250-500px range)
-  - Contextual properties based on selection
-  - Layers management
-  - Details section
+  - Map properties when a map is selected
+  - Entity properties when an entity is selected
+
+### Default workspace on editor load
+When the editor page loads, the workspace is aligned around a single map so Brush, palette, explorer and inspector stay coherent:
+
+- **Brush** is the active tool.
+- **Inspector** is open.
+- **Project Explorer** opens when the viewport can fit the toolbar, the explorer, the inspector (if open) and a usable canvas (at least 640px). The check is `viewportWidth >= toolbar (56) + explorer width + inspector width + 640`. A 1920px screen always qualifies; a 1280px laptop still qualifies with default panel sizes; narrower windows keep the explorer closed. The rule runs once on page load and does not override later user toggles or resizes.
+- If the project has maps, the **first map in the list** is selected (or the already selected map if it still exists). That selection is written to the explorer tree, the inspector and the canvas (`selectMap`).
+- **Tile Palette** shows the tileset of that map (`resolveMapTileset`), not an arbitrary first tileset of the project.
+- If the project has no maps, the explorer stays empty, the canvas shows the empty-map message, and the inspector stays in its empty state.
 
 ### Project Explorer
 - Hierarchical tree view with expand/collapse
@@ -84,14 +94,15 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 
 ### Panel Management
 - Resize panels by dragging borders
-- Collapse/expand panels via header click
-- Panel sizes persist to localStorage
+- Toggle the Project Explorer from the left toolbar or Ctrl+B
+- Panel sizes persist to localStorage (`rpg-studio-layout`: widths and tile palette height)
+- Open/closed explorer state is decided on each editor page load from available width (not restored from localStorage)
 - Minimum/maximum width constraints
 - Responsive behavior for different screen sizes
 
 ### Keyboard Shortcuts
-- **Tools**: B (Brush), F (Fill), E (Eraser), S (Select), V (Entity), R (Region)
-- **View**: G (Grid), L (Layers), M (Minimap - future)
+- **Tools**: B (Brush), F (Fill), E (Eraser), S (Select), N (Entity), R (Region)
+- **View**: Ctrl+B (Project Explorer), G (Grid), L (Layers), M (Minimap - future)
 - **Edit**: Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+C/V (Copy/Paste)
 - **File**: Ctrl+N (New), Ctrl+O (Open), Ctrl+S (Save)
 
@@ -100,8 +111,9 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 ### State Management
 - Use Zustand for editor state (layout, selection, tools)
 - Separate stores for map editing, tileset management
-- Persist layout preferences to localStorage
-- Sync selection state between explorer and canvas
+- Persist layout *sizes* to localStorage
+- Sync map selection in one place (`selectMap` in `apps/editor/src/lib/mapSelection.ts`) across explorer, inspector and canvas
+- Decide explorer default open/closed in `shouldOpenProjectExplorerByDefault` (`apps/editor/src/lib/editorLayout.ts`)
 
 ### Component Architecture
 - `EditorLayout`: Main layout wrapper
@@ -120,9 +132,9 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 - Filter logic supports tagged and untagged tiles
 
 ### Responsive Design
-- Breakpoints: 960px (tablet), 1280px (desktop), 1920px (large)
-- Auto-collapse panels on small screens
-- Optimize for 1920x1080 and 2560x1440
+- Project Explorer default visibility is space-based, not a 1920px breakpoint: keep a 640px canvas after toolbar + explorer + inspector.
+- Inspector stays open by default; explorer stays closed when that budget is not met.
+- Optimize for 1920x1080 and 2560x1440; 1280px laptops still open the explorer with default panel sizes.
 - Mobile warning (editor requires desktop)
 
 ### Integration Points
@@ -162,12 +174,14 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 
 **Data Flow**:
 1. Fetch project, maps, and tilesets from APIs
-2. Initialize GameEngine with canvas element and zoom level
-3. Call `engine.init(project, maps, tilesets)`
-4. Start continuous render loop (60 FPS)
-5. Listen to selection changes and reload map when user selects different map
-6. Listen to zoom changes and re-initialize engine with new scale
-7. Cleanup engine on unmount
+2. Resolve the initial map (`resolveInitialMap`) and call `selectMap` so explorer, inspector and canvas share it
+3. Initialize GameEngine with canvas element and zoom level
+4. Call `engine.init(project, maps, tilesets)`
+5. Start continuous render loop (60 FPS)
+6. Point the Tile Palette at `resolveMapTileset(currentMap, tilesets)`
+7. Listen to selection changes and reload map when user selects a different map
+8. Listen to zoom changes and re-initialize engine with new scale
+9. Cleanup engine on unmount
 
 **Technical Details**:
 - GameEngine uses requestAnimationFrame for smooth rendering
@@ -268,10 +282,11 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 - Updated `EditorLayout` - Adds context panel between tree and canvas
 
 **Context Panel Behavior**:
+- **Brush tool active** (default) → Shows Tile Palette for the active map tileset
+- **Entity tool active** → Shows Entity Palette
 - **Tileset selected** → Shows Tile Palette with selected tileset
-- **Map selected** → Shows Map Properties (name, size, tileset, layers)
-- **Entity selected** → Shows Entity Properties (position, sprite, behavior)
-- **Nothing selected** → Shows empty state
+- **Map selected** → Shows Tile Palette for that map; map properties live in the Inspector
+- **Nothing selected** → Shows empty state unless Brush/Entity is active
 
 **Benefits**:
 - Canvas uses full height (no bottom palette) - **+450px vertical space**
@@ -323,9 +338,9 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 ## Success Criteria
 
 ### Layout & Structure
-- ✅ **3-Panel Layout Renders**: TopBar, Project Explorer (left), Canvas + Tile Palette (center), Inspector (right)
+- ✅ **3-Panel Layout Renders**: Vertical toolbar, Project Explorer (when the viewport is wide enough), Context Panel (Tile Palette with Brush), Canvas, Inspector
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Structure" → "should display the 3-panel layout"
-  - **Verification**: All panels visible on page load
+  - **Verification**: On a 1920px viewport (Cypress default), explorer, inspector and tile palette are visible on page load
   
 - ✅ **TopBar Displays All Tools**: Brush, Fill, Eraser, Select, Entity, Region buttons visible
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Structure" → "should display the TopBar with tool buttons"
@@ -335,9 +350,9 @@ Implement a modern, professional editor UI layout with hierarchical project navi
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Structure" → "should display the Project Explorer with tree sections"
   - **Verification**: All 3 sections render with proper labels
 
-- ✅ **Inspector Shows Default State**: "No selection" message displays when nothing selected
+- ✅ **Inspector Shows Selected Map**: On load, if the project has maps, the inspector shows that map's properties
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Structure" → "should display the Inspector panel"
-  - **Verification**: Inspector panel visible with "No selection" text
+  - **Verification**: Inspector visible with map details (or empty state only when the project has no maps)
 
 - ✅ **Canvas Area Renders**: Canvas element exists for map rendering
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Structure" → "should display the canvas area"
@@ -373,13 +388,9 @@ Implement a modern, professional editor UI layout with hierarchical project navi
   - **E2E Test**: `editor_layout.cy.ts` → "Keyboard Shortcuts" → "should switch to Select tool with S key"
   - **Verification**: Select tool becomes active after keypress
 
-- ✅ **V Key → Entity Tool**: Pressing V activates Entity tool
-  - **E2E Test**: `editor_layout.cy.ts` → "Keyboard Shortcuts" → "should switch to Entity tool with V key"
+- ✅ **N Key → Entity Tool**: Pressing N activates Entity tool
+  - **E2E Test**: `editor_layout.cy.ts` → "Keyboard Shortcuts" → "should switch to Entity tool with N key"
   - **Verification**: Entity tool becomes active after keypress
-
-- ✅ **R Key → Region Tool**: Pressing R activates Region tool
-  - **E2E Test**: `editor_layout.cy.ts` → "Keyboard Shortcuts" → "should switch to Region tool with R key"
-  - **Verification**: Region tool becomes active after keypress
 
 ### Project Explorer - Maps
 - ✅ **Maps Folder Displays**: Maps section visible in tree
@@ -434,6 +445,12 @@ Implement a modern, professional editor UI layout with hierarchical project navi
   - **E2E Test**: `editor_layout.cy.ts` → "Layout Persistence" → "should restore panel sizes on page reload"
   - **Verification**: Panel widths match (±5px) after reload
 
+### Default map selection
+- ✅ **First map selected on load**: Explorer highlights the first map, canvas renders it, inspector shows its properties, tile palette uses its tileset
+  - **Unit Tests**: `apps/editor/src/lib/mapSelection.test.ts`, `apps/editor/src/lib/editorLayout.test.ts`
+  - **E2E Test**: `editor_layout.cy.ts` → "Default workspace"
+  - **Verification**: `selectMap` writes explorer, selection and `activeMapId` together; explorer opens at 1920px and stays closed at 1024px
+
 ### Selection Handling
 - ✅ **Inspector Updates on Selection**: Selecting tree item updates Inspector
   - **E2E Test**: `editor_layout.cy.ts` → "Selection Handling" → "should update Inspector when selecting a tree item"
@@ -473,19 +490,20 @@ Implement a modern, professional editor UI layout with hierarchical project navi
 
 **Test File**: `apps/editor/cypress/e2e/editor_layout.cy.ts`
 
-**Test Suites**: 11
+**Test Suites**: 12
 - Layout Structure (6 tests)
+- Default workspace (4 tests)
 - Tool Selection (3 tests)
-- Keyboard Shortcuts (6 tests)
+- Keyboard Shortcuts (5 tests)
 - Project Explorer - Maps Tree (4 tests)
 - Project Explorer - Entities Tree (2 tests)
 - Project Explorer - Assets Tree (2 tests)
 - Panel Resizing (2 tests)
 - Layout Persistence (2 tests)
-- Selection Handling (1 test)
+- Selection Handling (2 tests)
 - Integration Tests (1 test)
 
-**Total Tests**: 29
+**Total Tests**: 33
 
 **Running Tests**:
 ```bash

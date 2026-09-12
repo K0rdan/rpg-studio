@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import type { Tileset } from '@packages/types';
 import { AssetNotFoundError } from '@packages/storage';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 /**
  * GET /api/projects/[projectId]/tilesets/[tilesetId]
@@ -15,14 +16,14 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string; tilesetId: string }> }
 ) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId, tilesetId } = await params;
 
-    // Verify project exists
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
 
     // Check if this is a static tileset from config
     const { getTilesetById } = await import('@/config/tilesets');
@@ -79,6 +80,8 @@ export async function GET(
       image_source: imageUrl,
       tile_width: tileset.tile_width,
       tile_height: tileset.tile_height,
+      source_tile_width: tileset.source_tile_width,
+      source_tile_height: tileset.source_tile_height,
       projectId: tileset.projectId,
       createdAt: tileset.createdAt,
       updatedAt: tileset.updatedAt,
@@ -101,14 +104,15 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; tilesetId: string }> }
 ) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId, tilesetId } = await params;
 
-    // Verify project exists
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
+    const { project } = access;
 
     // Fetch tileset from database
     const tilesetsCollection = db.collection('tilesets');

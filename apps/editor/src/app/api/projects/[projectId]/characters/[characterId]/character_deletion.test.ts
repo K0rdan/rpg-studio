@@ -3,16 +3,31 @@ import { DELETE } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
 import { createMongoClient } from '@/lib/mongoClient';
 import { NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
 }));
 
+jest.mock('next/headers', () => ({
+  headers: jest.fn().mockResolvedValue(new Headers()),
+}));
+
+jest.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: jest.fn(),
+    },
+  },
+}));
+
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
+const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
 
 describe('Character Deletion API', () => {
   let connection: MongoClient;
   let db: Db;
+  const userId = 'test-user-123';
 
   beforeAll(async () => {
     connection = createMongoClient(globalThis.__ATLAS_URI__!);
@@ -26,6 +41,8 @@ describe('Character Deletion API', () => {
   });
 
   beforeEach(async () => {
+    mockedGetSession.mockResolvedValue({ user: { id: userId } });
+
     await db.collection('projects').deleteMany({});
     await db.collection('characters').deleteMany({});
   });
@@ -39,6 +56,7 @@ describe('Character Deletion API', () => {
 
     const project = await db.collection('projects').insertOne({
       name: 'Project',
+      userId,
       characters: [charId],
     });
     const projectId = project.insertedId.toHexString();

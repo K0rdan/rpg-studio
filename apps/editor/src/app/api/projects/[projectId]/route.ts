@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
     const formattedProject = {
-      ...project,
-      id: project._id.toHexString(),
+      ...access.project,
+      id: access.project._id.toHexString(),
     };
 
     return NextResponse.json(formattedProject, { status: 200 });
@@ -27,14 +26,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ proj
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   try {
-    const { db } = await connectToDatabase();
     const { projectId } = await params;
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-
-    if (!project) {
-      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { db } = await connectToDatabase();
+    const { project } = access;
 
     // Delete associated maps
     if (project.maps && project.maps.length > 0) {

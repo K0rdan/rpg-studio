@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { PlayerController } from './PlayerController';
 import type { Entity } from '@packages/types';
 import { DEFAULT_PLAYER_PROPERTIES } from '@packages/types';
 import { InputManager } from './InputManager';
+import type { Renderer } from './Renderer';
+import type { SpriteRenderer } from './SpriteRenderer';
 
 /**
  * A minimal subclass of InputManager that lets tests control which keys
@@ -202,5 +204,38 @@ describe('PlayerController', () => {
       input.pressKey('ArrowDown');
       expect(() => controller.update(16, input)).not.toThrow();
     });
+  });
+
+  it('normalizes a charset to one map tile when rendering', () => {
+    const controller = new PlayerController(
+      makePlayerEntity({ x: 2, y: 3 }),
+      TILE_W,
+      TILE_H,
+    );
+    const spriteRenderer = {
+      render: vi.fn(),
+    } as unknown as SpriteRenderer;
+    const renderer = {} as Renderer;
+    controller.setSpriteRenderer(spriteRenderer);
+
+    controller.render(renderer);
+
+    expect(spriteRenderer.render).toHaveBeenCalledWith(
+      renderer,
+      2 * TILE_W,
+      3 * TILE_H,
+      TILE_W,
+      TILE_H,
+    );
+  });
+
+  it('uses the sprite bottom edge as its render depth', () => {
+    const controller = new PlayerController(
+      makePlayerEntity({ y: 3 }),
+      TILE_W,
+      TILE_H,
+    );
+
+    expect(controller.getRenderDepth()).toBe(4 * TILE_H);
   });
 });

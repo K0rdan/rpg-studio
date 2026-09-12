@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { Box } from '@mui/material';
 import { ToolBar } from './ToolBar/ToolBar';
 import { ProjectExplorer } from './ProjectExplorer/ProjectExplorer';
@@ -12,8 +12,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useLayoutPersistence } from '@/hooks/useLayoutPersistence';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-
-const TOOLBAR_WIDTH = 56; // Width of vertical toolbar
+import { TOOLBAR_WIDTH, shouldOpenProjectExplorerByDefault } from '@/lib/editorLayout';
 
 export const EditorLayout = () => {
   // Load and persist layout preferences
@@ -27,9 +26,22 @@ export const EditorLayout = () => {
   const leftSidebarWidth = useEditorStore((state) => state.layout.leftSidebarWidth);
   const contextPanelWidth = useEditorStore((state) => state.layout.contextPanelWidth);
   const rightSidebarWidth = useEditorStore((state) => state.layout.rightSidebarWidth);
+  const setLeftSidebarOpen = useEditorStore((state) => state.setLeftSidebarOpen);
   const setLeftSidebarWidth = useEditorStore((state) => state.setLeftSidebarWidth);
   const setContextPanelWidth = useEditorStore((state) => state.setContextPanelWidth);
   const setRightSidebarWidth = useEditorStore((state) => state.setRightSidebarWidth);
+
+  useLayoutEffect(() => {
+    const { layout } = useEditorStore.getState();
+    setLeftSidebarOpen(
+      shouldOpenProjectExplorerByDefault({
+        viewportWidth: window.innerWidth,
+        leftSidebarWidth: layout.leftSidebarWidth,
+        rightSidebarOpen: layout.rightSidebarOpen,
+        rightSidebarWidth: layout.rightSidebarWidth,
+      }),
+    );
+  }, [setLeftSidebarOpen]);
 
   // Check if something is selected for context panel OR if entity/brush tool is active
   const selectedType = useSelectionStore((state) => state.type);

@@ -15,6 +15,8 @@ import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
 import { useMapStore } from '@/stores/mapStore';
 import { useEntities } from '@/hooks/useEntities';
 import { useToast } from '@/context/ToastContext';
+import { isTypingTarget } from '@/lib/keyboardTarget';
+import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
 import { ENTITY_TEMPLATES } from '@/constants/entityTemplates';
 import { CanvasLoading } from './CanvasLoading';
 import { CanvasError } from './CanvasError';
@@ -42,6 +44,8 @@ export const MapCanvas = () => {
   const isPainting = useEditorStore((state) => state.painting.isPainting);
   const setIsPainting = useEditorStore((state) => state.setIsPainting);
   const setMapDirty = useEditorStore((state) => state.setMapDirty);
+  const activeLayer = useEditorStore((state) => state.map.activeLayer);
+  const isolateLayers = useEditorStore((state) => state.map.isolateLayers);
   
   // Tile selection
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
@@ -62,6 +66,7 @@ export const MapCanvas = () => {
   
   // Entity overlay canvas ref
   const entityCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const emptyCellCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const panStartRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +82,9 @@ export const MapCanvas = () => {
   // Track space key for pan mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) {
+        return;
+      }
       if (e.code === 'Space' && !spacePressed) {
         e.preventDefault();
         setSpacePressed(true);
@@ -84,6 +92,9 @@ export const MapCanvas = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) {
+        return;
+      }
       if (e.code === 'Space') {
         e.preventDefault();
         setSpacePressed(false);
@@ -282,7 +293,41 @@ export const MapCanvas = () => {
     }
   };
 
-  // Render entities on overlay canvas
+  // Render empty-cell markers for the active layer
+  useEffect(() => {
+    if (!emptyCellCanvasRef.current || !currentMap || !currentTileset) return;
+
+    const canvas = emptyCellCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const cells = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(zoom, zoom);
+
+    const tileWidth = currentTileset.tile_width;
+    const tileHeight = currentTileset.tile_height;
+    const radius = Math.max(1, Math.min(tileWidth, tileHeight) * 0.08);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    cells.forEach(({ x, y }) => {
+      ctx.beginPath();
+      ctx.arc(
+        x * tileWidth + tileWidth / 2,
+        y * tileHeight + tileHeight / 2,
+        radius,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    });
+
+    ctx.restore();
+  }, [currentMap, activeLayer, isolateLayers, currentTileset, zoom]);
+
+  const emptyCellCount = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers).length;
   useEffect(() => {
     if (!entityCanvasRef.current || !currentMap || !currentTileset) return;
     
@@ -337,6 +382,9 @@ export const MapCanvas = () => {
   // Delete key handler for selected entity
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) {
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEntityId && !deleteConfirmOpen) {
         const entity = entities.find((ent) => ent.id === selectedEntityId);
         if (entity) {
@@ -432,6 +480,22 @@ export const MapCanvas = () => {
         height={600}
         style={{
           border: '1px solid #444',
+          imageRendering: 'pixelated',
+          transform: `translate(${offsetX}px, ${offsetY}px)`,
+          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+        }}
+      />
+      
+      <canvas
+        id="empty-cell-overlay"
+        data-testid="empty-cell-overlay"
+        data-empty-cell-count={emptyCellCount}
+        ref={emptyCellCanvasRef}
+        width={800}
+        height={600}
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
           imageRendering: 'pixelated',
           transform: `translate(${offsetX}px, ${offsetY}px)`,
           transition: isPanning ? 'none' : 'transform 0.1s ease-out',

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -93,7 +94,7 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
       formData.append('tile_width', tileWidth.toString());
       formData.append('tile_height', tileHeight.toString());
 
-      const response = await fetch(`/api/projects/${projectId}/tilesets`, {
+      const response = await apiFetch(`/api/projects/${projectId}/tilesets`, {
         method: 'POST',
         body: formData,
       });

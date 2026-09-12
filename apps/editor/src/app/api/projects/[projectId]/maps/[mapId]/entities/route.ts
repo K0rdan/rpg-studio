@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { requireProjectAccess } from '@/lib/apiAuth';
 
 // GET /api/projects/:projectId/maps/:mapId/entities
 // Get all entities for a map
@@ -9,8 +10,14 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string; mapId: string }> }
 ) {
   try {
+    const { projectId, mapId } = await params;
+
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { db } = await connectToDatabase();
-    const { mapId } = await params;
 
     const map = await db.collection('maps').findOne(
       { _id: new ObjectId(mapId) },
@@ -38,30 +45,16 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string; mapId: string }> }
 ) {
   try {
-    const { auth } = await import('@/lib/auth');
-    const { headers } = await import('next/headers');
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { projectId, mapId } = await params;
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) {
+      return access.response;
     }
 
     const { db } = await connectToDatabase();
-    const { projectId, mapId } = await params;
+    const { project } = access;
     const entity = await req.json();
-
-    // Verify project ownership
-    const project = await db.collection('projects').findOne({
-      _id: new ObjectId(projectId),
-      userId: session.user.id,
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { message: 'Project not found or unauthorized' },
-        { status: 404 }
-      );
-    }
 
     // Verify map exists and belongs to project
     // Maps don't have projectId field - they're referenced in project.maps array

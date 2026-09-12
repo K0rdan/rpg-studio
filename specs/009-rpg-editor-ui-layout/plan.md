@@ -220,6 +220,8 @@ db.tilesets.updateMany(
 - Panel resize logic
 - Tool switching
 - Keyboard shortcuts
+- `shouldOpenProjectExplorerByDefault` (`apps/editor/src/lib/editorLayout.test.ts`)
+- `selectMap` / `resolveInitialMap` (`apps/editor/src/lib/mapSelection.test.ts`)
 
 **Run Command:**
 ```bash
@@ -283,10 +285,17 @@ npm run test:e2e
 
 ### Manual Testing
 1. **Layout Verification**:
-   - Open editor → Verify 3-panel layout displays
+   - Open editor on a wide screen → Verify Project Explorer is open
+   - Open editor on a narrow window → Verify Project Explorer stays closed
    - Resize left panel → Refresh → Verify size persists
    - Resize right panel → Refresh → Verify size persists
-   - Collapse/expand panels → Verify functionality
+   - Toggle explorer (Ctrl+B) → Verify it does not auto-reopen on resize
+
+2. **Default map selection**:
+   - Open a project that has maps → first map highlighted in the explorer
+   - Inspector shows that map's properties
+   - Tile Palette shows that map's tileset
+   - Canvas renders that map
 
 2. **Project Explorer**:
    - Expand Maps folder → Verify maps display

@@ -5,9 +5,13 @@ import { Delete, Save } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
 import { useMapStore } from '@/stores/mapStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { resizeMapLayers } from '@/lib/mapLayers';
+import { LayerPanel } from '../Inspector/LayerPanel';
 import type { Map, Tileset } from '@packages/types';
 
 const fieldSx = {
@@ -34,6 +38,9 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
   const clearSelection = useSelectionStore((state) => state.clearSelection);
   const setSelectedItem = useProjectExplorerStore((state) => state.setSelectedItem);
   const setActiveMapId = useMapStore((state) => state.setActiveMapId);
+  const currentMap = useMapStore((state) => state.currentMap);
+  const setCurrentMap = useMapStore((state) => state.setCurrentMap);
+  const setMapDirty = useEditorStore((state) => state.setMapDirty);
 
   const [map, setMap] = useState<Map | null>(null);
   const [tilesets, setTilesets] = useState<Tileset[]>([]);
@@ -56,8 +63,8 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
     try {
       setLoading(true);
       const [mapRes, tilesetsRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}/maps/${mapId}`),
-        fetch(`/api/tilesets?projectId=${projectId}`),
+        apiFetch(`/api/projects/${projectId}/maps/${mapId}`),
+        apiFetch(`/api/tilesets?projectId=${projectId}`),
       ]);
       if (!mapRes.ok) throw new Error('Failed to fetch map');
       const data: Map = await mapRes.json();
@@ -82,14 +89,26 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
     if (!map || !projectId) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/maps/${mapId}`, {
+      const sourceMap = currentMap?.id === mapId ? currentMap : map;
+      const resizedMap = resizeMapLayers(sourceMap, width, height);
+      const res = await apiFetch(`/api/projects/${projectId}/maps/${mapId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, width, height, tilesetId: tilesetId || undefined }),
+        body: JSON.stringify({
+          name,
+          width,
+          height,
+          tilesetId: tilesetId || undefined,
+          layers: resizedMap.layers,
+        }),
       });
       if (!res.ok) throw new Error('Failed to save');
       const updated: Map = await res.json();
       setMap(updated);
+      if (currentMap?.id === mapId) {
+        setCurrentMap(updated);
+        setMapDirty(false);
+      }
       showToast('Map saved', 'success');
     } catch {
       showToast('Failed to save map', 'error');
@@ -107,7 +126,7 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/maps/${mapId}`, {
+      const res = await apiFetch(`/api/projects/${projectId}/maps/${mapId}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -307,11 +326,8 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
           </Box>
         )}
 
-        {/* Readonly info */}
         <Divider sx={{ borderColor: '#2a2a2a' }} />
-        <Typography variant="caption" sx={{ color: '#555' }}>
-          {map.layers?.length ?? 0} layer{(map.layers?.length ?? 0) !== 1 ? 's' : ''}
-        </Typography>
+        {currentMap?.id === mapId && <LayerPanel />}
 
         {/* Save */}
         {isDirty && (

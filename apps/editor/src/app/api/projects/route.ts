@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { GameProject } from '@packages/types';
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireApiSession } from '@/lib/apiAuth';
 
 export async function GET() {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const session = await requireApiSession();
+    if (!session.ok) {
+      return session.response;
     }
 
     const { db } = await connectToDatabase();
     // Filter projects by authenticated user
-    const projects = await db.collection('projects').find({ userId: session.user.id }).toArray();
+    const projects = await db.collection('projects').find({ userId: session.userId }).toArray();
     const formattedProjects = projects.map((project) => ({
       ...project,
       id: project._id.toHexString(),
@@ -27,9 +26,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const session = await requireApiSession();
+    if (!session.ok) {
+      return session.response;
     }
 
     const { db } = await connectToDatabase();
@@ -43,7 +42,7 @@ export async function POST(req: NextRequest) {
       name,
       maps: [],
       characters: [],
-      userId: session.user.id,
+      userId: session.userId,
     };
 
     const result = await db.collection('projects').insertOne(newProject);

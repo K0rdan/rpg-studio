@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Entity } from '@packages/types';
+import { apiFetch } from '@/lib/apiFetch';
 
 interface EntityDataState {
   entitiesByMap: Record<string, Entity[]>;
@@ -44,7 +45,7 @@ export const useEntityDataStore = create<EntityDataState>((set, get) => ({
     
     try {
       const url = `/api/projects/${projectId}/maps/${mapId}/entities`;
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       
       if (!response.ok) {
         throw new Error('Failed to load entities');
@@ -87,7 +88,7 @@ export const useEntityDataStore = create<EntityDataState>((set, get) => ({
     }));
     
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entity),
@@ -121,7 +122,7 @@ export const useEntityDataStore = create<EntityDataState>((set, get) => ({
     }));
     
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedEntity),
@@ -155,7 +156,7 @@ export const useEntityDataStore = create<EntityDataState>((set, get) => ({
     }));
     
     try {
-      const response = await fetch(url, { method: 'DELETE' });
+      const response = await apiFetch(url, { method: 'DELETE' });
 
       if (!response.ok) throw new Error('Failed to delete entity');
 
