@@ -171,6 +171,57 @@ describe('Tileset API', () => {
       });
     });
 
+    it('should expose collision marks, empty when the tileset has none', async () => {
+      const markedId = new ObjectId();
+      const unmarkedId = new ObjectId();
+
+      await db.collection('tilesets').insertMany([
+        {
+          _id: markedId,
+          projectId,
+          name: 'Marked',
+          tile_width: 32,
+          tile_height: 32,
+          tiles: [{ id: 7, is_collidable: true }],
+          storageLocation: 'projects/test/tilesets/marked.png',
+        },
+        {
+          _id: unmarkedId,
+          projectId,
+          name: 'Unmarked',
+          tile_width: 32,
+          tile_height: 32,
+          storageLocation: 'projects/test/tilesets/unmarked.png',
+        },
+      ]);
+
+      await db.collection('projects').updateOne(
+        { _id: new ObjectId(projectId) },
+        { $set: { tilesets: [markedId.toHexString(), unmarkedId.toHexString()] } },
+      );
+
+      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts.png');
+
+      const mockRequest = {
+        nextUrl: { searchParams: new URLSearchParams() },
+      } as unknown as NextRequest;
+
+      const response = await GET(mockRequest, {
+        params: Promise.resolve({ projectId }),
+      });
+      const data = await response.json();
+
+      expect(data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: markedId.toHexString(),
+            tiles: [{ id: 7, is_collidable: true }],
+          }),
+          expect.objectContaining({ id: unmarkedId.toHexString(), tiles: [] }),
+        ]),
+      );
+    });
+
     it('should return 404 if project not found', async () => {
       const nonExistentProjectId = new ObjectId().toHexString();
       const mockRequest = {

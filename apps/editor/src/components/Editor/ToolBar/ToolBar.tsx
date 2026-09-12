@@ -12,6 +12,7 @@ import {
   Save as SaveIcon,
   Settings as SettingsIcon,
   PlayArrow as PlayArrowIcon,
+  GridOn as CollisionIcon,
 } from '@mui/icons-material';
 import { ToolButton } from './ToolButton';
 import { useEditorStore } from '@/stores/editorStore';
@@ -20,7 +21,7 @@ import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/apiFetch';
 import { usePreview } from '@/context/PreviewContext';
 import { useEntities } from '@/hooks/useEntities';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 export const ToolBar = () => {
   const params = useParams();
@@ -34,6 +35,13 @@ export const ToolBar = () => {
   const saveStatus = useEditorStore((state) => state.map.saveStatus);
   const setSaveStatus = useEditorStore((state) => state.setSaveStatus);
   const setMapDirty = useEditorStore((state) => state.setMapDirty);
+  const collisionOverlayVisible = useEditorStore(
+    (state) => state.map.collisionOverlayVisible,
+  );
+  const toggleCollisionOverlay = useEditorStore((state) => state.toggleCollisionOverlay);
+  const editableTileset = useEditorStore((state) => state.tileset.current);
+  const isTilesetDirty = useEditorStore((state) => state.tileset.isDirty);
+  const setTilesetDirty = useEditorStore((state) => state.setTilesetDirty);
   
   // Read the map the canvas is editing, so a save ships the painted tiles.
   const currentMap = useMapStore((state) => state.currentMap);
@@ -41,29 +49,49 @@ export const ToolBar = () => {
   const preview = usePreview();
   const { entities } = useEntities(projectId, currentMap?.id || '');
 
-  const handleSave = async () => {
-    if (!currentMap || !isDirty) return true;
+  const handleSave = useCallback(async () => {
+    if ((!currentMap || !isDirty) && (!editableTileset || !isTilesetDirty)) return true;
     
     setSaveStatus('saving');
     
     try {
-      const response = await apiFetch(`/api/projects/${projectId}/maps/${currentMap.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          layers: currentMap.layers,
-          width: currentMap.width,
-          height: currentMap.height,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save map');
+      if (editableTileset && isTilesetDirty) {
+        const tilesetResponse = await apiFetch(
+          `/api/projects/${projectId}/tilesets/${editableTileset.id}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tiles: editableTileset.tiles ?? [] }),
+          },
+        );
+
+        if (!tilesetResponse.ok) {
+          throw new Error('Failed to save tileset');
+        }
+
+        setTilesetDirty(false);
+      }
+
+      if (currentMap && isDirty) {
+        const mapResponse = await apiFetch(`/api/projects/${projectId}/maps/${currentMap.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            layers: currentMap.layers,
+            width: currentMap.width,
+            height: currentMap.height,
+          }),
+        });
+
+        if (!mapResponse.ok) {
+          throw new Error('Failed to save map');
+        }
+
+        setMapDirty(false);
       }
       
       setSaveStatus('saved');
-      setMapDirty(false);
-      showToast('Map saved successfully', 'success');
+      showToast('Changes saved successfully', 'success');
       
       // Reset status after 2 seconds
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -77,14 +105,24 @@ export const ToolBar = () => {
       setTimeout(() => setSaveStatus('idle'), 3000);
       return false;
     }
-  };
+  }, [
+    currentMap,
+    editableTileset,
+    isDirty,
+    isTilesetDirty,
+    projectId,
+    setMapDirty,
+    setSaveStatus,
+    setTilesetDirty,
+    showToast,
+  ]);
 
   const handleSettings = () => {
     // TODO: Implement settings
     console.log('Settings clicked');
   };
 
-  const handlePreview = async () => {
+  const handlePreview = useCallback(async () => {
     // Check if player entity exists
     const hasPlayer = entities?.some(e => e.type === 'player');
     if (!hasPlayer) {
@@ -111,7 +149,7 @@ export const ToolBar = () => {
       console.error('Error loading preview:', error);
       showToast('Failed to load preview', 'error');
     }
-  };
+  }, [entities, handleSave, preview, projectId, showToast]);
 
   // Keyboard shortcuts (Cmd+S / Ctrl+S for save, Cmd+P / Ctrl+P for preview)
   useEffect(() => {
@@ -128,7 +166,7 @@ export const ToolBar = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentMap, isDirty, projectId, entities]); // Dependencies for handleSave and handlePreview
+  }, [handlePreview, handleSave]);
 
   return (
     <Box
@@ -191,6 +229,12 @@ export const ToolBar = () => {
           active={leftSidebarOpen}
           onClick={toggleLeftSidebar}
         />
+        <ToolButton
+          icon={<CollisionIcon />}
+          tooltip="Collision Overlay"
+          active={collisionOverlayVisible}
+          onClick={toggleCollisionOverlay}
+        />
       </Box>
 
       {/* Divider */}
@@ -214,10 +258,10 @@ export const ToolBar = () => {
             saveStatus === 'saving' ? 'Saving...' :
             saveStatus === 'saved' ? 'Saved!' :
             saveStatus === 'error' ? 'Save failed' :
-            isDirty ? 'Save (Ctrl+S)' : 'No changes'
+            isDirty || isTilesetDirty ? 'Save (Ctrl+S)' : 'No changes'
           }
           onClick={handleSave}
-          disabled={!isDirty || saveStatus === 'saving'}
+          disabled={(!isDirty && !isTilesetDirty) || saveStatus === 'saving'}
         />
         <ToolButton
           icon={<SettingsIcon />}

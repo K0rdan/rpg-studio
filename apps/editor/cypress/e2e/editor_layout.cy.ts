@@ -81,6 +81,16 @@ describe('Editor UI Layout', () => {
       cy.get('canvas').should('exist');
     });
 
+    it('toggles the collision overlay for the session', () => {
+      cy.get('[data-testid="collision-overlay"]').should('not.be.visible');
+      cy.get('button[aria-label="Collision Overlay"]').click();
+      cy.get('[data-testid="collision-overlay"]')
+        .should('be.visible')
+        .and('have.attr', 'data-blocking-cell-count');
+      cy.get('button[aria-label="Collision Overlay"]').click();
+      cy.get('[data-testid="collision-overlay"]').should('not.be.visible');
+    });
+
     it('should display the tile palette in the context panel', () => {
       cy.get('#context-panel').should('be.visible');
     });

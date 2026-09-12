@@ -4,6 +4,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { requireApiSession, requireProjectAccess } from '@/lib/apiAuth';
+import {
+  applyTilesetOverlays,
+  loadTilesetOverlays,
+  normalizeTilesetTiles,
+} from '@/lib/tilesetTiles';
 
 /**
  * GET /api/tilesets?projectId=<projectId>
@@ -17,8 +22,8 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const projectId = searchParams.get('projectId');
 
-    // Always include static tilesets
-    const staticTilesets = TILESETS;
+    // Always include static tilesets, without collision marks until a project scopes them
+    const staticTilesets = applyTilesetOverlays(TILESETS, new Map());
 
     if (!projectId) {
       const session = await requireApiSession();
@@ -35,12 +40,20 @@ export async function GET(req: NextRequest) {
     }
 
     const tilesetIds = access.project.tilesets || [];
-    if (tilesetIds.length === 0) {
-      return NextResponse.json(staticTilesets, { status: 200 });
-    }
 
     try {
       const { db } = await connectToDatabase();
+
+      // Registry tilesets carry the collision marks this project saved for them
+      const staticTilesetsForProject = applyTilesetOverlays(
+        TILESETS,
+        await loadTilesetOverlays(db, projectId)
+      );
+
+      if (tilesetIds.length === 0) {
+        return NextResponse.json(staticTilesetsForProject, { status: 200 });
+      }
+
       const projectTilesets = await db.collection('tilesets')
         .find({
           _id: { $in: tilesetIds.map((id: string) => new ObjectId(id)) },
@@ -65,6 +78,7 @@ export async function GET(req: NextRequest) {
               tile_height: tileset.tile_height,
               source_tile_width: tileset.source_tile_width,
               source_tile_height: tileset.source_tile_height,
+              tiles: normalizeTilesetTiles(tileset.tiles),
             };
           } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
@@ -78,12 +92,16 @@ export async function GET(req: NextRequest) {
               tile_height: tileset.tile_height,
               source_tile_width: tileset.source_tile_width,
               source_tile_height: tileset.source_tile_height,
+              tiles: normalizeTilesetTiles(tileset.tiles),
             };
           }
         })
       );
 
-      return NextResponse.json([...staticTilesets, ...projectTilesetsWithUrls], { status: 200 });
+      return NextResponse.json(
+        [...staticTilesetsForProject, ...projectTilesetsWithUrls],
+        { status: 200 }
+      );
     } catch (error) {
       console.error('Error fetching project tilesets:', error);
       // Fall through to return static tilesets only

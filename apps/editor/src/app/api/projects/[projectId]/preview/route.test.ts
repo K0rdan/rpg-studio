@@ -6,6 +6,7 @@ import { createMongoClient } from '@/lib/mongoClient';
 import { getTilesetStorage } from '@/lib/storage';
 import { auth } from '@/lib/auth';
 import { TILESETS } from '@/config/tilesets';
+import { TILESET_OVERLAY_COLLECTION } from '@/lib/tilesetTiles';
 import { resolveMapTileset } from '@packages/core';
 
 jest.mock('next/headers', () => ({
@@ -64,6 +65,7 @@ describe('GET /api/projects/[projectId]/preview', () => {
     await db.collection('maps').deleteMany({});
     await db.collection('tilesets').deleteMany({});
     await db.collection('sprites').deleteMany({});
+    await db.collection(TILESET_OVERLAY_COLLECTION).deleteMany({});
 
     await db.collection('maps').insertOne({
       _id: mapId,
@@ -138,6 +140,44 @@ describe('GET /api/projects/[projectId]/preview', () => {
     );
     expect(staticTileset).toMatchObject({ image_source: TILESETS[0].image_source });
     expect(resolveMapTileset(data.maps[0], data.tilesets).id).toBe(TILESETS[0].id);
+  });
+
+  it('gives every tileset a tiles array, empty when nothing blocks', async () => {
+    const response = await GET(request, params());
+    const data = await response.json();
+
+    expect(data.tilesets.every((tileset: { tiles?: unknown }) => Array.isArray(tileset.tiles))).toBe(
+      true
+    );
+  });
+
+  it('includes the collision marks stored on a project tileset', async () => {
+    await db
+      .collection('tilesets')
+      .updateOne({ _id: tilesetId }, { $set: { tiles: [{ id: 1, is_collidable: true }] } });
+
+    const response = await GET(request, params());
+    const data = await response.json();
+
+    expect(
+      data.tilesets.find((tileset: { id: string }) => tileset.id === tilesetId.toHexString())
+    ).toMatchObject({ tiles: [{ id: 1, is_collidable: true }] });
+  });
+
+  it('merges the project overlay onto registry tilesets so their marks apply', async () => {
+    await db.collection(TILESET_OVERLAY_COLLECTION).insertOne({
+      projectId,
+      tilesetId: TILESETS[0].id,
+      tiles: [{ id: 4, is_collidable: true }],
+      updatedAt: new Date(),
+    });
+
+    const response = await GET(request, params());
+    const data = await response.json();
+
+    expect(
+      data.tilesets.find((tileset: { id: string }) => tileset.id === TILESETS[0].id)
+    ).toMatchObject({ tiles: [{ id: 4, is_collidable: true }] });
   });
 
   it('keeps a tileset without a usable image out of the way instead of failing', async () => {

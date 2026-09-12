@@ -6,6 +6,11 @@ import { requireProjectAccess } from '@/lib/apiAuth';
 import { getTilesetStorage } from '@/lib/storage';
 import { TILESETS } from '@/config/tilesets';
 import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
+import {
+  applyTilesetOverlays,
+  loadTilesetOverlays,
+  normalizeTilesetTiles,
+} from '@/lib/tilesetTiles';
 
 function buildSpriteStorageKey(userId: string, projectId: string, spriteId: string, mimeType: string): string {
   const extMap: Record<string, string> = {
@@ -103,8 +108,15 @@ export async function GET(
           tile_height: t.tile_height,
           source_tile_width: t.source_tile_width,
           source_tile_height: t.source_tile_height,
+          tiles: normalizeTilesetTiles(t.tiles),
         };
       })
+    );
+
+    // Registry tilesets keep their collision marks in the per-project overlay
+    const staticTilesets = applyTilesetOverlays(
+      TILESETS,
+      await loadTilesetOverlays(db, projectId)
     );
 
     // Return preview data
@@ -116,7 +128,7 @@ export async function GET(
       maps: formattedMaps,
       // Static tilesets are part of the registry, not the project: a map painted
       // with one of them must resolve the same image the editor painted with.
-      tilesets: [...TILESETS, ...formattedTilesets],
+      tilesets: [...staticTilesets, ...formattedTilesets],
       sprites,
     });
   } catch (error) {

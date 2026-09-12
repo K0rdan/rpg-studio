@@ -8,45 +8,60 @@ interface TileGridProps {
 }
 
 export const TileGrid = ({ tileset }: TileGridProps) => {
-  const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const [imageState, setImageState] = useState<{
+    src: string;
+    image: HTMLImageElement | null;
+    width: number;
+    height: number;
+    error: string | null;
+  }>({ src: '', image: null, width: 0, height: 0, error: null });
 
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
   const setSelectedTile = useTileSelectionStore((state) => state.setSelectedTile);
+  const imageSource = tileset?.image_source;
 
   // Load tileset image
   useEffect(() => {
-    if (!tileset) {
-      setTilesetImage(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+    if (!imageSource) return;
 
     const img = new Image();
     img.crossOrigin = 'anonymous'; // For CORS if needed
     
     img.onload = () => {
-      setTilesetImage(img);
-      setImageSize({ width: img.width, height: img.height });
-      setLoading(false);
+      setImageState({
+        src: imageSource,
+        image: img,
+        width: img.width,
+        height: img.height,
+        error: null,
+      });
     };
 
     img.onerror = () => {
-      setError('Failed to load tileset image');
-      setLoading(false);
+      setImageState({
+        src: imageSource,
+        image: null,
+        width: 0,
+        height: 0,
+        error: 'Failed to load tileset image',
+      });
     };
 
-    img.src = tileset.image_source;
+    img.src = imageSource;
 
     return () => {
       img.onload = null;
       img.onerror = null;
     };
-  }, [tileset]);
+  }, [imageSource]);
+
+  const imageIsCurrent = tileset !== null && imageState.src === tileset.image_source;
+  const loading = tileset !== null && !imageIsCurrent;
+  const error = imageIsCurrent ? imageState.error : null;
+  const tilesetImage = imageIsCurrent ? imageState.image : null;
+  const imageSize = imageIsCurrent
+    ? { width: imageState.width, height: imageState.height }
+    : { width: 0, height: 0 };
 
   if (!tileset) {
     return (
@@ -125,19 +140,24 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
           const x = index % columns;
           const y = Math.floor(index / columns);
           const isSelected = selectedTileIndex === index;
+          const isCollidable = tileset.tiles?.some(
+            (tile) => tile.id === index && tile.is_collidable === true,
+          ) === true;
 
           return (
             <Tooltip
               key={index}
-              title={`Tile (${x}, ${y})`}
+              title={`Tile (${x}, ${y})${isCollidable ? ' — Blocking' : ''}`}
               placement="top"
               arrow
             >
               <Box
                 onClick={() => handleTileClick(index)}
+                data-testid={isCollidable ? `collidable-tile-${index}` : undefined}
                 sx={{
                   width: displayTileWidth,
                   height: displayTileHeight,
+                  position: 'relative',
                   backgroundImage: `url(${tileset.image_source})`,
                   // Use DISPLAY tile sizes for positioning (after scaling)
                   backgroundPosition: `-${x * displayTileWidth}px -${y * displayTileHeight}px`,
@@ -153,7 +173,24 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
                     borderColor: isSelected ? '#2196f3' : 'rgba(255, 255, 255, 0.3)',
                   },
                 }}
-              />
+              >
+                {isCollidable && (
+                  <Box
+                    aria-label="Blocking tile"
+                    sx={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: '#ef5350',
+                      border: '1px solid rgba(255, 255, 255, 0.9)',
+                      boxShadow: '0 0 2px rgba(0, 0, 0, 0.8)',
+                    }}
+                  />
+                )}
+              </Box>
             </Tooltip>
           );
         })}

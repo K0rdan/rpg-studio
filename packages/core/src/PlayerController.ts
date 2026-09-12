@@ -3,6 +3,7 @@ import { DEFAULT_PLAYER_PROPERTIES } from '@packages/types';
 import { InputManager } from './InputManager';
 import { Renderer } from './Renderer';
 import { SpriteRenderer } from './SpriteRenderer';
+import { resolveMovement, type TerrainCollisionContext } from './terrainCollision';
 
 /** Direction-driven animation state for RPG Maker-style charsets. */
 function getAnimationState(dx: number, dy: number): string {
@@ -52,7 +53,11 @@ export class PlayerController {
     this.spriteRenderer = null;
   }
 
-  public update(deltaTime: number, input: InputManager) {
+  /**
+   * @param collision Map and tileset to resolve terrain against. Omitted when no
+   * map context is available, in which case only the origin clamp applies.
+   */
+  public update(deltaTime: number, input: InputManager, collision?: TerrainCollisionContext | null) {
     let dx = 0, dy = 0;
 
     if (input.isKeyDown('ArrowUp') || input.isKeyDown('w') || input.isKeyDown('W')) dy = -1;
@@ -66,13 +71,24 @@ export class PlayerController {
       dy *= 0.707;
     }
 
-    // Update position: tiles = (tiles/s) / 1000 * ms
-    this.x += dx * (this.speed / 1000) * deltaTime;
-    this.y += dy * (this.speed / 1000) * deltaTime;
+    // Proposed position: tiles = (tiles/s) / 1000 * ms
+    const targetX = this.x + dx * (this.speed / 1000) * deltaTime;
+    const targetY = this.y + dy * (this.speed / 1000) * deltaTime;
 
-    // Clamp to non-negative
-    this.x = Math.max(0, this.x);
-    this.y = Math.max(0, this.y);
+    if (collision) {
+      const resolved = resolveMovement(
+        collision.map,
+        collision.tileset,
+        { x: this.x, y: this.y },
+        { x: targetX, y: targetY },
+      );
+      this.x = resolved.x;
+      this.y = resolved.y;
+    } else {
+      // No map context: keep the legacy origin clamp so the player stays on screen.
+      this.x = Math.max(0, targetX);
+      this.y = Math.max(0, targetY);
+    }
 
     // Drive animation from movement direction
     if (this.spriteRenderer) {

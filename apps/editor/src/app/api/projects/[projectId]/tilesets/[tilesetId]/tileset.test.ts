@@ -1,10 +1,12 @@
 import { MongoClient, Db, ObjectId } from 'mongodb';
-import { GET, DELETE } from './route';
+import { GET, PATCH, DELETE } from './route';
 import { connectToDatabase } from '@/lib/mongodb';
 import { createMongoClient } from '@/lib/mongoClient';
 import { getTilesetStorage } from '@/lib/storage';
 import { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
+import { TILESETS } from '@/config/tilesets';
+import { TILESET_OVERLAY_COLLECTION } from '@/lib/tilesetTiles';
 
 jest.mock('@/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
@@ -63,6 +65,7 @@ describe('Tileset by ID API', () => {
     await db.collection('projects').deleteMany({});
     await db.collection('tilesets').deleteMany({});
     await db.collection('maps').deleteMany({});
+    await db.collection(TILESET_OVERLAY_COLLECTION).deleteMany({});
 
     // Create a test project
     await db.collection('projects').insertOne({
@@ -151,6 +154,184 @@ describe('Tileset by ID API', () => {
       });
 
       expect(response.status).toBe(404);
+    });
+
+    it('should expose an empty tiles array when the tileset has no collision marks', async () => {
+      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+
+      const response = await GET({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+      const data = await response.json();
+
+      expect(data.tiles).toEqual([]);
+    });
+
+    it('should expose the stored collision marks', async () => {
+      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+      await db
+        .collection('tilesets')
+        .updateOne(
+          { _id: new ObjectId(tilesetId) },
+          { $set: { tiles: [{ id: 7, is_collidable: true }] } },
+        );
+
+      const response = await GET({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+      const data = await response.json();
+
+      expect(data.tiles).toEqual([{ id: 7, is_collidable: true }]);
+    });
+
+    it('should merge the project overlay onto a registry tileset', async () => {
+      await db.collection(TILESET_OVERLAY_COLLECTION).insertOne({
+        projectId,
+        tilesetId: TILESETS[0].id,
+        tiles: [{ id: 3, is_collidable: true }],
+        updatedAt: new Date(),
+      });
+
+      const response = await GET({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId: TILESETS[0].id }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        id: TILESETS[0].id,
+        tiles: [{ id: 3, is_collidable: true }],
+      });
+    });
+  });
+
+  describe('PATCH /api/projects/[projectId]/tilesets/[tilesetId]', () => {
+    const patchRequest = (body: unknown) =>
+      ({ json: jest.fn().mockResolvedValue(body) }) as unknown as NextRequest;
+
+    it('should return 401 if not authenticated', async () => {
+      mockedGetSession.mockResolvedValueOnce(null);
+
+      const response = await PATCH(patchRequest({ tiles: [] }), {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('should return 403 if user does not own project', async () => {
+      mockedGetSession.mockResolvedValueOnce({ user: { id: 'other-user-456' } });
+
+      const response = await PATCH(patchRequest({ tiles: [] }), {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('should store only blocking tiles with an integer id', async () => {
+      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+
+      const response = await PATCH(
+        patchRequest({
+          tiles: [
+            { id: 4, is_collidable: true },
+            { id: 5, is_collidable: false },
+          ],
+        }),
+        { params: Promise.resolve({ projectId, tilesetId }) },
+      );
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        id: tilesetId,
+        image_source: 'https://storage.example.com/ts1.png',
+        tiles: [{ id: 4, is_collidable: true }],
+      });
+
+      const stored = await db
+        .collection('tilesets')
+        .findOne({ _id: new ObjectId(tilesetId) });
+      expect(stored?.tiles).toEqual([{ id: 4, is_collidable: true }]);
+    });
+
+    it('should replace the stored tiles on a later call', async () => {
+      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
+
+      await PATCH(patchRequest({ tiles: [{ id: 4, is_collidable: true }] }), {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+      await PATCH(patchRequest({ tiles: [{ id: 9, is_collidable: true }] }), {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+
+      const stored = await db
+        .collection('tilesets')
+        .findOne({ _id: new ObjectId(tilesetId) });
+      expect(stored?.tiles).toEqual([{ id: 9, is_collidable: true }]);
+    });
+
+    it('should upsert a project overlay for a registry tileset', async () => {
+      const registryId = TILESETS[0].id;
+
+      const response = await PATCH(patchRequest({ tiles: [{ id: 2, is_collidable: true }] }), {
+        params: Promise.resolve({ projectId, tilesetId: registryId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        id: registryId,
+        image_source: TILESETS[0].image_source,
+        tiles: [{ id: 2, is_collidable: true }],
+      });
+
+      await PATCH(patchRequest({ tiles: [{ id: 6, is_collidable: true }] }), {
+        params: Promise.resolve({ projectId, tilesetId: registryId }),
+      });
+
+      const overlays = await db
+        .collection(TILESET_OVERLAY_COLLECTION)
+        .find({ projectId, tilesetId: registryId })
+        .toArray();
+      expect(overlays).toHaveLength(1);
+      expect(overlays[0].tiles).toEqual([{ id: 6, is_collidable: true }]);
+    });
+
+    it('should return 400 for an invalid payload', async () => {
+      const bodies: unknown[] = [
+        {},
+        { tiles: 'nope' },
+        { tiles: [{ id: -1, is_collidable: true }] },
+        { tiles: [{ id: 1.5, is_collidable: true }] },
+        { tiles: [{ is_collidable: true }] },
+      ];
+
+      for (const body of bodies) {
+        const response = await PATCH(patchRequest(body), {
+          params: Promise.resolve({ projectId, tilesetId }),
+        });
+
+        expect(response.status).toBe(400);
+      }
+
+      const stored = await db
+        .collection('tilesets')
+        .findOne({ _id: new ObjectId(tilesetId) });
+      expect(stored?.tiles).toBeUndefined();
+    });
+
+    it('should return 404 for an unknown tileset', async () => {
+      const unknownObjectId = new ObjectId().toHexString();
+
+      for (const unknownId of [unknownObjectId, 'not-a-tileset']) {
+        const response = await PATCH(patchRequest({ tiles: [] }), {
+          params: Promise.resolve({ projectId, tilesetId: unknownId }),
+        });
+
+        expect(response.status).toBe(404);
+      }
     });
   });
 

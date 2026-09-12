@@ -9,6 +9,7 @@ import { PlayerController } from './PlayerController';
 import { EntityRenderer } from './EntityRenderer';
 import { resolveMapTileset } from './resolveTileset';
 import { sortDepthItems, type DepthRenderItem } from './renderDepth';
+import type { TerrainCollisionContext } from './terrainCollision';
 import type { GameProject, Map, Tileset, Sprite } from '@packages/types';
 
 export class GameEngine {
@@ -24,6 +25,9 @@ export class GameEngine {
   private entityRenderers: EntityRenderer[] = [];
   private mapRenderer: MapRenderer | null = null;
   private mapViewOptions: MapViewOptions | null = null;
+  /** Map and tileset the player is resolved against; kept in sync with live editor edits. */
+  private currentMap: Map | null = null;
+  private currentTileset: Tileset | null = null;
 
   constructor(canvas: HTMLCanvasElement, options?: { scale?: number; enablePlayerControls?: boolean }) {
     this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
@@ -65,10 +69,8 @@ export class GameEngine {
         renderer.update(deltaTime);
       });
 
-      if (this.playerController) {
-        if (this.enablePlayerControls) {
-          this.playerController.update(deltaTime, this.input);
-        }
+      if (this.playerController && this.enablePlayerControls) {
+        this.playerController.update(deltaTime, this.input, this.getCollisionContext());
       }
 
       this.renderWorld();
@@ -128,6 +130,8 @@ export class GameEngine {
       tileset.tile_height
     );
     this.mapRenderer = mapRenderer;
+    this.currentMap = currentMap;
+    this.currentTileset = tileset;
     mapRenderer.setViewOptions(this.mapViewOptions);
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
@@ -291,8 +295,16 @@ export class GameEngine {
     this.renderer.clear();
     this.scene = new Scene();
     this.mapRenderer = null;
+    this.currentMap = null;
+    this.currentTileset = null;
     this.playerController = null;
     this.entityRenderers = [];
+  }
+
+  /** Terrain context for player movement, or null before a map is loaded. */
+  private getCollisionContext(): TerrainCollisionContext | null {
+    if (!this.currentMap) return null;
+    return { map: this.currentMap, tileset: this.currentTileset };
   }
 
   /**
@@ -300,6 +312,7 @@ export class GameEngine {
    * Useful for real-time editing in the editor
    */
   public updateMapData(map: Map): void {
+    this.currentMap = map;
     this.mapRenderer?.updateMapData(map);
   }
 

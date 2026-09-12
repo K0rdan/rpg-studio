@@ -6,6 +6,7 @@ import type { Tileset } from '@packages/types';
 import { SUPPORTED_MIME_TYPES } from '@packages/storage';
 import { InvalidMimeTypeError, UploadFailedError } from '@packages/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
+import { normalizeTilesetTiles } from '@/lib/tilesetTiles';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -61,6 +62,7 @@ export async function GET(
             tile_height: tileset.tile_height,
             source_tile_width: tileset.source_tile_width,
             source_tile_height: tileset.source_tile_height,
+            tiles: normalizeTilesetTiles(tileset.tiles),
             projectId: tileset.projectId,
             createdAt: tileset.createdAt,
             updatedAt: tileset.updatedAt,
@@ -77,6 +79,7 @@ export async function GET(
             tile_height: tileset.tile_height,
             source_tile_width: tileset.source_tile_width,
             source_tile_height: tileset.source_tile_height,
+            tiles: normalizeTilesetTiles(tileset.tiles),
             projectId: tileset.projectId,
             createdAt: tileset.createdAt,
             updatedAt: tileset.updatedAt,
@@ -138,7 +141,8 @@ export async function POST(
     }
 
     const mimeType = file.type;
-    if (!SUPPORTED_MIME_TYPES.includes(mimeType as any)) {
+    const supportedMimeTypes: readonly string[] = SUPPORTED_MIME_TYPES;
+    if (!supportedMimeTypes.includes(mimeType)) {
       return NextResponse.json(
         {
           message: `Unsupported file format. Supported formats: ${SUPPORTED_MIME_TYPES.join(', ')}`,
@@ -165,26 +169,15 @@ export async function POST(
     // Upload to storage
     const storage = getTilesetStorage();
     let storageLocation;
+    const storageTilesetId = new ObjectId().toHexString();
     try {
-      // Generate ID for storage path
-      const tilesetIdHex = new ObjectId().toHexString(); 
-      
       storageLocation = await storage.uploadTilesetImage({
         userId,
         projectId,
-        tilesetId: tilesetIdHex,
+        tilesetId: storageTilesetId,
         mimeType,
         data: buffer,
       });
-
-      // We need to preserve the ID we generated for consistency, 
-      // but actually storage returns a key. The DB ID should match if possible, 
-      // or we just trust the return. 
-      // Wait, we generate a new ObjectId() later in the original code. 
-      // Let's use the same one.
-      
-      // Store this ID to use for DB insertion
-      (req as any)._pendingTilesetId = tilesetIdHex; 
     } catch (error) {
       if (error instanceof InvalidMimeTypeError || error instanceof UploadFailedError) {
         return NextResponse.json(
@@ -195,42 +188,6 @@ export async function POST(
       throw error;
     }
 
-    // Generate tileset ID (use the one we created for storage if possible, otherwise new)
-    // Actually, distinct IDs for storage vs DB is fine, but cleaner if same.
-    // The previous block defined `tilesetId` locally inside the try block for storage.
-    // Let's reuse the one from the upload call if we can, but I didn't verify I could return it.
-    // Let's just create a new ObjectId here, effectively matching the flow, 
-    // BUT the storage path used a DIFFERENT random ID. This means `getBlobPath` in storage
-    // used ID `A`, but DB has ID `B`.
-    // When we later try to `getTilesetImageUrl` using DB ID `B`, it might fail if we assume
-    // storage key is derived from ID `B`. 
-    // HOWEVER, `storageLocation` returned by `upload` is the OPAQUE key.
-    // `AzureTilesetStorage` stores the full path as key. 
-    // `InMemory` stores the key.
-    // `getTilesetImageUrl` takes `location`. 
-    // So as long as we save `storageLocation` in DB, we are fine even if IDs mismatch.
-    // BUT, for semantic consistency, let's fix the logic to use one ID.
-    
-    // Changing approach: Move ID generation up.
-    
-    // RE-WRITING LOGIC VIA MULTI-BLOCK 
-    // This replace block is tricky. I need to coordinate with the block above.
-    
-    // I will use `(req as any)._pendingTilesetId` which I hackily set above, 
-    // OR deeper refactor.
-    
-    // Let's just assume for now I want to use `new ObjectId()` here and accept the mismatch,
-    // OR better, I will refactor the whole block in one go if I could, but I can't easily.
-    
-    // Actually, looking at `getBlobPath` in Azure:
-    // return `users/${userId}/projects/${projectId}/tilesets/${tilesetId}.${extension}`;
-    // The `tilesetId` used there BECOMES part of the path.
-    // The `storageLocation.storageKey` will differ from `users/.../tilesets/DB_ID.png`.
-    // It will be `users/.../tilesets/STORAGE_ID.png`.
-    // This is FINE because we store the *full key* in `storageLocation` in the DB.
-    // And `getTilesetImageUrl` uses that key.
-    
-    // So, I will just proceed with `new ObjectId()` here (generating a second ID).
     const tilesetId = new ObjectId();
 
     // Save tileset metadata to database
@@ -249,9 +206,9 @@ export async function POST(
     await tilesetsCollection.insertOne(tilesetDoc);
 
     // Update project's tilesets array
-    await db.collection('projects').updateOne(
+    await db.collection<{ tilesets: string[] }>('projects').updateOne(
       { _id: new ObjectId(projectId) },
-      { $push: { tilesets: tilesetId.toHexString() } as any }
+      { $push: { tilesets: tilesetId.toHexString() } }
     );
 
     // Generate image URL

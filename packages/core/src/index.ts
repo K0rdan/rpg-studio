@@ -5,6 +5,7 @@ export * from './Scene';
 export * from './MapRenderer';
 export * from './resolveTileset';
 export * from './renderDepth';
+export * from './terrainCollision';
 export * from './SpriteRenderer';
 export * from './EntityRenderer';
 export * from './AssetLoader';

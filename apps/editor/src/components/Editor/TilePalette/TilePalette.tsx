@@ -1,10 +1,11 @@
 'use client';
 
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, FormControlLabel, Switch, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { TileGrid } from './TileGrid';
 import { apiFetch } from '@/lib/apiFetch';
+import { useEditorStore } from '@/stores/editorStore';
 import { useTileSelectionStore } from '@/stores/tileSelectionStore';
 import type { Tileset } from '@packages/types';
 
@@ -20,7 +21,11 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
   const activeTilesetId = useTileSelectionStore((state) => state.selectedTilesetId);
   const effectiveTilesetId = tilesetId ?? activeTilesetId ?? undefined;
 
-  const [tileset, setTileset] = useState<Tileset | null>(null);
+  const tileset = useEditorStore((state) => state.tileset.current);
+  const isTilesetDirty = useEditorStore((state) => state.tileset.isDirty);
+  const setCurrentTileset = useEditorStore((state) => state.setCurrentTileset);
+  const setTileCollidable = useEditorStore((state) => state.setTileCollidable);
+  const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,15 +42,15 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
           // Fetch specific tileset
           const response = await apiFetch(`/api/projects/${projectId}/tilesets/${effectiveTilesetId}`);
           if (!response.ok) throw new Error('Failed to fetch tileset');
-          const data = await response.json();
-          setTileset(data);
+          const data: Tileset = await response.json();
+          setCurrentTileset(data);
         } else {
           // Fetch first available tileset
           const response = await apiFetch(`/api/tilesets?projectId=${projectId}`);
           if (!response.ok) throw new Error('Failed to fetch tilesets');
-          const data = await response.json();
+          const data: Tileset[] = await response.json();
           if (data.length > 0) {
-            setTileset(data[0]);
+            setCurrentTileset(data[0]);
           } else {
             setError('No tilesets available');
           }
@@ -59,7 +64,12 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
     };
 
     fetchTileset();
-  }, [effectiveTilesetId, projectId]);
+  }, [effectiveTilesetId, projectId, setCurrentTileset]);
+
+  const selectedTileIsCollidable = selectedTileIndex !== null
+    && tileset?.tiles?.some(
+      (tile) => tile.id === selectedTileIndex && tile.is_collidable === true,
+    ) === true;
 
   if (loading) {
     return (
@@ -117,7 +127,25 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
         </Typography>
         <Typography variant="caption" color="text.secondary">
           {tileset?.name || 'Unknown Tileset'}
+          {isTilesetDirty ? ' • Unsaved' : ''}
         </Typography>
+        <FormControlLabel
+          sx={{ ml: 1 }}
+          control={
+            <Switch
+              size="small"
+              checked={selectedTileIsCollidable}
+              disabled={selectedTileIndex === null || !tileset}
+              onChange={(_, checked) => {
+                if (selectedTileIndex !== null) {
+                  setTileCollidable(selectedTileIndex, checked);
+                }
+              }}
+              slotProps={{ input: { 'aria-label': 'Blocking' } }}
+            />
+          }
+          label="Blocking"
+        />
       </Box>
 
       {/* Tile Grid */}

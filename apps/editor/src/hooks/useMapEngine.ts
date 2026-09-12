@@ -40,6 +40,7 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
   const zoom = useViewportStore((state) => state.zoom);
   const activeLayer = useEditorStore((state) => state.map.activeLayer);
   const isolateLayers = useEditorStore((state) => state.map.isolateLayers);
+  const editableTileset = useEditorStore((state) => state.tileset.current);
 
   // Fetch project data
   useEffect(() => {
@@ -191,14 +192,18 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
 
   // Resolve the same tileset the engine renders with, so screen-to-tile math and
   // the tile palette stay aligned with what gets painted.
-  const currentTileset = currentMap ? resolveMapTileset(currentMap, tilesets) : null;
+  const resolvedTileset = currentMap ? resolveMapTileset(currentMap, tilesets) : null;
+  const currentTileset = resolvedTileset && editableTileset?.id === resolvedTileset.id
+    ? editableTileset
+    : resolvedTileset;
+  const currentTilesetId = currentTileset?.id;
   const setSelectedTileset = useTileSelectionStore((state) => state.setSelectedTileset);
 
   useEffect(() => {
-    if (currentTileset) {
-      setSelectedTileset(currentTileset.id);
+    if (currentTilesetId) {
+      setSelectedTileset(currentTilesetId);
     }
-  }, [currentTileset?.id, setSelectedTileset]);
+  }, [currentTilesetId, setSelectedTileset]);
 
   return {
     canvasRef,

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { setTileCollidable as updateTileCollidable } from '@/lib/tilesetTiles';
+import type { Tileset } from '@packages/types';
 
 export type ToolType = 'brush' | 'fill' | 'eraser' | 'select' | 'entity' | 'region';
 
@@ -30,6 +32,12 @@ interface MapState {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   activeLayer: number;
   isolateLayers: boolean;
+  collisionOverlayVisible: boolean;
+}
+
+interface TilesetState {
+  current: Tileset | null;
+  isDirty: boolean;
 }
 
 interface EditorState {
@@ -44,6 +52,9 @@ interface EditorState {
   
   // Map
   map: MapState;
+
+  // Tileset
+  tileset: TilesetState;
   
   // Actions
   toggleLeftSidebar: () => void;
@@ -66,6 +77,11 @@ interface EditorState {
   setSaveStatus: (status: MapState['saveStatus']) => void;
   setActiveLayer: (layer: number) => void;
   setIsolateLayers: (isolate: boolean) => void;
+  toggleCollisionOverlay: () => void;
+
+  setCurrentTileset: (tileset: Tileset | null) => void;
+  setTileCollidable: (tileId: number, isCollidable: boolean) => void;
+  setTilesetDirty: (isDirty: boolean) => void;
 }
 
 const DEFAULT_LAYOUT: EditorLayoutState = {
@@ -94,6 +110,12 @@ const DEFAULT_MAP: MapState = {
   saveStatus: 'idle',
   activeLayer: 0,
   isolateLayers: false,
+  collisionOverlayVisible: false,
+};
+
+const DEFAULT_TILESET: TilesetState = {
+  current: null,
+  isDirty: false,
 };
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -101,6 +123,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   tools: DEFAULT_TOOLS,
   painting: DEFAULT_PAINTING,
   map: DEFAULT_MAP,
+  tileset: DEFAULT_TILESET,
   
   toggleLeftSidebar: () =>
     set((state) => ({
@@ -185,5 +208,44 @@ export const useEditorStore = create<EditorState>((set) => ({
   setIsolateLayers: (isolate: boolean) =>
     set((state) => ({
       map: { ...state.map, isolateLayers: isolate },
+    })),
+
+  toggleCollisionOverlay: () =>
+    set((state) => ({
+      map: {
+        ...state.map,
+        collisionOverlayVisible: !state.map.collisionOverlayVisible,
+      },
+    })),
+
+  setCurrentTileset: (tileset: Tileset | null) =>
+    set({
+      tileset: {
+        current: tileset
+          ? { ...tileset, tiles: tileset.tiles ? [...tileset.tiles] : [] }
+          : null,
+        isDirty: false,
+      },
+    }),
+
+  setTileCollidable: (tileId: number, isCollidable: boolean) =>
+    set((state) => {
+      const current = state.tileset.current;
+      if (!current) return state;
+
+      return {
+        tileset: {
+          current: {
+            ...current,
+            tiles: updateTileCollidable(current.tiles, tileId, isCollidable),
+          },
+          isDirty: true,
+        },
+      };
+    }),
+
+  setTilesetDirty: (isDirty: boolean) =>
+    set((state) => ({
+      tileset: { ...state.tileset, isDirty },
     })),
 }));

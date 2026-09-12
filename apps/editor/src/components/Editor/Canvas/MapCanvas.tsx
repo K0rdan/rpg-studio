@@ -1,9 +1,9 @@
 'use client';
 
 import { Box, Typography, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
-import { Delete, Settings } from '@mui/icons-material';
+import { Delete } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMapEngine } from '@/hooks/useMapEngine';
 import { useCanvasShortcuts } from '@/hooks/useCanvasShortcuts';
 import { useViewportStore } from '@/stores/viewportStore';
@@ -17,6 +17,7 @@ import { useEntities } from '@/hooks/useEntities';
 import { useToast } from '@/context/ToastContext';
 import { isTypingTarget } from '@/lib/keyboardTarget';
 import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
+import { collisionOverlayCells } from '@/lib/collisionOverlay';
 import { ENTITY_TEMPLATES } from '@/constants/entityTemplates';
 import { CanvasLoading } from './CanvasLoading';
 import { CanvasError } from './CanvasError';
@@ -29,7 +30,6 @@ export const MapCanvas = () => {
   
   const { canvasRef, loading, error, currentMap, currentTileset, paintTile } = useMapEngine(projectId);
   
-  // Get active map ID from map store
   // Get active map ID from map store
   const activeMapId = useMapStore((state) => state.activeMapId);
   const setSelection = useSelectionStore((state) => state.setSelection);
@@ -46,6 +46,9 @@ export const MapCanvas = () => {
   const setMapDirty = useEditorStore((state) => state.setMapDirty);
   const activeLayer = useEditorStore((state) => state.map.activeLayer);
   const isolateLayers = useEditorStore((state) => state.map.isolateLayers);
+  const collisionOverlayVisible = useEditorStore(
+    (state) => state.map.collisionOverlayVisible,
+  );
   
   // Tile selection
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
@@ -67,6 +70,7 @@ export const MapCanvas = () => {
   // Entity overlay canvas ref
   const entityCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const emptyCellCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const collisionCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const panStartRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -328,6 +332,45 @@ export const MapCanvas = () => {
   }, [currentMap, activeLayer, isolateLayers, currentTileset, zoom]);
 
   const emptyCellCount = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers).length;
+  const collisionCells = useMemo(
+    () => currentMap && currentTileset
+      ? collisionOverlayCells(currentMap, currentTileset)
+      : [],
+    [currentMap, currentTileset],
+  );
+
+  useEffect(() => {
+    const canvas = collisionCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!collisionOverlayVisible || !currentTileset) return;
+
+    const tileWidth = currentTileset.tile_width;
+    const tileHeight = currentTileset.tile_height;
+
+    ctx.save();
+    ctx.scale(zoom, zoom);
+    ctx.fillStyle = 'rgba(244, 67, 54, 0.35)';
+    ctx.strokeStyle = 'rgba(255, 138, 128, 0.9)';
+    ctx.lineWidth = 1;
+
+    collisionCells.forEach(({ x, y }) => {
+      ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+      ctx.strokeRect(
+        x * tileWidth + 0.5,
+        y * tileHeight + 0.5,
+        tileWidth - 1,
+        tileHeight - 1,
+      );
+    });
+
+    ctx.restore();
+  }, [collisionCells, collisionOverlayVisible, currentTileset, zoom]);
+
   useEffect(() => {
     if (!entityCanvasRef.current || !currentMap || !currentTileset) return;
     
@@ -495,6 +538,23 @@ export const MapCanvas = () => {
         height={600}
         style={{
           position: 'absolute',
+          pointerEvents: 'none',
+          imageRendering: 'pixelated',
+          transform: `translate(${offsetX}px, ${offsetY}px)`,
+          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+        }}
+      />
+
+      <canvas
+        id="collision-overlay"
+        data-testid="collision-overlay"
+        data-blocking-cell-count={collisionCells.length}
+        ref={collisionCanvasRef}
+        width={800}
+        height={600}
+        style={{
+          position: 'absolute',
+          display: collisionOverlayVisible ? 'block' : 'none',
           pointerEvents: 'none',
           imageRendering: 'pixelated',
           transform: `translate(${offsetX}px, ${offsetY}px)`,
