@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { GameEngine, resolveMapTileset } from '@packages/core';
 import { apiFetch } from '@/lib/apiFetch';
 import { DEFAULT_INACTIVE_OPACITY } from '@/lib/layerFocus';
@@ -19,6 +19,7 @@ interface UseMapEngineReturn {
   currentTileset: Tileset | null;
   paintTile: (tileX: number, tileY: number, tileIndex: number) => void;
   updateMap: (map: Map) => void;
+  setCanvasSize: (width: number, height: number) => void;
 }
 
 export function useMapEngine(projectId: string): UseMapEngineReturn {
@@ -38,6 +39,8 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
   const selectedId = useSelectionStore((state) => state.id);
   const selectedType = useSelectionStore((state) => state.type);
   const zoom = useViewportStore((state) => state.zoom);
+  const offsetX = useViewportStore((state) => state.offsetX);
+  const offsetY = useViewportStore((state) => state.offsetY);
   const activeLayer = useEditorStore((state) => state.map.activeLayer);
   const isolateLayers = useEditorStore((state) => state.map.isolateLayers);
   const editableTileset = useEditorStore((state) => state.tileset.current);
@@ -95,15 +98,22 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
 
   // Initialize GameEngine when canvas and data are ready
   useEffect(() => {
-    if (!canvasRef.current || !project || maps.length === 0 || !currentMap) {
+    const map = useMapStore.getState().currentMap;
+    if (!canvasRef.current || !project || maps.length === 0 || !map) {
       return;
     }
 
     const initEngine = async () => {
       try {
-        // Create GameEngine instance with current zoom level (disable player controls in editor)
-        const engine = new GameEngine(canvasRef.current!, { scale: zoom, enablePlayerControls: false });
+        // Editor camera updates independently; data and assets only initialize once.
+        const engine = new GameEngine(canvasRef.current!, { scale: 1, enablePlayerControls: false });
         engineRef.current = engine;
+        const viewport = useViewportStore.getState();
+        engine.setCamera({
+          zoom: viewport.zoom,
+          offsetX: viewport.offsetX,
+          offsetY: viewport.offsetY,
+        });
         const editor = useEditorStore.getState();
         engine.setMapViewOptions({
           focusLayerIndex: editor.map.activeLayer,
@@ -112,12 +122,12 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
         });
 
         // Initialize with project data
-        await engine.init(project, [currentMap], tilesets);
+        await engine.init(project, [map], tilesets);
         
         // Start rendering
         engine.start();
         
-        console.log(`GameEngine initialized successfully with ${zoom}x zoom`);
+        console.log(`GameEngine initialized successfully with ${viewport.zoom}x zoom`);
       } catch (err) {
         console.error('Error initializing GameEngine:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize engine');
@@ -133,7 +143,11 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
         engineRef.current = null;
       }
     };
-  }, [canvasRef, project, maps, tilesets, zoom]); // Removed currentMap from dependencies
+  }, [canvasRef, project, maps, tilesets]);
+
+  useEffect(() => {
+    engineRef.current?.setCamera({ zoom, offsetX, offsetY });
+  }, [zoom, offsetX, offsetY]);
 
   // Update map data when currentMap changes (without reinitializing engine)
   useEffect(() => {
@@ -190,6 +204,15 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     useMapStore.getState().setCurrentMap(map);
   };
 
+  const setCanvasSize = useCallback((width: number, height: number) => {
+    if (engineRef.current) {
+      engineRef.current.setCanvasSize(width, height);
+    } else if (canvasRef.current && width > 0 && height > 0) {
+      canvasRef.current.width = width;
+      canvasRef.current.height = height;
+    }
+  }, []);
+
   // Resolve the same tileset the engine renders with, so screen-to-tile math and
   // the tile palette stay aligned with what gets painted.
   const resolvedTileset = currentMap ? resolveMapTileset(currentMap, tilesets) : null;
@@ -213,5 +236,6 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     currentTileset,
     paintTile,
     updateMap,
+    setCanvasSize,
   };
 }

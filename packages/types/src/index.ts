@@ -9,3 +9,4 @@ export * from './tile';
 export * from './tileset';
 export * from './tileset-generation';
 export * from './user';
+export * from './viewport';

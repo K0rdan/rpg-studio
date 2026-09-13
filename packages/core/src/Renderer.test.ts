@@ -9,6 +9,7 @@ describe('Renderer', () => {
   beforeEach(() => {
     ctx = {
       clearRect: vi.fn(),
+      resetTransform: vi.fn(),
       fillRect: vi.fn(),
       drawImage: vi.fn(),
       fillStyle: '',
@@ -25,7 +26,24 @@ describe('Renderer', () => {
 
   it('should clear the canvas', () => {
     renderer.clear();
+    expect(ctx.resetTransform).toHaveBeenCalled();
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 800, 600);
+  });
+
+  it('resizes the backing buffer and clears its current size', () => {
+    renderer.setSize(1024, 768);
+    renderer.clear();
+
+    expect(canvas.width).toBe(1024);
+    expect(canvas.height).toBe(768);
+    expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 1024, 768);
+  });
+
+  it('ignores non-positive sizes', () => {
+    renderer.setSize(0, -1);
+
+    expect(canvas.width).toBe(800);
+    expect(canvas.height).toBe(600);
   });
 
   it('should draw a rectangle', () => {

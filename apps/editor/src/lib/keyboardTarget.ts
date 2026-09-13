@@ -12,3 +12,11 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   }
   return target.isContentEditable || target.closest('[contenteditable="true"]') !== null;
 }
+
+/**
+ * Dialogs render above the canvas and keep their own keyboard handling, so canvas
+ * shortcuts must stay inert while one of them owns the focused element.
+ */
+export function isBlockingOverlayTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('[role="dialog"]') !== null;
+}

@@ -1,4 +1,5 @@
 export class Renderer {
+  private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private width: number;
   private height: number;
@@ -8,6 +9,7 @@ export class Renderer {
     if (!context) {
       throw new Error('Could not get 2D context');
     }
+    this.canvas = canvas;
     this.ctx = context;
     this.width = canvas.width;
     this.height = canvas.height;
@@ -18,10 +20,21 @@ export class Renderer {
   }
 
   public getCanvas(): HTMLCanvasElement {
-    return this.ctx.canvas;
+    return this.canvas;
+  }
+
+  public setSize(width: number, height: number): void {
+    if (width <= 0 || height <= 0) return;
+
+    const canvas = this.getCanvas();
+    canvas.width = width;
+    canvas.height = height;
+    this.width = width;
+    this.height = height;
   }
 
   public clear() {
+    this.ctx.resetTransform();
     this.ctx.clearRect(0, 0, this.width, this.height);
   }
 

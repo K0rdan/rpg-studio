@@ -10,7 +10,13 @@ import { EntityRenderer } from './EntityRenderer';
 import { resolveMapTileset } from './resolveTileset';
 import { sortDepthItems, type DepthRenderItem } from './renderDepth';
 import type { TerrainCollisionContext } from './terrainCollision';
-import type { GameProject, Map, Tileset, Sprite } from '@packages/types';
+import type {
+  GameProject,
+  Map,
+  Sprite,
+  Tileset,
+  ViewportCamera,
+} from '@packages/types';
 
 export class GameEngine {
   private renderer: Renderer;
@@ -20,6 +26,7 @@ export class GameEngine {
   private assetLoader: AssetLoader;
   private isRunning: boolean = false;
   private scale: number;
+  private camera: ViewportCamera;
   private enablePlayerControls: boolean;
   private playerController: PlayerController | null = null;
   private entityRenderers: EntityRenderer[] = [];
@@ -31,26 +38,17 @@ export class GameEngine {
 
   constructor(canvas: HTMLCanvasElement, options?: { scale?: number; enablePlayerControls?: boolean }) {
     this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
+    this.camera = { zoom: this.scale, offsetX: 0, offsetY: 0 };
     this.enablePlayerControls = options?.enablePlayerControls ?? true; // Default true for preview, false for editor
     
     this.renderer = new Renderer(canvas);
     // Initialize default dimensions if 0
-    if (this.renderer.getCanvas().width === 0) {
-        this.renderer.getCanvas().width = 800;
-        this.renderer.getCanvas().height = 600;
+    if (canvas.width === 0 || canvas.height === 0) {
+      this.renderer.setSize(800, 600);
     }
 
     // Configure context for proper transparency handling
     const ctx = this.renderer.getContext();
-    
-    // IMPORTANT: Reset transform to prevent cumulative scaling
-    // when re-creating GameEngine with same canvas
-    ctx.resetTransform();
-    
-    // Scale for retro feel (configurable)
-    if (this.scale !== 1) {
-      ctx.scale(this.scale, this.scale);
-    }
     ctx.imageSmoothingEnabled = false;
     
     // Ensure proper alpha blending for transparent tiles
@@ -63,6 +61,9 @@ export class GameEngine {
 
     this.gameLoop = new GameLoop((deltaTime: number) => {
       this.renderer.clear();
+      const { zoom, offsetX, offsetY } = this.camera;
+      ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+      ctx.imageSmoothingEnabled = false;
       this.scene.update(deltaTime, this.input);
 
       this.entityRenderers.forEach((renderer) => {
@@ -319,6 +320,14 @@ export class GameEngine {
   public setMapViewOptions(options: MapViewOptions | null): void {
     this.mapViewOptions = options;
     this.mapRenderer?.setViewOptions(options);
+  }
+
+  public setCamera(camera: ViewportCamera): void {
+    this.camera = { ...camera };
+  }
+
+  public setCanvasSize(width: number, height: number): void {
+    this.renderer.setSize(width, height);
   }
 
   private renderWorld(): void {
