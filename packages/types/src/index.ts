@@ -1,3 +1,4 @@
+export * from './asset-usage';
 export * from './character';
 export * from './charset-generation';
 export * from './entity';

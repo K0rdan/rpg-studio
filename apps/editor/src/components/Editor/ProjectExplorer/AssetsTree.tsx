@@ -9,9 +9,18 @@ import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/apiFetch';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
-import type { Tileset, Sprite } from '@packages/types';
+import { resolveTilesetOrigin } from '@/lib/tilesetOrigin';
+import type { AssetKind, Tileset, Sprite } from '@packages/types';
 import TilesetGenerateDialog from '@/components/TilesetGenerateDialog';
 import CharsetGenerateDialog from '@/components/CharsetGenerateDialog';
+import { AssetContextMenu } from './AssetContextMenu';
+
+const ASSET_DELETE_REQUEST_EVENT = 'rpgstudio:asset-delete-request';
+const ASSET_DELETED_EVENT = 'rpgstudio:asset-deleted';
+
+type ContextAsset =
+  | { kind: 'tileset'; asset: Tileset }
+  | { kind: 'charset'; asset: Sprite };
 
 export const AssetsTree = () => {
   const params = useParams();
@@ -21,6 +30,11 @@ export const AssetsTree = () => {
   const [sprites, setSprites] = useState<Sprite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    target: ContextAsset;
+  } | null>(null);
 
   // Controlled expansion so we can detect when the Charsets node is collapsed
   const [expandedItems, setExpandedItems] = useState<string[]>([
@@ -61,6 +75,19 @@ export const AssetsTree = () => {
     return () => window.clearTimeout(timeoutId);
   }, [fetchAssets]);
 
+  useEffect(() => {
+    const handleAssetDeleted = (event: Event) => {
+      const detail = (event as CustomEvent<{ kind: AssetKind; assetId: string }>).detail;
+      if (detail?.kind === 'tileset') {
+        setTilesets((current) => current.filter((asset) => asset.id !== detail.assetId));
+      } else if (detail?.kind === 'charset') {
+        setSprites((current) => current.filter((asset) => asset.id !== detail.assetId));
+      }
+    };
+    window.addEventListener(ASSET_DELETED_EVENT, handleAssetDeleted);
+    return () => window.removeEventListener(ASSET_DELETED_EVENT, handleAssetDeleted);
+  }, []);
+
   const unavailableSprites = sprites.filter(s => !s.image_source);
   const charsetsSectionCollapsed = !expandedItems.includes('assets-charsets');
 
@@ -72,6 +99,31 @@ export const AssetsTree = () => {
   const handleSpriteSelect = (sprite: Sprite) => {
     setSelectedItem(`sprite-${sprite.id}`, 'charset');
     setSelection('charset', sprite.id, sprite);
+  };
+
+  const openContextMenu = (
+    event: React.MouseEvent,
+    target: ContextAsset,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (target.kind === 'tileset') {
+      handleTilesetSelect(target.asset);
+    } else {
+      handleSpriteSelect(target.asset);
+    }
+    setContextMenu({ mouseX: event.clientX, mouseY: event.clientY, target });
+  };
+
+  const requestDelete = () => {
+    if (!contextMenu) return;
+    const { target } = contextMenu;
+    setContextMenu(null);
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent(ASSET_DELETE_REQUEST_EVENT, {
+        detail: { kind: target.kind, assetId: target.asset.id },
+      }));
+    }, 0);
   };
 
   if (loading) {
@@ -124,6 +176,7 @@ export const AssetsTree = () => {
   );
 
   return (
+    <>
     <SimpleTreeView
       expandedItems={expandedItems}
       onExpandedItemsChange={(_e, items) => setExpandedItems(items)}
@@ -155,6 +208,7 @@ export const AssetsTree = () => {
                   </Box>
                 }
                 onClick={() => handleTilesetSelect(tileset)}
+                onContextMenu={(event) => openContextMenu(event, { kind: 'tileset', asset: tileset })}
               />
             ))
           )}
@@ -217,6 +271,7 @@ export const AssetsTree = () => {
                     </Box>
                   }
                   onClick={() => handleSpriteSelect(sprite)}
+                  onContextMenu={(event) => openContextMenu(event, { kind: 'charset', asset: sprite })}
                 />
               );
             })
@@ -224,12 +279,12 @@ export const AssetsTree = () => {
         </TreeItem>
 
         {/* Sounds (placeholder) */}
-        <TreeItem itemId="assets-sounds" label="🔊 Sounds">
+        <TreeItem itemId="assets-sounds" label="🔊 Sounds (coming soon)">
           <TreeItem
             itemId="assets-sounds-empty"
             label={
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                No sounds
+                Sound management is not available yet
               </Typography>
             }
           />
@@ -237,5 +292,16 @@ export const AssetsTree = () => {
 
       </TreeItem>
     </SimpleTreeView>
+    <AssetContextMenu
+      position={contextMenu}
+      canDelete={
+        contextMenu?.target.kind === 'charset'
+        || (contextMenu?.target.kind === 'tileset'
+          && resolveTilesetOrigin(contextMenu.target.asset.id) === 'project')
+      }
+      onClose={() => setContextMenu(null)}
+      onDelete={requestDelete}
+    />
+    </>
   );
 };

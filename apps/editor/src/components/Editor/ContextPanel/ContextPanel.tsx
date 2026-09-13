@@ -1,81 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
-import { useParams } from 'next/navigation';
+import { Box } from '@mui/material';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useEditorStore } from '@/stores/editorStore';
-import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
-import { useMapStore } from '@/stores/mapStore';
-import { useEntities } from '@/hooks/useEntities';
-import { useToast } from '@/context/ToastContext';
 import { EmptyState } from './EmptyState';
+import { CharsetPreview } from './CharsetPreview';
 import { TilePalette } from '../TilePalette/TilePalette';
 import { EntityPalette } from '../EntityPalette/EntityPalette';
-import type { Entity } from '@packages/types';
+import type { Sprite } from '@packages/types';
 
 export const ContextPanel = () => {
-  const params = useParams();
-  const projectId = params?.projectId as string;
-  
   const selectedType = useSelectionStore((state) => state.type);
   const selectedId = useSelectionStore((state) => state.id);
+  const selectedData = useSelectionStore((state) => state.data);
   const activeTool = useEditorStore((state) => state.tools.activeTool);
-  const selectedEntityId = useEntitySelectionStore((state) => state.selectedEntityId);
-  
-  // Get active map ID from map store
-  const activeMapId = useMapStore((state) => state.activeMapId);
-
-  // Get entities from API
-  const { entities, updateEntity, deleteEntity } = useEntities(projectId, activeMapId);
-  const { showToast } = useToast();
-
-  // Delete confirmation state
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [entityToDelete, setEntityToDelete] = useState<Entity | null>(null);
-  
-  // Find the selected entity
-  const selectedEntity = selectedEntityId
-    ? entities.find((e) => e.id === selectedEntityId) || null
-    : null;
-
-  const handleUpdateEntity = async (entity: typeof selectedEntity) => {
-    if (!entity) return;
-    
-    try {
-      await updateEntity(entity.id, entity);
-    } catch (error) {
-      console.error('Failed to update entity:', error);
-    }
-  };
-
-  const handleDeleteEntity = (entity: Entity) => {
-    setEntityToDelete(entity);
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!entityToDelete) return;
-
-    try {
-      await deleteEntity(entityToDelete.id);
-      showToast(`Deleted ${entityToDelete.name}`, 'success');
-    } catch (error) {
-      console.error('Failed to delete entity:', error);
-      showToast('Failed to delete entity', 'error');
-    } finally {
-      setDeleteConfirmOpen(false);
-      setEntityToDelete(null);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteConfirmOpen(false);
-    setEntityToDelete(null);
-  };
 
   // Render content based on selection type or active tool
   const renderContent = () => {
+    // Explicit asset selections take precedence over the active editing tool.
+    if (selectedType === 'tileset' && selectedId) {
+      return <TilePalette tilesetId={selectedId} />;
+    }
+
+    if (selectedType === 'charset' && selectedId && selectedData) {
+      return <CharsetPreview sprite={selectedData as Sprite} />;
+    }
+
     // Show Entity Palette when entity tool is active (no entity selected)
     if (activeTool === 'entity') {
       return <EntityPalette />;
@@ -92,16 +42,21 @@ export const ContextPanel = () => {
     }
     
     switch (selectedType) {
-      case 'tileset':
-        return <TilePalette tilesetId={selectedId} />;
       case 'map':
         // Map selected → show Tile Palette for painting.
         // Map properties (name, size, tileset) live in the right Inspector panel.
         return <TilePalette />;
       case 'entity':
+      case 'tile':
+      case 'sound':
+      case 'tileset':
+      case 'charset':
+      case null:
         return <EmptyState />;
-      default:
-        return <EmptyState />;
+      default: {
+        const exhaustive: never = selectedType;
+        return exhaustive;
+      }
     }
   };
 
@@ -119,26 +74,6 @@ export const ContextPanel = () => {
       }}
     >
       {renderContent()}
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteConfirmOpen}
-        onClose={handleDeleteCancel}
-      >
-        <DialogTitle>Delete Entity?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete <strong>{entityToDelete?.name}</strong>?
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

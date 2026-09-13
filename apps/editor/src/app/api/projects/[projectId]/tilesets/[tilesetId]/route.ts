@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId, type Db, type Document, type WithId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
-import type { TileProperties, Tileset } from '@packages/types';
+import type { AssetUsageResponse, TileProperties, Tileset } from '@packages/types';
 import { AssetNotFoundError } from '@packages/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { getTilesetById } from '@/config/tilesets';
+import { collectAssetUsages } from '@/lib/assetUsage';
 import {
   loadTilesetOverlay,
   normalizeTilesetTiles,
@@ -217,6 +218,17 @@ export async function DELETE(
       return access.response;
     }
 
+    if (getTilesetById(tilesetId)) {
+      return NextResponse.json(
+        { message: 'Built-in tilesets cannot be deleted' },
+        { status: 403 },
+      );
+    }
+
+    if (!OBJECT_ID_PATTERN.test(tilesetId)) {
+      return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
+    }
+
     const { db } = await connectToDatabase();
     const { project } = access;
 
@@ -231,22 +243,28 @@ export async function DELETE(
       return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
     }
 
-    // Check if tileset is used by any maps
-    const mapsCollection = db.collection('maps');
-    const mapsUsingTileset = await mapsCollection
-      .find({ tilesetId: tilesetId })
-      .toArray();
-
-    if (mapsUsingTileset.length > 0) {
+    const usages = await collectAssetUsages(
+      db,
+      {
+        maps: Array.isArray(project.maps) ? project.maps : [],
+        characters: [],
+      },
+      'tileset',
+      tilesetId,
+    );
+    if (usages.length > 0) {
+      const usageResponse: AssetUsageResponse = {
+        kind: 'tileset',
+        id: tilesetId,
+        origin: 'project',
+        usages,
+      };
       return NextResponse.json(
         {
           message: 'Tileset is currently in use by one or more maps',
-          maps: mapsUsingTileset.map((map) => ({
-            id: map._id.toHexString(),
-            name: map.name,
-          })),
+          ...usageResponse,
         },
-        { status: 400 }
+        { status: 409 },
       );
     }
 

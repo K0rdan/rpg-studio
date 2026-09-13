@@ -8,6 +8,9 @@ import { useEntities } from '@/hooks/useEntities';
 import { useParams } from 'next/navigation';
 import { MapProperties } from '../ContextPanel/MapProperties';
 import { EntityProperties } from '../EntityProperties';
+import { CharsetInspector } from './CharsetInspector';
+import { TilesetInspector } from './TilesetInspector';
+import type { Sprite, Tileset } from '@packages/types';
 
 export const Inspector = () => {
   const params = useParams();
@@ -15,6 +18,7 @@ export const Inspector = () => {
 
   const selectedType = useSelectionStore((state) => state.type);
   const selectedId = useSelectionStore((state) => state.id);
+  const selectedData = useSelectionStore((state) => state.data);
   const selectedEntityId = useEntitySelectionStore((state) => state.selectedEntityId);
   const activeMapId = useMapStore((state) => state.activeMapId);
 
@@ -32,6 +36,14 @@ export const Inspector = () => {
   // Map selected → show editable map properties + tileset preview
   if (selectedType === 'map' && selectedId) {
     return <MapProperties mapId={selectedId} />;
+  }
+
+  if (selectedType === 'tileset' && selectedId && selectedData) {
+    return <TilesetInspector projectId={projectId} tileset={selectedData as Tileset} />;
+  }
+
+  if (selectedType === 'charset' && selectedId && selectedData) {
+    return <CharsetInspector projectId={projectId} sprite={selectedData as Sprite} />;
   }
 
   // Entity selected → show entity properties
@@ -54,7 +66,7 @@ export const Inspector = () => {
         Inspector
       </Typography>
       <Typography variant="body2" sx={{ color: '#444', mt: 2, fontSize: '0.75rem' }}>
-        Select a map or entity to inspect its properties.
+        Select a map, entity, or asset to inspect its properties.
       </Typography>
     </Box>
   );

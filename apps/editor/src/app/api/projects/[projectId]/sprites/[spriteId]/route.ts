@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { ObjectId } from 'mongodb';
-import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
+import { DEFAULT_CHARSET_ANIMATIONS, type AssetUsageResponse } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
+import { collectAssetUsages } from '@/lib/assetUsage';
 
 /**
  * Builds the canonical Azure blob key for a sprite.
@@ -94,9 +95,43 @@ export async function DELETE(
     const { db } = await connectToDatabase();
     const { project } = access;
 
-    const sprite = await db.collection('sprites').findOne({ _id: new ObjectId(spriteId) });
+    const projectSpriteIds = Array.isArray(project.sprites)
+      ? project.sprites.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (!ObjectId.isValid(spriteId) || !projectSpriteIds.includes(spriteId)) {
+      return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
+    }
+
+    const sprite = await db.collection('sprites').findOne({
+      _id: new ObjectId(spriteId),
+      projectId,
+    });
     if (!sprite) {
       return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
+    }
+
+    const usages = await collectAssetUsages(
+      db,
+      {
+        maps: Array.isArray(project.maps) ? project.maps : [],
+        characters: Array.isArray(project.characters) ? project.characters : [],
+      },
+      'charset',
+      spriteId,
+    );
+    if (usages.length > 0) {
+      const usageResponse: AssetUsageResponse = {
+        kind: 'charset',
+        id: spriteId,
+        usages,
+      };
+      return NextResponse.json(
+        {
+          message: 'Sprite is currently in use by one or more entities or characters',
+          ...usageResponse,
+        },
+        { status: 409 },
+      );
     }
 
     const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
@@ -115,10 +150,9 @@ export async function DELETE(
 
     // Remove document and unregister from project
     await db.collection('sprites').deleteOne({ _id: new ObjectId(spriteId) });
-    await db.collection('projects').updateOne(
+    await db.collection<{ sprites: string[] }>('projects').updateOne(
       { _id: new ObjectId(projectId) },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { $pull: { sprites: spriteId } } as any
+      { $pull: { sprites: spriteId } },
     );
 
     return new NextResponse(null, { status: 204 });

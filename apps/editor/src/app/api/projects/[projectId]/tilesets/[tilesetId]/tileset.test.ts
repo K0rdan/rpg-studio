@@ -380,6 +380,10 @@ describe('Tileset by ID API', () => {
         tilesetId: tilesetId,
         layers: [],
       });
+      await db.collection('projects').updateOne(
+        { _id: new ObjectId(projectId) },
+        { $set: { maps: [mapId.toHexString()] } },
+      );
 
       const mockRequest = {} as NextRequest;
 
@@ -388,17 +392,57 @@ describe('Tileset by ID API', () => {
       });
       const data = await response.json();
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(409);
       expect(data.message).toContain('in use');
-      expect(data.maps).toBeDefined();
-      expect(Array.isArray(data.maps)).toBe(true);
-      expect(data.maps.length).toBe(1);
+      expect(data).toMatchObject({
+        kind: 'tileset',
+        id: tilesetId,
+        origin: 'project',
+        usages: [
+          {
+            type: 'map',
+            id: mapId.toHexString(),
+            name: 'Test Map',
+          },
+        ],
+      });
 
       // Verify tileset was NOT deleted
       const tileset = await db
         .collection('tilesets')
         .findOne({ _id: new ObjectId(tilesetId) });
       expect(tileset).not.toBeNull();
+    });
+
+    it('should return 403 for a registry tileset', async () => {
+      const response = await DELETE({} as NextRequest, {
+        params: Promise.resolve({
+          projectId,
+          tilesetId: TILESETS[0].id,
+        }),
+      });
+
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toMatchObject({
+        message: expect.stringContaining('Built-in'),
+      });
+      expect(mockStorage.deleteTilesetAssets).not.toHaveBeenCalled();
+    });
+
+    it('should not let another project map block deletion', async () => {
+      await db.collection('maps').insertOne({
+        _id: new ObjectId(),
+        name: 'Other project map',
+        tilesetId,
+        layers: [],
+      });
+
+      const response = await DELETE({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockStorage.deleteTilesetAssets).toHaveBeenCalled();
     });
 
     it('should return 404 if tileset not found', async () => {
