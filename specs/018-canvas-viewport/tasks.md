@@ -114,6 +114,8 @@
 - [x] T027 [P] Confirm map save/preview payloads still omit camera fields (no zoom/pan on PUT) while exercising save in `apps/editor/cypress/e2e/canvas_viewport.cy.ts` or an existing map-save spec — do not add viewport fields to API routes
 - [x] T028 Run focused Vitest (`Renderer.test.ts`, `GameEngine.camera.test.ts`), Jest (`canvasCamera.test.ts`), and TypeScript checks for `packages/core` and `apps/editor`
 - [ ] T029 Walk `specs/018-canvas-viewport/quickstart.md` and record results at the bottom of this file
+- [x] T030 Extract the dialog-focus guard to `isBlockingOverlayTarget` in `apps/editor/src/lib/keyboardTarget.ts` and cover it in `apps/editor/src/lib/keyboardTarget.test.ts`
+- [x] T031 [P] Cover zoom stepping, clamping, pan accumulation, and `resetZoom` vs `resetViewport` in `apps/editor/src/stores/viewportStore.test.ts`
 
 ---
 
@@ -212,7 +214,7 @@ Task: "secondary drag vs menu → wheel listener → prevent browser context men
 
 ## Validation Results
 
-- Shared camera helpers: 4 Jest tests passed using an isolated config (the repository-wide Jest preset could not start a second MongoMemoryServer while the editor dev server was active).
+- Editor unit tests: 16 Jest tests passed across `canvasCamera.test.ts`, `keyboardTarget.test.ts`, and `viewportStore.test.ts`, using an isolated config (the repository-wide Jest preset could not start a second MongoMemoryServer while the editor dev server was active).
 - Core camera/renderer: 5 files and 26 Vitest tests passed; core TypeScript build passed.
 - Editor and shared types: TypeScript checks passed.
 - Focused ESLint and IDE diagnostics: no errors or warnings.

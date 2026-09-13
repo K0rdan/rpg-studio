@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useViewportStore } from '@/stores/viewportStore';
-import { isTypingTarget } from '@/lib/keyboardTarget';
+import { isBlockingOverlayTarget, isTypingTarget } from '@/lib/keyboardTarget';
 
 /**
  * Hook to handle keyboard shortcuts for canvas zoom and pan
@@ -14,10 +14,8 @@ export function useCanvasShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      const targetIsInDialog =
-        e.target instanceof Element && e.target.closest('[role="dialog"]') !== null;
-      if (isTypingTarget(e.target) || targetIsInDialog) {
+      // Ignore if user is typing in an input or a dialog owns the focus
+      if (isTypingTarget(e.target) || isBlockingOverlayTarget(e.target)) {
         return;
       }
 
