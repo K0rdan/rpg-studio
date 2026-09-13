@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ViewportCamera } from '@packages/types';
 
 // Supported zoom levels
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8] as const;
@@ -7,10 +8,8 @@ export type ZoomLevel = typeof ZOOM_LEVELS[number];
 const MIN_ZOOM = ZOOM_LEVELS[0];
 const MAX_ZOOM = ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
 
-interface ViewportState {
+interface ViewportState extends Omit<ViewportCamera, 'zoom'> {
   zoom: ZoomLevel;
-  offsetX: number;
-  offsetY: number;
   
   // Zoom actions
   setZoom: (zoom: ZoomLevel) => void;

@@ -15,6 +15,12 @@ import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
 import { useMapStore } from '@/stores/mapStore';
 import { useEntities } from '@/hooks/useEntities';
 import { useToast } from '@/context/ToastContext';
+import {
+  isPanFromPointerTravel,
+  screenToWorld,
+  wheelPanDelta,
+  worldToTile,
+} from '@/lib/canvasCamera';
 import { isTypingTarget } from '@/lib/keyboardTarget';
 import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
 import { collisionOverlayCells } from '@/lib/collisionOverlay';
@@ -28,7 +34,15 @@ export const MapCanvas = () => {
   const params = useParams();
   const projectId = params?.projectId as string;
   
-  const { canvasRef, loading, error, currentMap, currentTileset, paintTile } = useMapEngine(projectId);
+  const {
+    canvasRef,
+    loading,
+    error,
+    currentMap,
+    currentTileset,
+    paintTile,
+    setCanvasSize,
+  } = useMapEngine(projectId);
   
   // Get active map ID from map store
   const activeMapId = useMapStore((state) => state.activeMapId);
@@ -66,12 +80,16 @@ export const MapCanvas = () => {
   // Pan state
   const [isPanning, setIsPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [canvasSize, setCanvasSizeState] = useState({ width: 800, height: 600 });
   
   // Entity overlay canvas ref
   const entityCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const emptyCellCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const collisionCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const panStartRef = useRef({ x: 0, y: 0 });
+  const panPointerIdRef = useRef<number | null>(null);
+  const panButtonRef = useRef<number | null>(null);
+  const secondaryDidPanRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Canvas context menu state
@@ -103,6 +121,14 @@ export const MapCanvas = () => {
         e.preventDefault();
         setSpacePressed(false);
         setIsPanning(false);
+        if (panButtonRef.current === 0 && panPointerIdRef.current !== null) {
+          const pointerId = panPointerIdRef.current;
+          if (containerRef.current?.hasPointerCapture(pointerId)) {
+            containerRef.current.releasePointerCapture(pointerId);
+          }
+          panPointerIdRef.current = null;
+          panButtonRef.current = null;
+        }
       }
     };
 
@@ -114,47 +140,87 @@ export const MapCanvas = () => {
     };
   }, [spacePressed]);
 
-  // Mouse handlers for panning and painting
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Middle mouse button or left mouse + space = pan
-    if (e.button === 1 || (e.button === 0 && spacePressed)) {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || loading || !currentMap) return;
+
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      setCanvasSizeState((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height },
+      );
+      setCanvasSize(width, height);
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [currentMap, loading, setCanvasSize]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || loading || !currentMap) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      const delta = wheelPanDelta(event);
+      if (!delta) return;
+      event.preventDefault();
+      pan(delta.x, delta.y);
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [currentMap, loading, pan]);
+
+  const openEntityContextMenu = (
+    event: Pick<React.PointerEvent, 'clientX' | 'clientY'>,
+  ) => {
+    const tileCoords = screenToTileCoords(event);
+    if (!tileCoords) return;
+
+    const clickedEntity = entities.find(
+      (entity) => entity.x === tileCoords.x && entity.y === tileCoords.y,
+    );
+    if (!clickedEntity) return;
+
+    setSelectedEntity(clickedEntity.id);
+    setSelectedItem(clickedEntity.id, 'entity');
+    setSelection('entity', clickedEntity.id, clickedEntity);
+    setCanvasContextMenu({
+      mouseX: event.clientX,
+      mouseY: event.clientY,
+      entity: clickedEntity,
+    });
+  };
+
+  // Pointer handlers for panning, painting, and entity interaction.
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const startsImmediatePan = e.button === 1 || (e.button === 0 && spacePressed);
+    const startsSecondaryGesture = e.button === 2;
+
+    if (startsImmediatePan || startsSecondaryGesture) {
       e.preventDefault();
-      setIsPanning(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      panPointerIdRef.current = e.pointerId;
+      panButtonRef.current = e.button;
+      secondaryDidPanRef.current = false;
       panStartRef.current = { x: e.clientX, y: e.clientY };
-    }
-    // Left click with brush tool = paint
-    else if (e.button === 0 && activeTool === 'brush' && selectedTileIndex !== null) {
+      setIsPanning(startsImmediatePan);
+    } else if (e.button === 0 && activeTool === 'brush' && selectedTileIndex !== null) {
       setIsPainting(true);
       handlePaint(e);
-    }
-    // Left click with entity tool = place or select entity
-    else if (e.button === 0 && activeTool === 'entity') {
+    } else if (e.button === 0 && activeTool === 'entity') {
       handleEntityClick(e);
     }
   };
 
-  // Right-click context menu on canvas entities
   const handleContextMenu = (e: React.MouseEvent) => {
-    const tileCoords = screenToTileCoords(e);
-    if (!tileCoords) return;
-
-    const clickedEntity = entities.find(
-      (entity) => entity.x === tileCoords.x && entity.y === tileCoords.y
-    );
-
-    if (clickedEntity) {
-      e.preventDefault();
-      // Sync all selection stores
-      setSelectedEntity(clickedEntity.id);
-      setSelectedItem(clickedEntity.id, 'entity');
-      setSelection('entity', clickedEntity.id, clickedEntity);
-      
-      setCanvasContextMenu({
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        entity: clickedEntity,
-      });
-    }
+    e.preventDefault();
   };
 
   const handleCloseCanvasContextMenu = () => {
@@ -191,58 +257,96 @@ export const MapCanvas = () => {
     setEntityToDelete(null);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (panPointerIdRef.current === e.pointerId) {
+      if (
+        panButtonRef.current === 2
+        && !secondaryDidPanRef.current
+        && !isPanFromPointerTravel(panStartRef.current, {
+          x: e.clientX,
+          y: e.clientY,
+        })
+      ) {
+        return;
+      }
+
+      if (panButtonRef.current === 2) {
+        secondaryDidPanRef.current = true;
+      }
       const dx = e.clientX - panStartRef.current.x;
       const dy = e.clientY - panStartRef.current.y;
       pan(dx, dy);
       panStartRef.current = { x: e.clientX, y: e.clientY };
-    }
-    // Paint while dragging
-    else if (isPainting && activeTool === 'brush') {
+      setIsPanning(true);
+    } else if (isPainting && activeTool === 'brush') {
       handlePaint(e);
     }
   };
 
-  const handleMouseUp = () => {
+  const finishPointerInteraction = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (panPointerIdRef.current === e.pointerId) {
+      if (panButtonRef.current === 2 && !secondaryDidPanRef.current) {
+        openEntityContextMenu(e);
+      }
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      panPointerIdRef.current = null;
+      panButtonRef.current = null;
+      secondaryDidPanRef.current = false;
+    }
     setIsPanning(false);
     setIsPainting(false);
   };
 
-  const handleMouseLeave = () => {
+  const cancelPointerInteraction = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (panPointerIdRef.current === e.pointerId) {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      panPointerIdRef.current = null;
+      panButtonRef.current = null;
+      secondaryDidPanRef.current = false;
+    }
+    setIsPanning(false);
+    setIsPainting(false);
+  };
+
+  const handlePointerLeave = () => {
+    if (panPointerIdRef.current !== null) return;
     setIsPanning(false);
     setIsPainting(false);
   };
 
   // Convert screen coordinates to tile coordinates
-  const screenToTileCoords = (e: React.MouseEvent) => {
+  const screenToTileCoords = (
+    e: Pick<React.PointerEvent, 'clientX' | 'clientY'>,
+  ) => {
     if (!canvasRef.current || !currentMap || !currentTileset) return null;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    // Account for zoom and pan
-    const worldX = (canvasX / zoom) - offsetX;
-    const worldY = (canvasY / zoom) - offsetY;
-    
-    // Use display tile size for coordinate calculation
-    const tileWidth = currentTileset.tile_width;
-    const tileHeight = currentTileset.tile_height;
-    
-    const tileX = Math.floor(worldX / tileWidth);
-    const tileY = Math.floor(worldY / tileHeight);
+    const world = screenToWorld(
+      { x: e.clientX - rect.left, y: e.clientY - rect.top },
+      { zoom, offsetX, offsetY },
+    );
+    const tile = worldToTile(
+      world,
+      currentTileset.tile_width,
+      currentTileset.tile_height,
+    );
     
     // Bounds check
-    if (tileX < 0 || tileX >= currentMap.width || tileY < 0 || tileY >= currentMap.height) {
+    if (tile.x < 0 || tile.x >= currentMap.width || tile.y < 0 || tile.y >= currentMap.height) {
       return null;
     }
     
-    return { x: tileX, y: tileY };
+    return tile;
   };
 
   // Handle painting
-  const handlePaint = (e: React.MouseEvent) => {
+  const handlePaint = (
+    e: Pick<React.PointerEvent, 'clientX' | 'clientY'>,
+  ) => {
     if (selectedTileIndex === null) return;
     
     const tileCoords = screenToTileCoords(e);
@@ -253,7 +357,9 @@ export const MapCanvas = () => {
   };
 
   // Handle entity placement or selection
-  const handleEntityClick = (e: React.MouseEvent) => {
+  const handleEntityClick = (
+    e: Pick<React.PointerEvent, 'clientX' | 'clientY'>,
+  ) => {
     const tileCoords = screenToTileCoords(e);
     if (!tileCoords) return;
 
@@ -307,9 +413,10 @@ export const MapCanvas = () => {
 
     const cells = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers);
 
+    ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(zoom, zoom);
+    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
     const tileWidth = currentTileset.tile_width;
     const tileHeight = currentTileset.tile_height;
@@ -329,7 +436,16 @@ export const MapCanvas = () => {
     });
 
     ctx.restore();
-  }, [currentMap, activeLayer, isolateLayers, currentTileset, zoom]);
+  }, [
+    currentMap,
+    activeLayer,
+    isolateLayers,
+    currentTileset,
+    zoom,
+    offsetX,
+    offsetY,
+    canvasSize,
+  ]);
 
   const emptyCellCount = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers).length;
   const collisionCells = useMemo(
@@ -346,6 +462,7 @@ export const MapCanvas = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!collisionOverlayVisible || !currentTileset) return;
 
@@ -353,7 +470,7 @@ export const MapCanvas = () => {
     const tileHeight = currentTileset.tile_height;
 
     ctx.save();
-    ctx.scale(zoom, zoom);
+    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.fillStyle = 'rgba(244, 67, 54, 0.35)';
     ctx.strokeStyle = 'rgba(255, 138, 128, 0.9)';
     ctx.lineWidth = 1;
@@ -369,7 +486,15 @@ export const MapCanvas = () => {
     });
 
     ctx.restore();
-  }, [collisionCells, collisionOverlayVisible, currentTileset, zoom]);
+  }, [
+    collisionCells,
+    collisionOverlayVisible,
+    currentTileset,
+    zoom,
+    offsetX,
+    offsetY,
+    canvasSize,
+  ]);
 
   useEffect(() => {
     if (!entityCanvasRef.current || !currentMap || !currentTileset) return;
@@ -378,12 +503,12 @@ export const MapCanvas = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
+    ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Apply same transform as map canvas
     ctx.save();
-    ctx.scale(zoom, zoom);
+    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
     const tileWidth = currentTileset.tile_width;
     const tileHeight = currentTileset.tile_height;
@@ -420,7 +545,16 @@ export const MapCanvas = () => {
     });
 
     ctx.restore();
-  }, [entities, selectedEntityId, currentMap, currentTileset, zoom]);
+  }, [
+    entities,
+    selectedEntityId,
+    currentMap,
+    currentTileset,
+    zoom,
+    offsetX,
+    offsetY,
+    canvasSize,
+  ]);
 
   // Delete key handler for selected entity
   useEffect(() => {
@@ -443,7 +577,8 @@ export const MapCanvas = () => {
 
   // Cursor style
   const getCursor = () => {
-    if (spacePressed) return isPanning ? 'grabbing' : 'grab';
+    if (isPanning) return 'grabbing';
+    if (spacePressed) return 'grab';
     return 'default';
   };
 
@@ -500,6 +635,10 @@ export const MapCanvas = () => {
   return (
     <Box
       ref={containerRef}
+      data-testid="map-viewport"
+      data-zoom={zoom}
+      data-offset-x={offsetX}
+      data-offset-y={offsetY}
       sx={{
         flex: 1,
         display: 'flex',
@@ -509,23 +648,26 @@ export const MapCanvas = () => {
         position: 'relative',
         overflow: 'hidden',
         cursor: getCursor(),
+        touchAction: 'none',
       }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointerInteraction}
+      onPointerCancel={cancelPointerInteraction}
+      onPointerLeave={handlePointerLeave}
       onContextMenu={handleContextMenu}
     >
       <canvas
         id="map-canvas"
         ref={canvasRef}
-        width={800}
-        height={600}
+        width={canvasSize.width}
+        height={canvasSize.height}
         style={{
-          border: '1px solid #444',
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
           imageRendering: 'pixelated',
-          transform: `translate(${offsetX}px, ${offsetY}px)`,
-          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
         }}
       />
       
@@ -534,14 +676,15 @@ export const MapCanvas = () => {
         data-testid="empty-cell-overlay"
         data-empty-cell-count={emptyCellCount}
         ref={emptyCellCanvasRef}
-        width={800}
-        height={600}
+        width={canvasSize.width}
+        height={canvasSize.height}
         style={{
           position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
           pointerEvents: 'none',
           imageRendering: 'pixelated',
-          transform: `translate(${offsetX}px, ${offsetY}px)`,
-          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
         }}
       />
 
@@ -550,15 +693,16 @@ export const MapCanvas = () => {
         data-testid="collision-overlay"
         data-blocking-cell-count={collisionCells.length}
         ref={collisionCanvasRef}
-        width={800}
-        height={600}
+        width={canvasSize.width}
+        height={canvasSize.height}
         style={{
           position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
           display: collisionOverlayVisible ? 'block' : 'none',
           pointerEvents: 'none',
           imageRendering: 'pixelated',
-          transform: `translate(${offsetX}px, ${offsetY}px)`,
-          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
         }}
       />
       
@@ -566,14 +710,15 @@ export const MapCanvas = () => {
       <canvas
         id="entity-overlay-canvas"
         ref={entityCanvasRef}
-        width={800}
-        height={600}
+        width={canvasSize.width}
+        height={canvasSize.height}
         style={{
           position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
           pointerEvents: 'none',
           imageRendering: 'pixelated',
-          transform: `translate(${offsetX}px, ${offsetY}px)`,
-          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
         }}
       />
       

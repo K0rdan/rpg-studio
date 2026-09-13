@@ -15,7 +15,9 @@ export function useCanvasShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
-      if (isTypingTarget(e.target)) {
+      const targetIsInDialog =
+        e.target instanceof Element && e.target.closest('[role="dialog"]') !== null;
+      if (isTypingTarget(e.target) || targetIsInDialog) {
         return;
       }
 

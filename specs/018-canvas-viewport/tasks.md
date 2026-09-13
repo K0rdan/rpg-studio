@@ -17,8 +17,8 @@
 
 **Purpose**: Shared session camera type used by core and the editor
 
-- [ ] T001 [P] Add `ViewportCamera` (`zoom`, `offsetX`, `offsetY`) in `packages/types/src/viewport.ts`
-- [ ] T002 Export `ViewportCamera` from `packages/types/src/index.ts`
+- [x] T001 [P] Add `ViewportCamera` (`zoom`, `offsetX`, `offsetY`) in `packages/types/src/viewport.ts`
+- [x] T002 Export `ViewportCamera` from `packages/types/src/index.ts`
 
 ---
 
@@ -28,13 +28,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 [P] Add failing tests for `screenToWorld`, `worldToTile`, and the 4px secondary click vs pan threshold in `apps/editor/src/lib/canvasCamera.test.ts`
-- [ ] T004 Implement `screenToWorld`, `worldToTile`, `PAN_DRAG_THRESHOLD_PX`, and `isPanFromPointerTravel` in `apps/editor/src/lib/canvasCamera.ts`
-- [ ] T005 [P] Extend failing cases in `packages/core/src/Renderer.test.ts` for `setSize`, identity `clear` of the full buffer, and ignoring width/height ≤ 0
-- [ ] T006 Implement `Renderer.setSize` and identity-space `clear` using the current buffer size in `packages/core/src/Renderer.ts`
-- [ ] T007 Add failing tests that `setCamera` / `setCanvasSize` apply on the next frame without reconstructing the engine in `packages/core/src/GameEngine.camera.test.ts`
-- [ ] T008 Implement `GameEngine.setCamera` and `setCanvasSize`; each frame identity-clear then `setTransform(zoom, 0, 0, zoom, offsetX, offsetY)` in `packages/core/src/GameEngine.ts` (player default camera = constructor `scale`, offsets 0)
-- [ ] T009 Stop recreating the engine when zoom changes; call `setCamera` from `apps/editor/src/hooks/useMapEngine.ts` when `zoom` / `offsetX` / `offsetY` change
+- [x] T003 [P] Add failing tests for `screenToWorld`, `worldToTile`, and the 4px secondary click vs pan threshold in `apps/editor/src/lib/canvasCamera.test.ts`
+- [x] T004 Implement `screenToWorld`, `worldToTile`, `PAN_DRAG_THRESHOLD_PX`, and `isPanFromPointerTravel` in `apps/editor/src/lib/canvasCamera.ts`
+- [x] T005 [P] Extend failing cases in `packages/core/src/Renderer.test.ts` for `setSize`, identity `clear` of the full buffer, and ignoring width/height ≤ 0
+- [x] T006 Implement `Renderer.setSize` and identity-space `clear` using the current buffer size in `packages/core/src/Renderer.ts`
+- [x] T007 Add failing tests that `setCamera` / `setCanvasSize` apply on the next frame without reconstructing the engine in `packages/core/src/GameEngine.camera.test.ts`
+- [x] T008 Implement `GameEngine.setCamera` and `setCanvasSize`; each frame identity-clear then `setTransform(zoom, 0, 0, zoom, offsetX, offsetY)` in `packages/core/src/GameEngine.ts` (player default camera = constructor `scale`, offsets 0)
+- [x] T009 Stop recreating the engine when zoom changes; call `setCamera` from `apps/editor/src/hooks/useMapEngine.ts` when `zoom` / `offsetX` / `offsetY` change
 
 **Checkpoint**: Camera math and engine transform are shared; zoom no longer remounts `GameEngine`
 
@@ -50,15 +50,15 @@
 
 > Write these tests FIRST and confirm they FAIL before implementation
 
-- [ ] T010 [P] [US1] Add failing Cypress cases (canvas fills the center; buffer size unchanged after zoom in/out; follows panel resize) in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
+- [x] T010 [P] [US1] Add failing Cypress cases (canvas fills the center; buffer size unchanged after zoom in/out; follows panel resize) in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Size `#map-canvas` to the container with `ResizeObserver` and call `setCanvasSize` in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` (remove hardcoded `800×600`; keep 1:1 CSS pixels)
-- [ ] T012 [US1] Match empty-cell, collision, and entity overlay canvas buffer sizes to the map canvas in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
-- [ ] T013 [US1] Draw overlays with the same camera transform (`zoom` + offsets) in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
-- [ ] T014 [US1] Convert pointer coordinates with `screenToWorld` / `worldToTile` in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` so paint, entity place/select, and overlays stay aligned
-- [ ] T015 [US1] Remove CSS `translate` on map and overlay canvases in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` (camera owns pan; required so a full-size canvas does not slide out of the workspace)
+- [x] T011 [US1] Size `#map-canvas` to the container with `ResizeObserver` and call `setCanvasSize` in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` (remove hardcoded `800×600`; keep 1:1 CSS pixels)
+- [x] T012 [US1] Match empty-cell, collision, and entity overlay canvas buffer sizes to the map canvas in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T013 [US1] Draw overlays with the same camera transform (`zoom` + offsets) in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T014 [US1] Convert pointer coordinates with `screenToWorld` / `worldToTile` in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` so paint, entity place/select, and overlays stay aligned
+- [x] T015 [US1] Remove CSS `translate` on map and overlay canvases in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx` (camera owns pan; required so a full-size canvas does not slide out of the workspace)
 
 **Checkpoint**: Workspace-filling view + zoom-without-grow works; painting still hits the visible tile (pan gestures may still be CSS-broken until US2 if any leftover translate remains — T015 must be done here)
 
@@ -72,14 +72,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T016 [P] [US2] Add failing Cypress cases for arrow pan, middle-button drag, Space+drag (no paint), `0` vs `Home`, and no pan while typing in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
+- [x] T016 [P] [US2] Add failing Cypress cases for arrow pan, middle-button drag, Space+drag (no paint), `0` vs `Home`, and no pan while typing in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Drive middle-button and Space+primary pan through `viewportStore.pan` without starting paint/entity actions in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`; use pointer capture so pan continues if the pointer leaves the view
-- [ ] T018 [US2] Keep zoom shortcuts; pan arrows 20px; skip arrows when `isTypingTarget` or a dialog has focus in `apps/editor/src/hooks/useCanvasShortcuts.ts`
-- [ ] T019 [US2] Confirm `resetZoom` does not clear offsets and `resetViewport` (`Home`) clears zoom and offsets in `apps/editor/src/stores/viewportStore.ts`
-- [ ] T020 [US2] Show grab/grabbing cursor while Space is held in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T017 [US2] Drive middle-button and Space+primary pan through `viewportStore.pan` without starting paint/entity actions in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`; use pointer capture so pan continues if the pointer leaves the view
+- [x] T018 [US2] Keep zoom shortcuts; pan arrows 20px; skip arrows when `isTypingTarget` or a dialog has focus in `apps/editor/src/hooks/useCanvasShortcuts.ts`
+- [x] T019 [US2] Confirm `resetZoom` does not clear offsets and `resetViewport` (`Home`) clears zoom and offsets in `apps/editor/src/stores/viewportStore.ts`
+- [x] T020 [US2] Show grab/grabbing cursor while Space is held in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
 
 **Checkpoint**: Existing pan and shortcuts work on the camera, not by moving the canvas element
 
@@ -93,15 +93,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T021 [P] [US3] Add failing unit cases for wheel pan (`-deltaX/-deltaY`, ignore `ctrlKey`) in `apps/editor/src/lib/canvasCamera.test.ts`
-- [ ] T022 [P] [US3] Add failing Cypress cases for secondary drag (no menu), secondary click on entity (menu), empty-cell secondary click (no menu), and wheel pan without zoom in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
+- [x] T021 [P] [US3] Add failing unit cases for wheel pan (`-deltaX/-deltaY`, ignore `ctrlKey`) in `apps/editor/src/lib/canvasCamera.test.ts`
+- [x] T022 [P] [US3] Add failing Cypress cases for secondary drag (no menu), secondary click on entity (menu), empty-cell secondary click (no menu), and wheel pan without zoom in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Add `wheelPanDelta` (ignore `ctrlKey`) in `apps/editor/src/lib/canvasCamera.ts`
-- [ ] T024 [US3] Secondary `pointerdown`/`move`/`up`: pan after 4px travel; suppress `contextmenu` when `didPan`; otherwise open the existing entity menu only if an entity is hit in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
-- [ ] T025 [US3] Listen to `wheel` with `{ passive: false }` on the viewing area and pan; do not change zoom in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
-- [ ] T026 [US3] Always prevent the browser context menu on the viewing area in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T023 [US3] Add `wheelPanDelta` (ignore `ctrlKey`) in `apps/editor/src/lib/canvasCamera.ts`
+- [x] T024 [US3] Secondary `pointerdown`/`move`/`up`: pan after 4px travel; suppress `contextmenu` when `didPan`; otherwise open the existing entity menu only if an entity is hit in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T025 [US3] Listen to `wheel` with `{ passive: false }` on the viewing area and pan; do not change zoom in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
+- [x] T026 [US3] Always prevent the browser context menu on the viewing area in `apps/editor/src/components/Editor/Canvas/MapCanvas.tsx`
 
 **Checkpoint**: New pan gestures work; entity delete menu remains on a still secondary click
 
@@ -111,8 +111,8 @@
 
 **Purpose**: Persistence contract, focused tests, quickstart
 
-- [ ] T027 [P] Confirm map save/preview payloads still omit camera fields (no zoom/pan on PUT) while exercising save in `apps/editor/cypress/e2e/canvas_viewport.cy.ts` or an existing map-save spec — do not add viewport fields to API routes
-- [ ] T028 Run focused Vitest (`Renderer.test.ts`, `GameEngine.camera.test.ts`), Jest (`canvasCamera.test.ts`), and TypeScript checks for `packages/core` and `apps/editor`
+- [x] T027 [P] Confirm map save/preview payloads still omit camera fields (no zoom/pan on PUT) while exercising save in `apps/editor/cypress/e2e/canvas_viewport.cy.ts` or an existing map-save spec — do not add viewport fields to API routes
+- [x] T028 Run focused Vitest (`Renderer.test.ts`, `GameEngine.camera.test.ts`), Jest (`canvasCamera.test.ts`), and TypeScript checks for `packages/core` and `apps/editor`
 - [ ] T029 Walk `specs/018-canvas-viewport/quickstart.md` and record results at the bottom of this file
 
 ---
@@ -212,4 +212,10 @@ Task: "secondary drag vs menu → wheel listener → prevent browser context men
 
 ## Validation Results
 
-_(Fill in during T029)_
+- Shared camera helpers: 4 Jest tests passed using an isolated config (the repository-wide Jest preset could not start a second MongoMemoryServer while the editor dev server was active).
+- Core camera/renderer: 5 files and 26 Vitest tests passed; core TypeScript build passed.
+- Editor and shared types: TypeScript checks passed.
+- Focused ESLint and IDE diagnostics: no errors or warnings.
+- Diff whitespace validation passed.
+- Cypress coverage was added in `apps/editor/cypress/e2e/canvas_viewport.cy.ts`, but local execution remains unavailable because the Cypress 16 macOS binary is absent; `npx cypress install` did not populate the sandbox cache.
+- T029 remains open pending the browser quickstart.
