@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2026-09-12
 
 ## Active Technologies
+- N/A (session camera only; maps unchanged) (018-canvas-viewport)
 
 - TypeScript, strict mode + Native Canvas 2D, Next.js, React, Zustand, MUI (016-terrain-collision)
 
@@ -32,6 +33,7 @@ npm test && npm run lint
 TypeScript, strict mode: Follow standard conventions
 
 ## Recent Changes
+- 018-canvas-viewport: Added TypeScript, strict mode + Native Canvas 2D, Next.js, React, Zustand, MUI
 
 - 016-terrain-collision: Added TypeScript, strict mode + Native Canvas 2D, Next.js, React, Zustand, MUI
 
