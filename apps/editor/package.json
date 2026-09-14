@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest"
+    "test": "jest",
+    "check:auth": "node ../../scripts/check-auth-prerequisites.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
