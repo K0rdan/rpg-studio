@@ -3,10 +3,10 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId, type Db, type Document, type WithId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import type { AssetUsageResponse, TileProperties, Tileset } from '@packages/types';
-import { AssetNotFoundError } from '@packages/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { getTilesetById } from '@/config/tilesets';
 import { collectAssetUsages } from '@/lib/assetUsage';
+import { resolveAssetImageSource } from '@/lib/assetStorage';
 import {
   loadTilesetOverlay,
   normalizeTilesetTiles,
@@ -39,10 +39,21 @@ async function formatStaticTileset(
   };
 }
 
-function formatProjectTileset(
+/**
+ * Project tilesets keep their image in storage, so the response points at the asset
+ * image proxy rather than at the storage host.
+ */
+async function formatProjectTileset(
+  projectId: string,
   tileset: WithId<Document>,
-  imageUrl: string
-): FormattedTileset {
+): Promise<FormattedTileset> {
+  const imageUrl = await resolveAssetImageSource(
+    projectId,
+    'tileset',
+    tileset._id.toHexString(),
+    tileset.storageLocation,
+  );
+
   return {
     id: tileset._id.toHexString(),
     name: tileset.name,
@@ -104,24 +115,10 @@ export async function GET(
       return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
     }
 
-    // Generate image URL
-    const storage = getTilesetStorage();
-    let imageUrl = '';
-    try {
-      imageUrl = await storage.getTilesetImageUrl({
-        location: { storageKey: tileset.storageLocation },
-      });
-    } catch (error) {
-      console.error(`Failed to generate URL for tileset ${tilesetId}:`, error);
-      if (error instanceof AssetNotFoundError) {
-        return NextResponse.json(
-          { message: 'Tileset image not found in storage' },
-          { status: 404 }
-        );
-      }
-    }
-
-    return NextResponse.json(formatProjectTileset(tileset, imageUrl), { status: 200 });
+    return NextResponse.json(
+      await formatProjectTileset(projectId, tileset),
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error fetching tileset:', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
@@ -184,17 +181,10 @@ export async function PATCH(
       return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
     }
 
-    // A failed URL signature must not hide a successful write
-    let imageUrl = '';
-    try {
-      imageUrl = await getTilesetStorage().getTilesetImageUrl({
-        location: { storageKey: tileset.storageLocation },
-      });
-    } catch (error) {
-      console.error(`Failed to generate URL for tileset ${tilesetId}:`, error);
-    }
-
-    return NextResponse.json(formatProjectTileset(tileset, imageUrl), { status: 200 });
+    return NextResponse.json(
+      await formatProjectTileset(projectId, tileset),
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error updating tileset tiles:', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });

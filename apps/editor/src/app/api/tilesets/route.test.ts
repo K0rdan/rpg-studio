@@ -40,7 +40,7 @@ describe('GET /api/tilesets', () => {
   const userId = 'test-user-123';
   const tilesetId = new ObjectId();
   const registryId = TILESETS[0].id;
-  let mockStorage: { getTilesetImageUrl: jest.Mock };
+  let mockStorage: { fileExists: jest.Mock };
 
   const request = (search = '') =>
     ({ nextUrl: { searchParams: new URLSearchParams(search) } }) as unknown as NextRequest;
@@ -51,14 +51,14 @@ describe('GET /api/tilesets', () => {
     db = connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
 
-    mockStorage = { getTilesetImageUrl: jest.fn() };
+    mockStorage = { fileExists: jest.fn() };
     mockedGetTilesetStorage.mockReturnValue(mockStorage);
   });
 
   beforeEach(async () => {
     mockedGetSession.mockResolvedValue({ user: { id: userId } });
-    mockStorage.getTilesetImageUrl.mockReset();
-    mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts.png');
+    mockStorage.fileExists.mockReset();
+    mockStorage.fileExists.mockResolvedValue(true);
 
     await db.collection('projects').deleteMany({});
     await db.collection('tilesets').deleteMany({});

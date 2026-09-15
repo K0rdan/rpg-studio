@@ -10,6 +10,7 @@ import type {
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
+  StoredFile,
 } from './types';
 import type {
   AssetNotFoundError,
@@ -69,6 +70,26 @@ export interface TilesetStorage {
    * @throws NetworkError if network operation fails
    */
   uploadFile(storageKey: string, data: Buffer | ArrayBuffer, mimeType: string): Promise<string>;
+
+  /**
+   * Read a file back from storage so the application can serve it itself.
+   *
+   * Use this instead of `getTilesetImageUrl` when the bytes must reach the browser
+   * through the application origin (avoids cross-origin reads on the asset host).
+   *
+   * @param storageKey Full blob path (e.g. "users/uid/projects/pid/sprites/sid.png")
+   * @throws AssetNotFoundError if the file does not exist
+   * @throws NetworkError if network operation fails
+   */
+  downloadFile(storageKey: string): Promise<StoredFile>;
+
+  /**
+   * Check whether a file exists, without transferring its content.
+   *
+   * @param storageKey Full blob path
+   * @throws NetworkError if network operation fails
+   */
+  fileExists(storageKey: string): Promise<boolean>;
 
   /**
    * Delete a single file at an explicit storage key.

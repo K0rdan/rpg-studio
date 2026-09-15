@@ -1,9 +1,10 @@
-import { blockedCells } from '@packages/core';
+import { blockedCells, blockingRects } from '@packages/core';
 import type { Map, Tileset } from '@packages/types';
-import { collisionOverlayCells } from './collisionOverlay';
+import { collisionOverlayCells, collisionOverlayRects } from './collisionOverlay';
 
 jest.mock('@packages/core', () => ({
   blockedCells: jest.fn(),
+  blockingRects: jest.fn(),
 }));
 
 const map: Map = {
@@ -52,5 +53,15 @@ describe('collisionOverlayCells', () => {
     expect(collisionOverlayCells(hiddenMap, walkableTileset)).toEqual([]);
     expect(blockedCells).toHaveBeenNthCalledWith(1, map, tileset);
     expect(blockedCells).toHaveBeenNthCalledWith(2, hiddenMap, walkableTileset);
+  });
+});
+
+describe('collisionOverlayRects', () => {
+  it('delegates solid rectangles to core', () => {
+    const rects = [{ x: 0.2, y: 0.5, width: 0.6, height: 0.5 }];
+    jest.mocked(blockingRects).mockReturnValue(rects);
+
+    expect(collisionOverlayRects(map, tileset)).toBe(rects);
+    expect(blockingRects).toHaveBeenCalledWith(map, tileset);
   });
 });

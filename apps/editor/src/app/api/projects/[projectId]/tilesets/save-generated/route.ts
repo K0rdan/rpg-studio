@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
+import { assetImageUrl } from '@/lib/assetImageUrl';
 
 /**
  * POST /api/projects/[projectId]/tilesets/save-generated
@@ -78,13 +79,10 @@ export async function POST(
       { $push: { tilesets: tilesetId.toHexString() } }
     );
 
-    // Generate signed URL
-    const signedUrl = await storage.getTilesetImageUrl({ location: storageLocation });
-
     return NextResponse.json({
       id: tilesetId.toHexString(),
       name,
-      image_source: signedUrl,
+      image_source: assetImageUrl(projectId, 'tileset', tilesetId.toHexString()),
       tile_width,
       tile_height,
       projectId,

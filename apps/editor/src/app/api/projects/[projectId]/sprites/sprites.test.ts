@@ -28,7 +28,6 @@ describe('Sprite API frame dimensions', () => {
   const insertOne = jest.fn();
   const updateOne = jest.fn();
   const uploadFile = jest.fn();
-  const getTilesetImageUrl = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -50,11 +49,7 @@ describe('Sprite API frame dimensions', () => {
         )),
       },
     });
-    getTilesetImageUrl.mockResolvedValue('https://example.test/sprite.png');
-    mockedGetTilesetStorage.mockReturnValue({
-      uploadFile,
-      getTilesetImageUrl,
-    });
+    mockedGetTilesetStorage.mockReturnValue({ uploadFile });
   });
 
   async function makeRequest(

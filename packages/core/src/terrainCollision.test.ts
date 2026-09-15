@@ -3,6 +3,7 @@ import type { Layer, Map, Tileset } from '@packages/types';
 import {
   EMPTY_TILE,
   blockedCells,
+  blockingRects,
   isCellBlocked,
   isMoveAllowed,
   occupiedCells,
@@ -212,6 +213,19 @@ describe('blockedCells', () => {
   });
 });
 
+describe('blockingRects', () => {
+  it('emits authored rectangles in map space instead of full cells', () => {
+    const map = makeMap([makeLayer({ data: floorWithWalls([1, 1]) })]);
+    const tileset = makeTileset({
+      tiles: [{ id: WALL, is_collidable: true, collisionRect: { x: 0.25, y: 0.5, width: 0.5, height: 0.5 } }],
+    });
+
+    expect(blockingRects(map, tileset)).toEqual([
+      { x: 1.25, y: 1.5, width: 0.5, height: 0.5 },
+    ]);
+  });
+});
+
 describe('occupiedCells', () => {
   it('covers a single cell when the position is tile-aligned', () => {
     expect(occupiedCells(1, 2)).toEqual([{ x: 1, y: 2 }]);
@@ -334,5 +348,41 @@ describe('resolveMovement', () => {
       x: 1,
       y: 0,
     });
+  });
+});
+
+describe('partial tile solids', () => {
+  const trunk = { x: 0.7, y: 0, width: 0.3, height: 1 };
+
+  function trunkTileset(): Tileset {
+    return makeTileset({
+      tiles: [{ id: WALL, is_collidable: true, collisionRect: trunk }],
+    });
+  }
+
+  it('lets a 1x1 actor enter the empty side of a partially solid cell', () => {
+    const map = makeMap([makeLayer({ data: floorWithWalls([1, 0]) })]);
+
+    expect(isMoveAllowed(map, trunkTileset(), { x: 0, y: 0 }, { x: 0.6, y: 0 })).toBe(true);
+  });
+
+  it('stops a 1x1 actor when they newly overlap the authored rectangle', () => {
+    const map = makeMap([makeLayer({ data: floorWithWalls([1, 0]) })]);
+
+    expect(isMoveAllowed(map, trunkTileset(), { x: 0, y: 0 }, { x: 0.8, y: 0 })).toBe(false);
+  });
+
+  it('treats a collidable tile without a rectangle as a full cell', () => {
+    const map = makeMap([makeLayer({ data: floorWithWalls([1, 0]) })]);
+
+    expect(isMoveAllowed(map, makeTileset(), { x: 0, y: 0 }, { x: 0.1, y: 0 })).toBe(false);
+  });
+
+  it('slides along Y when only the partial solid blocks X', () => {
+    const map = makeMap([makeLayer({ data: floorWithWalls([1, 0]) })]);
+
+    const resolved = resolveMovement(map, trunkTileset(), { x: 0, y: 0 }, { x: 0.8, y: 0.5 });
+    expect(resolved.x).toBeCloseTo(0.6);
+    expect(resolved.y).toBeCloseTo(0.5);
   });
 });

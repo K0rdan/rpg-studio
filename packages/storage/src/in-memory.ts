@@ -10,6 +10,7 @@ import type {
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
+  StoredFile,
 } from './types';
 import { SUPPORTED_MIME_TYPES } from './types';
 import type { TilesetStorage } from './interface';
@@ -103,6 +104,23 @@ export class InMemoryTilesetStorage implements TilesetStorage {
 
     this.storage.set(storageKey, buffer);
     return storageKey;
+  }
+
+  async downloadFile(storageKey: string): Promise<StoredFile> {
+    const buffer = this.storage.get(storageKey);
+
+    if (!buffer) {
+      throw new AssetNotFoundError(`Asset not found: ${storageKey}`);
+    }
+
+    return {
+      data: buffer,
+      mimeType: this.getMimeTypeFromStorageKey(storageKey),
+    };
+  }
+
+  async fileExists(storageKey: string): Promise<boolean> {
+    return this.storage.has(storageKey);
   }
 
   async deleteFile(storageKey: string): Promise<void> {

@@ -5,22 +5,11 @@ import { ObjectId } from 'mongodb';
 import { DEFAULT_CHARSET_ANIMATIONS, type AssetUsageResponse } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { collectAssetUsages } from '@/lib/assetUsage';
-
-/**
- * Builds the canonical Azure blob key for a sprite.
- * Mirrors the same function in the parent route — keeping it local avoids
- * a shared-module dependency for now.
- */
-function buildSpriteStorageKey(userId: string, projectId: string, spriteId: string, mimeType: string): string {
-  const extMap: Record<string, string> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpeg',
-    'image/jpg': 'jpg',
-    'image/webp': 'webp',
-  };
-  const ext = extMap[mimeType.toLowerCase()] ?? 'png';
-  return `users/${userId}/projects/${projectId}/sprites/${spriteId}.${ext}`;
-}
+import {
+  buildSpriteStorageKey,
+  projectOwnerId,
+  resolveAssetImageSource,
+} from '@/lib/assetStorage';
 
 // ---------------------------------------------------------------------------
 // GET /api/projects/[projectId]/sprites/[spriteId]
@@ -45,24 +34,16 @@ export async function GET(
       return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
     }
 
-    const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
+    const userId = projectOwnerId(project, access.userId);
     const mimeType = sprite.mimeType ?? 'image/png';
 
     // Reconstruct canonical key — sprites/ folder, not tilesets/
     const storageKey = buildSpriteStorageKey(userId, projectId, spriteId, mimeType);
 
-    const storage = getTilesetStorage();
-    let image_source = '';
-    try {
-      image_source = await storage.getTilesetImageUrl({ location: { storageKey } });
-    } catch {
-      console.warn(`[sprites/${spriteId}] URL generation failed (key: ${storageKey})`);
-    }
-
     return NextResponse.json({
       id: sprite._id.toHexString(),
       name: sprite.name,
-      image_source,
+      image_source: await resolveAssetImageSource(projectId, 'charset', spriteId, storageKey),
       frame_width: sprite.frame_width ?? 32,
       frame_height: sprite.frame_height ?? 64,
       animations: sprite.animations ?? DEFAULT_CHARSET_ANIMATIONS,
@@ -134,7 +115,7 @@ export async function DELETE(
       );
     }
 
-    const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
+    const userId = projectOwnerId(project, access.userId);
     const mimeType = sprite.mimeType ?? 'image/png';
 
     // Reconstruct canonical key so we delete from sprites/ not tilesets/

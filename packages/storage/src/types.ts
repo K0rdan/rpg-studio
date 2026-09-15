@@ -52,6 +52,20 @@ export interface DeleteTilesetAssetsParams {
 }
 
 /**
+ * A file read back from storage, ready to be served by the application.
+ */
+export interface StoredFile {
+  /** Raw file bytes */
+  data: Buffer;
+  /** MIME type recorded at upload time, or inferred from the key */
+  mimeType: string;
+  /** Storage entity tag, usable as an HTTP ETag */
+  etag?: string;
+  /** Last modification date reported by storage */
+  lastModified?: Date;
+}
+
+/**
  * Supported MIME types for tileset images
  */
 export const SUPPORTED_MIME_TYPES = [

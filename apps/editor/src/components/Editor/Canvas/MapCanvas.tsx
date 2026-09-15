@@ -23,7 +23,7 @@ import {
 } from '@/lib/canvasCamera';
 import { isTypingTarget } from '@/lib/keyboardTarget';
 import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
-import { collisionOverlayCells } from '@/lib/collisionOverlay';
+import { collisionOverlayCells, collisionOverlayRects } from '@/lib/collisionOverlay';
 import { ENTITY_TEMPLATES } from '@/constants/entityTemplates';
 import { CanvasLoading } from './CanvasLoading';
 import { CanvasError } from './CanvasError';
@@ -454,6 +454,12 @@ export const MapCanvas = () => {
       : [],
     [currentMap, currentTileset],
   );
+  const collisionRects = useMemo(
+    () => currentMap && currentTileset
+      ? collisionOverlayRects(currentMap, currentTileset)
+      : [],
+    [currentMap, currentTileset],
+  );
 
   useEffect(() => {
     const canvas = collisionCanvasRef.current;
@@ -475,19 +481,18 @@ export const MapCanvas = () => {
     ctx.strokeStyle = 'rgba(255, 138, 128, 0.9)';
     ctx.lineWidth = 1;
 
-    collisionCells.forEach(({ x, y }) => {
-      ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
-      ctx.strokeRect(
-        x * tileWidth + 0.5,
-        y * tileHeight + 0.5,
-        tileWidth - 1,
-        tileHeight - 1,
-      );
+    collisionRects.forEach((rect) => {
+      const x = rect.x * tileWidth;
+      const y = rect.y * tileHeight;
+      const width = rect.width * tileWidth;
+      const height = rect.height * tileHeight;
+      ctx.fillRect(x, y, width, height);
+      ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
     });
 
     ctx.restore();
   }, [
-    collisionCells,
+    collisionRects,
     collisionOverlayVisible,
     currentTileset,
     zoom,

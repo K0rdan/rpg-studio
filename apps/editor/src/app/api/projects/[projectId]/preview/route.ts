@@ -3,7 +3,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { requireProjectAccess } from '@/lib/apiAuth';
 
-import { getTilesetStorage } from '@/lib/storage';
+import {
+  buildSpriteStorageKey,
+  projectOwnerId,
+  resolveAssetImageSource,
+} from '@/lib/assetStorage';
 import { TILESETS } from '@/config/tilesets';
 import { DEFAULT_CHARSET_ANIMATIONS } from '@packages/types';
 import {
@@ -11,17 +15,6 @@ import {
   loadTilesetOverlays,
   normalizeTilesetTiles,
 } from '@/lib/tilesetTiles';
-
-function buildSpriteStorageKey(userId: string, projectId: string, spriteId: string, mimeType: string): string {
-  const extMap: Record<string, string> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpeg',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-  };
-  const extension = extMap[mimeType] || 'png';
-  return `users/${userId}/projects/${projectId}/sprites/${spriteId}.${extension}`;
-}
 
 export async function GET(
   req: NextRequest,
@@ -49,27 +42,29 @@ export async function GET(
     }).toArray();
 
     // Fetch all sprites
-    const storage = getTilesetStorage();
     const rawSprites = await db.collection('sprites').find({ projectId }).toArray();
-    
+
     // Resolve sprite URLs
     const sprites = await Promise.all(
       rawSprites.map(async (s) => {
         const spriteId = s._id.toString();
         const mimeType = s.mimeType ?? 'image/png';
-        const storageKey = buildSpriteStorageKey(userId, projectId, spriteId, mimeType);
-
-        let image_source = '';
-        try {
-          image_source = await storage.getTilesetImageUrl({ location: { storageKey } });
-        } catch {
-          console.warn(`[preview] Failed to generate URL for sprite ${spriteId}`);
-        }
+        const storageKey = buildSpriteStorageKey(
+          projectOwnerId(project, userId),
+          projectId,
+          spriteId,
+          mimeType,
+        );
 
         return {
           id: spriteId,
           name: s.name,
-          image_source,
+          image_source: await resolveAssetImageSource(
+            projectId,
+            'charset',
+            spriteId,
+            storageKey,
+          ),
           frame_width: s.frame_width ?? 32,
           frame_height: s.frame_height ?? 64,
           animations: s.animations ?? DEFAULT_CHARSET_ANIMATIONS,
@@ -91,19 +86,17 @@ export async function GET(
     // back to the bundled tileset, which renders the wrong tiles in the preview.
     const formattedTilesets = await Promise.all(
       tilesets.map(async (t) => {
-        let image_source = '';
-        try {
-          image_source = await storage.getTilesetImageUrl({
-            location: { storageKey: t.storageLocation },
-          });
-        } catch {
-          console.warn(`[preview] Failed to generate URL for tileset ${t._id.toString()}`);
-        }
+        const tilesetId = t._id.toString();
 
         return {
-          id: t._id.toString(),
+          id: tilesetId,
           name: t.name,
-          image_source,
+          image_source: await resolveAssetImageSource(
+            projectId,
+            'tileset',
+            tilesetId,
+            t.storageLocation,
+          ),
           tile_width: t.tile_width,
           tile_height: t.tile_height,
           source_tile_width: t.source_tile_width,

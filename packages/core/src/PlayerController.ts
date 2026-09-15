@@ -3,7 +3,7 @@ import { DEFAULT_PLAYER_PROPERTIES } from '@packages/types';
 import { InputManager } from './InputManager';
 import { Renderer } from './Renderer';
 import { SpriteRenderer } from './SpriteRenderer';
-import { resolveMovement, type TerrainCollisionContext } from './terrainCollision';
+import { DEFAULT_PLAYER_HITBOX, resolveMovement, type TerrainCollisionContext } from './terrainCollision';
 
 /** Direction-driven animation state for RPG Maker-style charsets. */
 function getAnimationState(dx: number, dy: number): string {
@@ -81,6 +81,7 @@ export class PlayerController {
         collision.tileset,
         { x: this.x, y: this.y },
         { x: targetX, y: targetY },
+        DEFAULT_PLAYER_HITBOX,
       );
       this.x = resolved.x;
       this.y = resolved.y;

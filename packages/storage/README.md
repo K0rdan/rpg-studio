@@ -42,7 +42,15 @@ const location = await storage.uploadTilesetImage({
   data: imageBuffer,
 });
 
-// Get URL for the image
+// Read the image back to serve it from your own origin
+const file = await storage.downloadFile(location.storageKey);
+// Returns: { data: Buffer, mimeType: 'image/png', etag, lastModified }
+
+// Check an image is there without transferring it
+const available = await storage.fileExists(location.storageKey);
+
+// Get a URL pointing at the storage host itself. Browsers can only load it if the
+// account exposes CORS rules for your origin — prefer downloadFile() for that case.
 const url = await storage.getTilesetImageUrl({ location });
 // Returns: https://account.blob.core.windows.net/tilesets/projects/proj-123/tilesets/ts-456.png?sv=...
 

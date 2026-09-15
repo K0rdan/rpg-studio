@@ -41,7 +41,7 @@ describe('GET /api/projects/[projectId]/preview', () => {
   const userId = 'test-user-123';
   const mapId = new ObjectId();
   const tilesetId = new ObjectId();
-  let mockStorage: { getTilesetImageUrl: jest.Mock };
+  let mockStorage: { fileExists: jest.Mock };
 
   const request = {} as NextRequest;
   const params = () => ({ params: Promise.resolve({ projectId }) });
@@ -52,14 +52,14 @@ describe('GET /api/projects/[projectId]/preview', () => {
     db = connection.db(globalThis.__ATLAS_DATABASE_NAME__!);
     mockedConnectToDatabase.mockResolvedValue({ db });
 
-    mockStorage = { getTilesetImageUrl: jest.fn() };
+    mockStorage = { fileExists: jest.fn() };
     mockedGetTilesetStorage.mockReturnValue(mockStorage);
   });
 
   beforeEach(async () => {
     mockedGetSession.mockResolvedValue({ user: { id: userId } });
-    mockStorage.getTilesetImageUrl.mockReset();
-    mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts.png');
+    mockStorage.fileExists.mockReset();
+    mockStorage.fileExists.mockResolvedValue(true);
 
     await db.collection('projects').deleteMany({});
     await db.collection('maps').deleteMany({});
@@ -103,7 +103,7 @@ describe('GET /api/projects/[projectId]/preview', () => {
     await connection.close();
   });
 
-  it('returns project tilesets with a signed image URL and their source tile grid', async () => {
+  it('returns project tilesets with a same-origin image URL and their source tile grid', async () => {
     const response = await GET(request, params());
     const data = await response.json();
 
@@ -113,7 +113,7 @@ describe('GET /api/projects/[projectId]/preview', () => {
         expect.objectContaining({
           id: tilesetId.toHexString(),
           name: 'Forest',
-          image_source: 'https://storage.example.com/ts.png',
+          image_source: `/api/projects/${projectId}/assets/tileset/${tilesetId.toHexString()}/image`,
           tile_width: 32,
           source_tile_width: 128,
           source_tile_height: 128,
@@ -181,7 +181,7 @@ describe('GET /api/projects/[projectId]/preview', () => {
   });
 
   it('keeps a tileset without a usable image out of the way instead of failing', async () => {
-    mockStorage.getTilesetImageUrl.mockRejectedValue(new Error('storage offline'));
+    mockStorage.fileExists.mockRejectedValue(new Error('storage offline'));
 
     const response = await GET(request, params());
     const data = await response.json();

@@ -40,7 +40,7 @@ describe('Tileset by ID API', () => {
   const userId = 'test-user-123';
   let tilesetId: string;
   let mockStorage: {
-    getTilesetImageUrl: jest.Mock;
+    fileExists: jest.Mock;
     deleteTilesetAssets: jest.Mock;
   };
 
@@ -52,7 +52,7 @@ describe('Tileset by ID API', () => {
 
     // Setup mock storage
     mockStorage = {
-      getTilesetImageUrl: jest.fn(),
+      fileExists: jest.fn().mockResolvedValue(true),
       deleteTilesetAssets: jest.fn(),
     };
     mockedGetTilesetStorage.mockReturnValue(mockStorage);
@@ -99,7 +99,7 @@ describe('Tileset by ID API', () => {
       );
 
     // Reset mocks
-    mockStorage.getTilesetImageUrl.mockClear();
+    mockStorage.fileExists.mockClear();
     mockStorage.deleteTilesetAssets.mockClear();
   });
 
@@ -109,10 +109,6 @@ describe('Tileset by ID API', () => {
 
   describe('GET /api/projects/[projectId]/tilesets/[tilesetId]', () => {
     it('should return tileset by ID with image URL', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue(
-        'https://storage.example.com/ts1.png',
-      );
-
       const mockRequest = {} as NextRequest;
 
       const response = await GET(mockRequest, {
@@ -126,12 +122,10 @@ describe('Tileset by ID API', () => {
         name: 'Test Tileset',
         tile_width: 32,
         tile_height: 32,
-        image_source: 'https://storage.example.com/ts1.png',
+        image_source: `/api/projects/${projectId}/assets/tileset/${tilesetId}/image`,
       });
 
-      expect(mockStorage.getTilesetImageUrl).toHaveBeenCalledWith({
-        location: { storageKey: 'projects/test/tilesets/ts1.png' },
-      });
+      expect(mockStorage.fileExists).toHaveBeenCalledWith('projects/test/tilesets/ts1.png');
     });
 
     it('should return 404 if tileset not found', async () => {
@@ -157,7 +151,6 @@ describe('Tileset by ID API', () => {
     });
 
     it('should expose an empty tiles array when the tileset has no collision marks', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
 
       const response = await GET({} as NextRequest, {
         params: Promise.resolve({ projectId, tilesetId }),
@@ -168,7 +161,6 @@ describe('Tileset by ID API', () => {
     });
 
     it('should expose the stored collision marks', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
       await db
         .collection('tilesets')
         .updateOne(
@@ -230,7 +222,6 @@ describe('Tileset by ID API', () => {
     });
 
     it('should store only blocking tiles with an integer id', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
 
       const response = await PATCH(
         patchRequest({
@@ -246,7 +237,7 @@ describe('Tileset by ID API', () => {
       expect(response.status).toBe(200);
       expect(data).toMatchObject({
         id: tilesetId,
-        image_source: 'https://storage.example.com/ts1.png',
+        image_source: `/api/projects/${projectId}/assets/tileset/${tilesetId}/image`,
         tiles: [{ id: 4, is_collidable: true }],
       });
 
@@ -257,7 +248,6 @@ describe('Tileset by ID API', () => {
     });
 
     it('should replace the stored tiles on a later call', async () => {
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts1.png');
 
       await PATCH(patchRequest({ tiles: [{ id: 4, is_collidable: true }] }), {
         params: Promise.resolve({ projectId, tilesetId }),

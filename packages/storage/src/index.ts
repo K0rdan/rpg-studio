@@ -11,6 +11,7 @@ export type {
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
+  StoredFile,
   SupportedMimeType,
 } from './types';
 

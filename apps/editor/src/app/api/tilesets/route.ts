@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TILESETS } from '@/config/tilesets';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { getTilesetStorage } from '@/lib/storage';
 import { requireApiSession, requireProjectAccess } from '@/lib/apiAuth';
+import { resolveAssetImageSource } from '@/lib/assetStorage';
 import {
   applyTilesetOverlays,
   loadTilesetOverlays,
@@ -62,39 +62,26 @@ export async function GET(req: NextRequest) {
         .toArray();
 
       // Generate image URLs for project tilesets
-      const storage = getTilesetStorage();
       const projectTilesetsWithUrls = await Promise.all(
         projectTilesets.map(async (tileset) => {
-          try {
-            const imageUrl = await storage.getTilesetImageUrl({
-              location: { storageKey: tileset.storageLocation },
-            });
+          const tilesetId = tileset._id.toHexString();
 
-            return {
-              id: tileset._id.toHexString(),
-              name: tileset.name,
-              image_source: imageUrl,
-              tile_width: tileset.tile_width,
-              tile_height: tileset.tile_height,
-              source_tile_width: tileset.source_tile_width,
-              source_tile_height: tileset.source_tile_height,
-              tiles: normalizeTilesetTiles(tileset.tiles),
-            };
-          } catch (error) {
-            const reason = error instanceof Error ? error.message : String(error);
-            console.warn(`[tilesets] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
-            // Return tileset without image rather than silently dropping it
-            return {
-              id: tileset._id.toHexString(),
-              name: tileset.name,
-              image_source: null,
-              tile_width: tileset.tile_width,
-              tile_height: tileset.tile_height,
-              source_tile_width: tileset.source_tile_width,
-              source_tile_height: tileset.source_tile_height,
-              tiles: normalizeTilesetTiles(tileset.tiles),
-            };
-          }
+          // An unavailable image must not drop the tileset from the list
+          return {
+            id: tilesetId,
+            name: tileset.name,
+            image_source: await resolveAssetImageSource(
+              projectId,
+              'tileset',
+              tilesetId,
+              tileset.storageLocation,
+            ),
+            tile_width: tileset.tile_width,
+            tile_height: tileset.tile_height,
+            source_tile_width: tileset.source_tile_width,
+            source_tile_height: tileset.source_tile_height,
+            tiles: normalizeTilesetTiles(tileset.tiles),
+          };
         })
       );
 

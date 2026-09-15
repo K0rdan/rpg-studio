@@ -4,6 +4,8 @@ import {
   isTileCollidable,
   normalizeTilesetTiles,
   setTileCollidable,
+  setTileCollisionRect,
+  tileCollisionRect,
   validateTilesetTiles,
   withTilesetTiles,
 } from './tilesetTiles';
@@ -73,6 +75,18 @@ describe('normalizeTilesetTiles', () => {
       { id: 9, is_collidable: true },
     ]);
   });
+
+  it('keeps a collision rectangle on blocking tiles and drops a full-cell rect', () => {
+    expect(
+      normalizeTilesetTiles([
+        { id: 8, is_collidable: true, collisionRect: { x: 0.35, y: 0.7, width: 0.3, height: 0.3 } },
+        { id: 9, is_collidable: true, collisionRect: { x: 0, y: 0, width: 1, height: 1 } },
+      ]),
+    ).toEqual([
+      { id: 8, is_collidable: true, collisionRect: { x: 0.35, y: 0.7, width: 0.3, height: 0.3 } },
+      { id: 9, is_collidable: true },
+    ]);
+  });
 });
 
 describe('validateTilesetTiles', () => {
@@ -99,6 +113,14 @@ describe('validateTilesetTiles', () => {
         { id: 5, is_collidable: false },
       ]),
     ).toEqual({ ok: true, tiles: [{ id: 4, is_collidable: true }] });
+  });
+
+  it('rejects a collision rectangle that leaves the tile', () => {
+    expect(
+      validateTilesetTiles([
+        { id: 1, is_collidable: true, collisionRect: { x: 0.8, y: 0, width: 0.5, height: 1 } },
+      ]).ok,
+    ).toBe(false);
   });
 });
 
@@ -131,6 +153,39 @@ describe('setTileCollidable', () => {
 
   it('starts from an empty list when the tileset has no tiles yet', () => {
     expect(setTileCollidable(undefined, 0, true)).toEqual([{ id: 0, is_collidable: true }]);
+  });
+
+  it('keeps an existing collision rectangle when blocking stays on', () => {
+    const tiles = [
+      { id: 4, is_collidable: true as const, collisionRect: { x: 0.2, y: 0.2, width: 0.3, height: 0.3 } },
+    ];
+
+    expect(setTileCollidable(tiles, 4, true)).toEqual(tiles);
+  });
+});
+
+describe('setTileCollisionRect', () => {
+  it('marks the tile blocking and stores a partial rectangle', () => {
+    expect(setTileCollisionRect([], 3, { x: 0.25, y: 0.5, width: 0.5, height: 0.5 })).toEqual([
+      { id: 3, is_collidable: true, collisionRect: { x: 0.25, y: 0.5, width: 0.5, height: 0.5 } },
+    ]);
+  });
+
+  it('omits a full-cell rectangle from storage', () => {
+    expect(setTileCollisionRect([], 3, { x: 0, y: 0, width: 1, height: 1 })).toEqual([
+      { id: 3, is_collidable: true },
+    ]);
+  });
+});
+
+describe('tileCollisionRect', () => {
+  it('returns a full cell when no custom rectangle is stored', () => {
+    expect(tileCollisionRect([{ id: 1, is_collidable: true }], 1)).toEqual({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    });
   });
 });
 

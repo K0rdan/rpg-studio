@@ -250,12 +250,18 @@ describe('PlayerController', () => {
   // -----------------------------------------------------------------------
   describe('terrain collision', () => {
     /**
-     * A blocked step is refused, not clamped, so the player comes to rest up to
-     * one frame of travel short of the last walkable position (2 on a 3x3 map).
+     * Feet box is 0.5 wide with 0.25 inset, so the origin can reach 2.25 on a
+     * width-3 map. A blocked step is refused, not clamped, so they stop a frame
+     * short of the first overlap.
      */
-    function expectStoppedAtLastColumn(value: number) {
-      expect(value).toBeGreaterThan(1.9);
-      expect(value).toBeLessThanOrEqual(2);
+    function expectStoppedAtMapRight(value: number) {
+      expect(value).toBeGreaterThan(2.1);
+      expect(value).toBeLessThanOrEqual(2.25);
+    }
+
+    function expectStoppedAtTrunkBeforeCell(value: number) {
+      expect(value).toBeGreaterThan(0.15);
+      expect(value).toBeLessThan(0.26);
     }
 
     /** Runs 100 frames at 60fps so movement is resolved per frame, not in one jump. */
@@ -264,6 +270,21 @@ describe('PlayerController', () => {
         controller.update(16, input, collision);
       }
     }
+
+    it('walks into the empty side of a cell with a partial collision rectangle', () => {
+      const controller = new PlayerController(makePlayerEntity({ x: 0, y: 0 }), TILE_W, TILE_H);
+      const input = new MockInputManager();
+      input.pressKey('ArrowRight');
+
+      walk(controller, input, {
+        map: makeCollisionMap([{ data: floorWithWalls([1, 0]) }]),
+        tileset: makeCollisionTileset({
+          tiles: [{ id: WALL, is_collidable: true, collisionRect: { x: 0.7, y: 0, width: 0.3, height: 1 } }],
+        }),
+      });
+
+      expect(controller.getPosition().x).toBeGreaterThan(0.4);
+    });
 
     it('stops the player at a blocking tile on a below layer', () => {
       const controller = new PlayerController(makePlayerEntity({ x: 0, y: 0 }), TILE_W, TILE_H);
@@ -275,7 +296,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expect(controller.getPosition().x).toBe(0);
+      expectStoppedAtTrunkBeforeCell(controller.getPosition().x);
     });
 
     it('walks across floor tiles that carry no blocking mark', () => {
@@ -288,8 +309,8 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      // Free to cross the map, but the 1x1 player cannot pass the last column.
-      expectStoppedAtLastColumn(controller.getPosition().x);
+      // Feet box can reach origin 2.25 on a 3-wide map.
+      expectStoppedAtMapRight(controller.getPosition().x);
     });
 
     it('blocks when any stacked below layer marks the cell', () => {
@@ -305,7 +326,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expect(controller.getPosition().x).toBe(0);
+      expectStoppedAtTrunkBeforeCell(controller.getPosition().x);
     });
 
     it('refuses to leave the map at its far edge', () => {
@@ -319,7 +340,9 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expect(controller.getPosition()).toEqual({ x: 2, y: 2 });
+      const { x, y } = controller.getPosition();
+      expectStoppedAtMapRight(x);
+      expect(y).toBe(2);
     });
 
     it('slides along the free axis when a diagonal move is blocked on X', () => {
@@ -334,8 +357,9 @@ describe('PlayerController', () => {
       });
 
       const { x, y } = controller.getPosition();
-      expect(x).toBe(0);
-      expectStoppedAtLastColumn(y);
+      expectStoppedAtTrunkBeforeCell(x);
+      expect(y).toBeGreaterThan(1.9);
+      expect(y).toBeLessThanOrEqual(2);
     });
 
     it('slides along the free axis when a diagonal move is blocked on Y', () => {
@@ -350,7 +374,7 @@ describe('PlayerController', () => {
       });
 
       const { x, y } = controller.getPosition();
-      expectStoppedAtLastColumn(x);
+      expectStoppedAtMapRight(x);
       expect(y).toBe(0);
     });
 
@@ -364,7 +388,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expectStoppedAtLastColumn(controller.getPosition().x);
+      expectStoppedAtMapRight(controller.getPosition().x);
     });
 
     it('walks through blocking tiles painted only on same-depth or above layers', () => {
@@ -380,7 +404,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expectStoppedAtLastColumn(controller.getPosition().x);
+      expectStoppedAtMapRight(controller.getPosition().x);
     });
 
     it('walks through blocking tiles on hidden below layers', () => {
@@ -393,7 +417,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset(),
       });
 
-      expectStoppedAtLastColumn(controller.getPosition().x);
+      expectStoppedAtMapRight(controller.getPosition().x);
     });
 
     it('stays walkable when the tileset carries no blocking marks', () => {
@@ -406,7 +430,7 @@ describe('PlayerController', () => {
         tileset: makeCollisionTileset({ tiles: undefined }),
       });
 
-      expectStoppedAtLastColumn(controller.getPosition().x);
+      expectStoppedAtMapRight(controller.getPosition().x);
     });
 
     it('moves freely when no collision context is provided', () => {

@@ -1,5 +1,5 @@
 import type { Db } from 'mongodb';
-import type { TileProperties, Tileset } from '@packages/types';
+import type { CollisionRect, TileProperties, Tileset } from '@packages/types';
 
 /**
  * Registry tilesets live in `config/tilesets.ts` and cannot be written to, so their collision
@@ -12,6 +12,49 @@ export type TilesetOverlays = ReadonlyMap<string, TileProperties[]>;
 export type TilesetTilesPayload =
   | { ok: true; tiles: TileProperties[] }
   | { ok: false; message: string };
+
+const FULL_TILE: CollisionRect = { x: 0, y: 0, width: 1, height: 1 };
+
+function isFullTileRect(rect: CollisionRect): boolean {
+  return rect.x === 0 && rect.y === 0 && rect.width === 1 && rect.height === 1;
+}
+
+function readCollisionRect(entry: unknown): { ok: true; rect?: CollisionRect } | { ok: false; message: string } {
+  if (!entry || typeof entry !== 'object' || !('collisionRect' in entry)) {
+    return { ok: true };
+  }
+
+  const raw = (entry as { collisionRect?: unknown }).collisionRect;
+  if (raw === undefined) return { ok: true };
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, message: 'collisionRect must be an object' };
+  }
+
+  const { x, y, width, height } = raw as Record<string, unknown>;
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    return { ok: false, message: 'collisionRect values must be finite numbers' };
+  }
+
+  if (width <= 0 || height <= 0 || x < 0 || y < 0 || x + width > 1 || y + height > 1) {
+    return { ok: false, message: 'collisionRect must lie inside the tile with positive size' };
+  }
+
+  const rect = { x, y, width, height };
+  return isFullTileRect(rect) ? { ok: true } : { ok: true, rect };
+}
+
+function collidableEntry(id: number, rect?: CollisionRect): TileProperties {
+  return rect ? { id, is_collidable: true, collisionRect: rect } : { id, is_collidable: true };
+}
 
 /**
  * Storage stays sparse: only tiles that block movement are kept, so an omitted or empty array
@@ -27,7 +70,8 @@ export function normalizeTilesetTiles(value: unknown): TileProperties[] {
     if (id === null) continue;
 
     if ((entry as TileProperties).is_collidable === true) {
-      collidable.set(id, { id, is_collidable: true });
+      const parsed = readCollisionRect(entry);
+      collidable.set(id, collidableEntry(id, parsed.ok ? parsed.rect : undefined));
     } else {
       collidable.delete(id);
     }
@@ -54,6 +98,9 @@ export function validateTilesetTiles(value: unknown): TilesetTilesPayload {
     if (isCollidable !== undefined && typeof isCollidable !== 'boolean') {
       return { ok: false, message: 'is_collidable must be a boolean' };
     }
+
+    const parsed = readCollisionRect(entry);
+    if (!parsed.ok) return parsed;
   }
 
   return { ok: true, tiles: normalizeTilesetTiles(value) };
@@ -64,13 +111,36 @@ export function setTileCollidable(
   id: number,
   isCollidable: boolean,
 ): TileProperties[] {
-  const next = normalizeTilesetTiles(tiles).filter((tile) => tile.id !== id);
+  const normalized = normalizeTilesetTiles(tiles);
+  const existing = normalized.find((tile) => tile.id === id);
+  const next = normalized.filter((tile) => tile.id !== id);
 
   if (isCollidable && Number.isInteger(id) && id >= 0) {
-    next.push({ id, is_collidable: true });
+    next.push(collidableEntry(id, existing?.collisionRect));
   }
 
   return sortById(next);
+}
+
+export function setTileCollisionRect(
+  tiles: TileProperties[] | undefined,
+  id: number,
+  rect: CollisionRect | null,
+): TileProperties[] {
+  if (!Number.isInteger(id) || id < 0) return normalizeTilesetTiles(tiles);
+
+  const next = normalizeTilesetTiles(tiles).filter((tile) => tile.id !== id);
+  const stored = rect && !isFullTileRect(rect) ? rect : undefined;
+  next.push(collidableEntry(id, stored));
+  return sortById(next);
+}
+
+export function tileCollisionRect(
+  tiles: TileProperties[] | undefined,
+  id: number,
+): CollisionRect {
+  const tile = normalizeTilesetTiles(tiles).find((entry) => entry.id === id);
+  return tile?.collisionRect ?? FULL_TILE;
 }
 
 export function isTileCollidable(tiles: TileProperties[] | undefined, id: number): boolean {

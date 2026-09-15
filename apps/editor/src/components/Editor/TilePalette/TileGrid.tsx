@@ -25,8 +25,7 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
     if (!imageSource) return;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous'; // For CORS if needed
-    
+
     img.onload = () => {
       setImageState({
         src: imageSource,
@@ -143,6 +142,9 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
           const isCollidable = tileset.tiles?.some(
             (tile) => tile.id === index && tile.is_collidable === true,
           ) === true;
+          const collisionRect = tileset.tiles?.find(
+            (tile) => tile.id === index && tile.is_collidable === true,
+          )?.collisionRect ?? { x: 0, y: 0, width: 1, height: 1 };
 
           return (
             <Tooltip
@@ -175,20 +177,36 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
                 }}
               >
                 {isCollidable && (
-                  <Box
-                    aria-label="Blocking tile"
-                    sx={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: '#ef5350',
-                      border: '1px solid rgba(255, 255, 255, 0.9)',
-                      boxShadow: '0 0 2px rgba(0, 0, 0, 0.8)',
-                    }}
-                  />
+                  <>
+                    <Box
+                      aria-label="Collision rectangle"
+                      sx={{
+                        position: 'absolute',
+                        left: `${collisionRect.x * 100}%`,
+                        top: `${collisionRect.y * 100}%`,
+                        width: `${collisionRect.width * 100}%`,
+                        height: `${collisionRect.height * 100}%`,
+                        bgcolor: 'rgba(244, 67, 54, 0.35)',
+                        border: '1px solid rgba(255, 138, 128, 0.9)',
+                        pointerEvents: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <Box
+                      aria-label="Blocking tile"
+                      sx={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: '#ef5350',
+                        border: '1px solid rgba(255, 255, 255, 0.9)',
+                        boxShadow: '0 0 2px rgba(0, 0, 0, 0.8)',
+                      }}
+                    />
+                  </>
                 )}
               </Box>
             </Tooltip>

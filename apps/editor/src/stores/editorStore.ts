@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { setTileCollidable as updateTileCollidable } from '@/lib/tilesetTiles';
-import type { Tileset } from '@packages/types';
+import { setTileCollidable as updateTileCollidable, setTileCollisionRect as updateTileCollisionRect } from '@/lib/tilesetTiles';
+import type { CollisionRect, Tileset } from '@packages/types';
 
 export type ToolType = 'brush' | 'fill' | 'eraser' | 'select' | 'entity' | 'region';
 
@@ -81,6 +81,7 @@ interface EditorState {
 
   setCurrentTileset: (tileset: Tileset | null) => void;
   setTileCollidable: (tileId: number, isCollidable: boolean) => void;
+  setTileCollisionRect: (tileId: number, rect: CollisionRect | null) => void;
   setTilesetDirty: (isDirty: boolean) => void;
 }
 
@@ -238,6 +239,22 @@ export const useEditorStore = create<EditorState>((set) => ({
           current: {
             ...current,
             tiles: updateTileCollidable(current.tiles, tileId, isCollidable),
+          },
+          isDirty: true,
+        },
+      };
+    }),
+
+  setTileCollisionRect: (tileId: number, rect: CollisionRect | null) =>
+    set((state) => {
+      const current = state.tileset.current;
+      if (!current) return state;
+
+      return {
+        tileset: {
+          current: {
+            ...current,
+            tiles: updateTileCollisionRect(current.tiles, tileId, rect),
           },
           isDirty: true,
         },

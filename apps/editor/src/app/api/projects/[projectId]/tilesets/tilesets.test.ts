@@ -38,7 +38,7 @@ describe('Tileset API', () => {
   const userId = 'test-user-123';
   let mockStorage: {
     uploadTilesetImage: jest.Mock;
-    getTilesetImageUrl: jest.Mock;
+    fileExists: jest.Mock;
     deleteTilesetAssets: jest.Mock;
   };
 
@@ -51,7 +51,7 @@ describe('Tileset API', () => {
     // Setup mock storage
     mockStorage = {
       uploadTilesetImage: jest.fn(),
-      getTilesetImageUrl: jest.fn(),
+      fileExists: jest.fn().mockResolvedValue(true),
       deleteTilesetAssets: jest.fn(),
     };
     mockedGetTilesetStorage.mockReturnValue(mockStorage);
@@ -78,7 +78,7 @@ describe('Tileset API', () => {
 
     // Reset mocks
     mockStorage.uploadTilesetImage.mockClear();
-    mockStorage.getTilesetImageUrl.mockClear();
+    mockStorage.fileExists.mockClear();
     mockStorage.deleteTilesetAssets.mockClear();
   });
 
@@ -139,10 +139,6 @@ describe('Tileset API', () => {
         },
       );
 
-      mockStorage.getTilesetImageUrl
-        .mockResolvedValueOnce('https://storage.example.com/ts1.png')
-        .mockResolvedValueOnce('https://storage.example.com/ts2.png');
-
       const mockRequest = {
         nextUrl: { searchParams: new URLSearchParams() },
       } as unknown as NextRequest;
@@ -158,14 +154,14 @@ describe('Tileset API', () => {
       expect(data[0]).toMatchObject({
         id: tileset1Id.toHexString(),
         name: 'Tileset 1',
-        image_source: 'https://storage.example.com/ts1.png',
+        image_source: `/api/projects/${projectId}/assets/tileset/${tileset1Id.toHexString()}/image`,
         tile_width: 32,
         tile_height: 32,
       });
       expect(data[1]).toMatchObject({
         id: tileset2Id.toHexString(),
         name: 'Tileset 2',
-        image_source: 'https://storage.example.com/ts2.png',
+        image_source: `/api/projects/${projectId}/assets/tileset/${tileset2Id.toHexString()}/image`,
         tile_width: 64,
         tile_height: 64,
       });
@@ -199,8 +195,6 @@ describe('Tileset API', () => {
         { _id: new ObjectId(projectId) },
         { $set: { tilesets: [markedId.toHexString(), unmarkedId.toHexString()] } },
       );
-
-      mockStorage.getTilesetImageUrl.mockResolvedValue('https://storage.example.com/ts.png');
 
       const mockRequest = {
         nextUrl: { searchParams: new URLSearchParams() },
@@ -278,9 +272,6 @@ describe('Tileset API', () => {
       mockStorage.uploadTilesetImage.mockResolvedValue({
         storageKey: 'projects/test/tilesets/ts1.png',
       });
-      mockStorage.getTilesetImageUrl.mockResolvedValue(
-        'https://storage.example.com/ts1.png',
-      );
 
       const mockRequest = {
         formData: jest.fn().mockResolvedValue(formData),
@@ -296,9 +287,11 @@ describe('Tileset API', () => {
         name: 'Test Tileset',
         tile_width: 32,
         tile_height: 32,
-        image_source: 'https://storage.example.com/ts1.png',
       });
       expect(data.id).toBeDefined();
+      expect(data.image_source).toBe(
+        `/api/projects/${projectId}/assets/tileset/${data.id}/image`,
+      );
 
       // Verify storage was called
       expect(mockStorage.uploadTilesetImage).toHaveBeenCalledWith({

@@ -7,6 +7,8 @@ import { SUPPORTED_MIME_TYPES } from '@packages/storage';
 import { InvalidMimeTypeError, UploadFailedError } from '@packages/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { normalizeTilesetTiles } from '@/lib/tilesetTiles';
+import { assetImageUrl } from '@/lib/assetImageUrl';
+import { resolveAssetImageSource } from '@/lib/assetStorage';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -46,45 +48,28 @@ export async function GET(
       .toArray();
 
     // Generate image URLs for each tileset
-    const storage = getTilesetStorage();
     const tilesetsWithUrls = await Promise.all(
       tilesets.map(async (tileset) => {
-        try {
-          const imageUrl = await storage.getTilesetImageUrl({
-            location: { storageKey: tileset.storageLocation },
-          });
+        const tilesetId = tileset._id.toHexString();
 
-          return {
-            id: tileset._id.toHexString(),
-            name: tileset.name,
-            image_source: imageUrl,
-            tile_width: tileset.tile_width,
-            tile_height: tileset.tile_height,
-            source_tile_width: tileset.source_tile_width,
-            source_tile_height: tileset.source_tile_height,
-            tiles: normalizeTilesetTiles(tileset.tiles),
-            projectId: tileset.projectId,
-            createdAt: tileset.createdAt,
-            updatedAt: tileset.updatedAt,
-          };
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.warn(`[tilesets/${projectId}] Storage unavailable for ${tileset._id.toHexString()}: ${reason}`);
-          // Return tileset without URL if storage fails
-          return {
-            id: tileset._id.toHexString(),
-            name: tileset.name,
-            image_source: '', // Empty URL indicates error
-            tile_width: tileset.tile_width,
-            tile_height: tileset.tile_height,
-            source_tile_width: tileset.source_tile_width,
-            source_tile_height: tileset.source_tile_height,
-            tiles: normalizeTilesetTiles(tileset.tiles),
-            projectId: tileset.projectId,
-            createdAt: tileset.createdAt,
-            updatedAt: tileset.updatedAt,
-          };
-        }
+        return {
+          id: tilesetId,
+          name: tileset.name,
+          image_source: await resolveAssetImageSource(
+            projectId,
+            'tileset',
+            tilesetId,
+            tileset.storageLocation,
+          ),
+          tile_width: tileset.tile_width,
+          tile_height: tileset.tile_height,
+          source_tile_width: tileset.source_tile_width,
+          source_tile_height: tileset.source_tile_height,
+          tiles: normalizeTilesetTiles(tileset.tiles),
+          projectId: tileset.projectId,
+          createdAt: tileset.createdAt,
+          updatedAt: tileset.updatedAt,
+        };
       })
     );
 
@@ -211,13 +196,10 @@ export async function POST(
       { $push: { tilesets: tilesetId.toHexString() } }
     );
 
-    // Generate image URL
-    const imageUrl = await storage.getTilesetImageUrl({ location: storageLocation });
-
     const tileset: Tileset & { projectId: string; createdAt: Date; updatedAt: Date } = {
       id: tilesetId.toHexString(),
       name,
-      image_source: imageUrl,
+      image_source: assetImageUrl(projectId, 'tileset', tilesetId.toHexString()),
       tile_width: tileWidth,
       tile_height: tileHeight,
       projectId,

@@ -12,32 +12,19 @@ import {
   isValidCharsetFrameDimension,
 } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
+import { assetImageUrl } from '@/lib/assetImageUrl';
+import {
+  buildSpriteStorageKey,
+  projectOwnerId,
+  resolveAssetImageSource,
+} from '@/lib/assetStorage';
 
 const MAX_SPRITE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
-/**
- * Builds the canonical Azure blob key for a sprite.
- * Always: users/{userId}/projects/{projectId}/sprites/{spriteId}.{ext}
- *
- * This is deterministic — we never need to store it separately,
- * but we keep it in storageLocation for debuggability and migration safety.
- */
-function buildSpriteStorageKey(userId: string, projectId: string, spriteId: string, mimeType: string): string {
-  const extMap: Record<string, string> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpeg',
-    'image/jpg': 'jpg',
-    'image/webp': 'webp',
-  };
-  const ext = extMap[mimeType.toLowerCase()] ?? 'png';
-  return `users/${userId}/projects/${projectId}/sprites/${spriteId}.${ext}`;
-}
-
 // ---------------------------------------------------------------------------
 // GET /api/projects/[projectId]/sprites
-// Returns all sprites in the project with pre-signed image URLs.
-// The storageKey is always reconstructed deterministically — we fall back to
-// the stored storageLocation only for records that pre-date this change.
+// Returns all sprites in the project, with their image served by the editor.
+// The storageKey is always reconstructed deterministically from the sprite id.
 // ---------------------------------------------------------------------------
 export async function GET(
   _req: NextRequest,
@@ -59,30 +46,24 @@ export async function GET(
       return NextResponse.json([], { status: 200 });
     }
 
-    const storage = getTilesetStorage();
     const rawSprites = await db.collection('sprites').find({ _id: { $in: spriteIds } }).toArray();
-    const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
+    const userId = projectOwnerId(project, access.userId);
 
     const sprites: Sprite[] = await Promise.all(
       rawSprites.map(async (s) => {
         const spriteId = s._id.toHexString();
         const mimeType = s.mimeType ?? 'image/png';
-
-        // Prefer the canonical sprites/ key; fall back to legacy storageLocation for old records
-        const canonicalKey = buildSpriteStorageKey(userId, projectId, spriteId, mimeType);
-        const storageKey = canonicalKey;
-
-        let image_source = '';
-        try {
-          image_source = await storage.getTilesetImageUrl({ location: { storageKey } });
-        } catch {
-          console.warn(`[sprites] Failed to generate URL for sprite ${spriteId} (key: ${storageKey})`);
-        }
+        const storageKey = buildSpriteStorageKey(userId, projectId, spriteId, mimeType);
 
         return {
           id: spriteId,
           name: s.name,
-          image_source,
+          image_source: await resolveAssetImageSource(
+            projectId,
+            'charset',
+            spriteId,
+            storageKey,
+          ),
           frame_width: s.frame_width ?? 32,
           frame_height: s.frame_height ?? 64,
           animations: s.animations ?? DEFAULT_CHARSET_ANIMATIONS,
@@ -169,7 +150,7 @@ export async function POST(
       catch { return NextResponse.json({ message: 'animations must be valid JSON' }, { status: 400 }); }
     }
 
-    const userId = typeof project.userId === 'string' ? project.userId : project.userId?.toHexString?.() ?? 'unknown';
+    const userId = projectOwnerId(project, access.userId);
     const mimeType = file.type || 'image/png';
     const now = new Date().toISOString();
 
@@ -192,18 +173,10 @@ export async function POST(
       { $push: { sprites: spriteId } } as any
     );
 
-    // Pre-sign the URL for the immediate response
-    let image_source = '';
-    try {
-      image_source = await storage.getTilesetImageUrl({ location: { storageKey } });
-    } catch {
-      console.warn('[sprites POST] Could not generate image URL immediately after upload');
-    }
-
     const responseSprite: Sprite = {
       id: spriteId,
       name,
-      image_source,
+      image_source: assetImageUrl(projectId, 'charset', spriteId),
       frame_width,
       frame_height,
       animations,

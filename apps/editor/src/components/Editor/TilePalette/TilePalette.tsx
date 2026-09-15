@@ -4,6 +4,7 @@ import { Box, CircularProgress, FormControlLabel, Switch, Typography } from '@mu
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TileGrid } from './TileGrid';
+import { CollisionHitboxControls } from './CollisionHitboxControls';
 import { apiFetch } from '@/lib/apiFetch';
 import { useEditorStore } from '@/stores/editorStore';
 import { useTileSelectionStore } from '@/stores/tileSelectionStore';
@@ -25,6 +26,7 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
   const isTilesetDirty = useEditorStore((state) => state.tileset.isDirty);
   const setCurrentTileset = useEditorStore((state) => state.setCurrentTileset);
   const setTileCollidable = useEditorStore((state) => state.setTileCollidable);
+  const setTileCollisionRect = useEditorStore((state) => state.setTileCollisionRect);
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +148,13 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
           }
           label="Blocking"
         />
+        {selectedTileIsCollidable && selectedTileIndex !== null && tileset ? (
+          <CollisionHitboxControls
+            tileset={tileset}
+            tileId={selectedTileIndex}
+            onChange={(rect) => setTileCollisionRect(selectedTileIndex, rect)}
+          />
+        ) : null}
       </Box>
 
       {/* Tile Grid */}

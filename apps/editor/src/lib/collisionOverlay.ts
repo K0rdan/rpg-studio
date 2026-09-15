@@ -1,5 +1,5 @@
-import { blockedCells } from '@packages/core';
-import type { Map, Tileset } from '@packages/types';
+import { blockedCells, blockingRects } from '@packages/core';
+import type { CollisionRect, Map, Tileset } from '@packages/types';
 
 export interface CollisionOverlayCell {
   x: number;
@@ -11,4 +11,11 @@ export function collisionOverlayCells(
   tileset: Tileset,
 ): CollisionOverlayCell[] {
   return blockedCells(map, tileset);
+}
+
+export function collisionOverlayRects(
+  map: Map,
+  tileset: Tileset,
+): CollisionRect[] {
+  return blockingRects(map, tileset);
 }

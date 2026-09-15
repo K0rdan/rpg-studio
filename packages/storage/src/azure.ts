@@ -18,6 +18,7 @@ import type {
   UploadTilesetImageParams,
   GetTilesetImageUrlParams,
   DeleteTilesetAssetsParams,
+  StoredFile,
 } from './types';
 import { SUPPORTED_MIME_TYPES } from './types';
 import type { TilesetStorage } from './interface';
@@ -130,6 +131,26 @@ export class AzureTilesetStorage implements TilesetStorage {
     return map[normalized] || 'png';
   }
 
+  /**
+   * Fallback for blobs uploaded without a content type
+   */
+  private getMimeTypeFromStorageKey(storageKey: string): string {
+    const extension = storageKey.split('.').pop()?.toLowerCase();
+    const map: Record<string, string> = {
+      png: 'image/png',
+      jpeg: 'image/jpeg',
+      jpg: 'image/jpeg',
+      webp: 'image/webp',
+    };
+    return map[extension || ''] || 'application/octet-stream';
+  }
+
+  private isNotFound(error: unknown): boolean {
+    const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+    return statusCode === 404
+      || (error instanceof Error && error.message.includes('BlobNotFound'));
+  }
+
   async uploadTilesetImage(params: UploadTilesetImageParams): Promise<TilesetAssetLocation> {
     try {
       this.validateMimeType(params.mimeType);
@@ -211,6 +232,54 @@ export class AzureTilesetStorage implements TilesetStorage {
       }
       throw new UploadFailedError(
         `Failed to upload file: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  async downloadFile(storageKey: string): Promise<StoredFile> {
+    try {
+      const blockBlobClient = this.containerClient.getBlockBlobClient(storageKey);
+      const response = await blockBlobClient.download();
+
+      if (!response.readableStreamBody) {
+        throw new AssetNotFoundError(`Asset not found: ${storageKey}`);
+      }
+
+      const chunks: Buffer[] = [];
+      for await (const chunk of response.readableStreamBody) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+
+      return {
+        data: Buffer.concat(chunks),
+        mimeType: response.contentType || this.getMimeTypeFromStorageKey(storageKey),
+        etag: response.etag,
+        lastModified: response.lastModified,
+      };
+    } catch (error) {
+      if (error instanceof AssetNotFoundError) {
+        throw error;
+      }
+      if (this.isNotFound(error)) {
+        throw new AssetNotFoundError(`Asset not found: ${storageKey}`);
+      }
+      throw new NetworkError(
+        `Failed to download file: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  async fileExists(storageKey: string): Promise<boolean> {
+    try {
+      return await this.containerClient.getBlockBlobClient(storageKey).exists();
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return false;
+      }
+      throw new NetworkError(
+        `Failed to check file existence: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error : undefined
       );
     }

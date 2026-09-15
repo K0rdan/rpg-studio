@@ -9,6 +9,7 @@ import {
   isValidCharsetFrameDimension,
 } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
+import { assetImageUrl } from '@/lib/assetImageUrl';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 
@@ -105,14 +106,10 @@ export async function POST(
       { $push: { sprites: spriteId.toHexString() } },
     );
 
-    const imageSource = await storage.getTilesetImageUrl({
-      location: { storageKey },
-    });
-
     return NextResponse.json({
       id: spriteId.toHexString(),
       name: name.trim(),
-      image_source: imageSource,
+      image_source: assetImageUrl(projectId, 'charset', spriteId.toHexString()),
       frame_width,
       frame_height,
       animations: DEFAULT_CHARSET_ANIMATIONS,
