@@ -293,6 +293,15 @@ ATLAS_URI=mongodb+srv://username:password@cluster.mongodb.net/
 ATLAS_DATABASE_NAME=rpg-studio
 ```
 
+For local development without Atlas, run `docker compose up -d` from the repository root and use:
+
+```bash
+ATLAS_URI=mongodb://127.0.0.1:27017/rpg-studio
+ATLAS_DATABASE_NAME=rpg-studio
+```
+
+See `docker/README.md`.
+
 #### Collections
 
 - **`projects`** - Game projects
@@ -302,6 +311,8 @@ ATLAS_DATABASE_NAME=rpg-studio
   - `maps`: string[]
   - `characters`: string[]
   - `tilesets`: string[]
+  - `sprites`: string[]
+  - `assetFolders`: `{ tileset?: string[], charset?: string[] }` (user-defined asset folders)
 
 - **`maps`** - Game maps
   - `_id`: ObjectId
@@ -315,9 +326,19 @@ ATLAS_DATABASE_NAME=rpg-studio
   - `_id`: ObjectId
   - `projectId`: string
   - `name`: string
+  - `folderPath`: string (optional, asset folder; absent means root)
   - `tile_width`: number
   - `tile_height`: number
   - `storageLocation`: string
+
+- **`sprites`** - Charset metadata
+  - `_id`: ObjectId
+  - `projectId`: string
+  - `name`: string
+  - `folderPath`: string (optional, asset folder; absent means root)
+  - `frame_width`: number
+  - `frame_height`: number
+  - `animations`: Record<string, number[]>
 
 - **`users`** - User profiles (Auth.js)
 - **`accounts`** - OAuth accounts (Auth.js)
@@ -378,6 +399,8 @@ AZURE_STORAGE_CONTAINER=assets
 AZURE_STORAGE_CONNECTION_STRING=
 ```
 
+For local development without an Azure storage account, run Azurite via Docker Compose and set `AZURE_STORAGE_CONNECTION_STRING` to the well-known emulator account (see `apps/editor/.env.docker.example`). Do not set Service Principal variables in that mode.
+
 #### Storage Path Structure
 
 ```
@@ -386,11 +409,15 @@ assets/
     └── {userId}/
         └── projects/
             └── {projectId}/
-                └── tilesets/
-                    └── {tilesetId}.png
+                ├── tilesets/
+                │   └── {tilesetId}.png
+                └── sprites/
+                    └── {spriteId}.png
 ```
 
 **Example**: `users/69517675d5928c48fff62c1d/projects/abc123/tilesets/tileset1.png`
+
+Asset folders (`folderPath`) are metadata only and never appear in storage keys, so moving an asset between folders is a database update and leaves the blob untouched.
 
 #### Usage Pattern
 

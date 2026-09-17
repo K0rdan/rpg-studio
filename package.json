@@ -13,8 +13,15 @@
     "dotenv": "^17.4.2",
     "mongodb": "^7.6.0"
   },
+  "scripts": {
+    "dev:infra": "docker compose up -d",
+    "dev:infra:down": "docker compose down",
+    "dev:infra:logs": "docker compose logs -f mongo azurite azurite-init",
+    "dev:infra:reset": "docker compose down -v",
+    "copy:blobs": "node scripts/copy-blobs-to-azurite.mjs"
+  },
   "devDependencies": {
-    "turbo": "^2.10.12",
+    "turbo": "^2.10.13",
     "typescript": "~6.0.3"
   },
   "allowScripts": {

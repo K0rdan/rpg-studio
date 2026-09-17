@@ -26,18 +26,22 @@ A powerful 2D game editor for creating RPG adventures.
 - [006 - Storage Usage](../specs/006-rpg-editor-storage-usage/)
 - [007 - Authentication](../specs/007-rpg-editor-auth/)
 
+Local MongoDB and Azurite: see [docker/README.md](../../docker/README.md).
+
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
+# Install dependencies (from the repo root)
 npm install
 
-# Setup environment
-cp .env.local.example .env.local
-# Edit .env.local with your credentials
+# Local MongoDB + Azure Storage emulator (no Atlas / Azure account)
+docker compose up -d
+# Then copy apps/editor/.env.docker.example values into apps/editor/.env.local
 
-# Start development server
-npm run dev
+# Or point .env.local at Atlas and an Azure storage account instead
+
+# Start the editor
+npm run dev --workspace=@apps/editor
 ```
 
 Visit http://localhost:3000
@@ -47,9 +51,9 @@ Visit http://localhost:3000
 - **Framework**: Next.js 16 (App Router)
 - **UI**: React 19 + Material-UI
 - **Language**: TypeScript
-- **Database**: MongoDB Atlas
+- **Database**: MongoDB (Atlas in production, Docker locally)
 - **Authentication**: Auth.js (NextAuth.js v5)
-- **Storage**: Azure Blob Storage
+- **Storage**: Azure Blob Storage (Azurite locally)
 
 ## 📖 Learn More
 

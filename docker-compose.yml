@@ -1,0 +1,74 @@
+name: rpg-studio
+
+# Local stand-ins for MongoDB Atlas and Azure Blob Storage.
+# Start from the repo root: docker compose up -d
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: rpg-studio-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: rpg-studio
+    volumes:
+      - rpg-studio-mongo:/data/db
+    healthcheck:
+      test:
+        ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.34.0
+    container_name: rpg-studio-azurite
+    restart: unless-stopped
+    command: >
+      azurite
+      --blobHost 0.0.0.0
+      --queueHost 0.0.0.0
+      --tableHost 0.0.0.0
+      --skipApiVersionCheck
+      --loose
+      --location /data
+      --debug /data/debug.log
+    ports:
+      - '10000:10000'
+      - '10001:10001'
+      - '10002:10002'
+    volumes:
+      - rpg-studio-azurite:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('net').connect(10000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli:2.67.0
+    container_name: rpg-studio-azurite-init
+    depends_on:
+      azurite:
+        condition: service_healthy
+    environment:
+      AZURE_STORAGE_TILESETS_CONTAINER: tilesets
+      # Reach Azurite via the compose network, not localhost.
+      AZURITE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;'
+    volumes:
+      - ./docker/azurite-init.sh:/azurite-init.sh:ro
+    entrypoint: ['/bin/bash', '/azurite-init.sh']
+    restart: 'no'
+
+volumes:
+  rpg-studio-mongo:
+  rpg-studio-azurite:

@@ -87,7 +87,7 @@ storage.clear();
 
 For Azure Storage, configure these environment variables:
 
-- `AZURE_STORAGE_CONNECTION_STRING` (required): Azure Storage connection string
+- `AZURE_STORAGE_CONNECTION_STRING` (required unless using a Service Principal): Azure Storage connection string. Locally, point this at Azurite (`docker compose up -d`; see `docker/README.md`).
 - `AZURE_STORAGE_TILESETS_CONTAINER` (optional, default: `tilesets`): Container name
 - `AZURE_STORAGE_IS_PUBLIC` (optional, default: `false`): Set to `true` for public containers
 - `AZURE_STORAGE_SAS_EXPIRY_HOURS` (optional, default: `24`): SAS token expiry in hours
