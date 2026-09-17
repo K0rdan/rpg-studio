@@ -23,7 +23,7 @@ import {
 } from '@/lib/canvasCamera';
 import { isTypingTarget } from '@/lib/keyboardTarget';
 import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
-import { collisionOverlayCells, collisionOverlayRects } from '@/lib/collisionOverlay';
+import { collisionOverlayCells, collisionOverlayRects, collisionTilesetsForMap } from '@/lib/collisionOverlay';
 import { ENTITY_TEMPLATES } from '@/constants/entityTemplates';
 import { CanvasLoading } from './CanvasLoading';
 import { CanvasError } from './CanvasError';
@@ -40,6 +40,7 @@ export const MapCanvas = () => {
     error,
     currentMap,
     currentTileset,
+    tilesets,
     paintTile,
     setCanvasSize,
   } = useMapEngine(projectId);
@@ -66,6 +67,8 @@ export const MapCanvas = () => {
   
   // Tile selection
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
+  const selectedTilesetId = useTileSelectionStore((state) => state.selectedTilesetId);
+  const editableTileset = useEditorStore((state) => state.tileset.current);
   
   // Entity selection and data
   const selectedTemplateId = useEntitySelectionStore((state) => state.selectedTemplateId);
@@ -348,11 +351,27 @@ export const MapCanvas = () => {
     e: Pick<React.PointerEvent, 'clientX' | 'clientY'>,
   ) => {
     if (selectedTileIndex === null) return;
+
+    const selectedTileset = tilesets.find((tileset) => tileset.id === selectedTilesetId);
+    if (
+      selectedTileset &&
+      currentTileset &&
+      (
+        selectedTileset.tile_width !== currentTileset.tile_width ||
+        selectedTileset.tile_height !== currentTileset.tile_height
+      )
+    ) {
+      showToast(
+        `This map uses a ${currentTileset.tile_width}×${currentTileset.tile_height} grid.`,
+        'error',
+      );
+      return;
+    }
     
     const tileCoords = screenToTileCoords(e);
     if (!tileCoords) return;
     
-    paintTile(tileCoords.x, tileCoords.y, selectedTileIndex);
+    paintTile(tileCoords.x, tileCoords.y, selectedTileIndex, selectedTilesetId ?? undefined);
     setMapDirty(true);
   };
 
@@ -448,17 +467,23 @@ export const MapCanvas = () => {
   ]);
 
   const emptyCellCount = emptyCellsForActiveLayer(currentMap, activeLayer, isolateLayers).length;
-  const collisionCells = useMemo(
-    () => currentMap && currentTileset
-      ? collisionOverlayCells(currentMap, currentTileset)
+  const collisionTilesets = useMemo(
+    () => currentMap
+      ? collisionTilesetsForMap(currentMap, tilesets, editableTileset)
       : [],
-    [currentMap, currentTileset],
+    [currentMap, tilesets, editableTileset],
+  );
+  const collisionCells = useMemo(
+    () => currentMap && collisionTilesets.length > 0
+      ? collisionOverlayCells(currentMap, collisionTilesets)
+      : [],
+    [currentMap, collisionTilesets],
   );
   const collisionRects = useMemo(
-    () => currentMap && currentTileset
-      ? collisionOverlayRects(currentMap, currentTileset)
+    () => currentMap && collisionTilesets.length > 0
+      ? collisionOverlayRects(currentMap, collisionTilesets)
       : [],
-    [currentMap, currentTileset],
+    [currentMap, collisionTilesets],
   );
 
   useEffect(() => {

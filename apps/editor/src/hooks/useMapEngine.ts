@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { GameEngine, resolveMapTileset } from '@packages/core';
+import { GameEngine, resolveMapTileset, resolveMapTilesetIds } from '@packages/core';
 import { apiFetch } from '@/lib/apiFetch';
 import { DEFAULT_INACTIVE_OPACITY } from '@/lib/layerFocus';
 import { clampActiveLayer, normalizeMapLayers } from '@/lib/mapLayers';
@@ -17,7 +17,8 @@ interface UseMapEngineReturn {
   error: string | null;
   currentMap: Map | null;
   currentTileset: Tileset | null;
-  paintTile: (tileX: number, tileY: number, tileIndex: number) => void;
+  tilesets: Tileset[];
+  paintTile: (tileX: number, tileY: number, tileIndex: number, tilesetId?: string) => void;
   updateMap: (map: Map) => void;
   setCanvasSize: (width: number, height: number) => void;
 }
@@ -190,12 +191,13 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
   }, [selectedId, selectedType, maps, currentMap]);
 
   // Paint tile function
-  const paintTile = (tileX: number, tileY: number, tileIndex: number) => {
+  const paintTile = (tileX: number, tileY: number, tileIndex: number, tilesetId?: string) => {
     useMapStore.getState().paintTile({
       layerIndex: useEditorStore.getState().map.activeLayer,
       x: tileX,
       y: tileY,
       tileIndex,
+      tilesetId,
     });
   };
 
@@ -219,14 +221,15 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
   const currentTileset = resolvedTileset && editableTileset?.id === resolvedTileset.id
     ? editableTileset
     : resolvedTileset;
-  const currentTilesetId = currentTileset?.id;
+  const currentMapId = currentMap?.id;
+  const defaultTilesetId = currentMap ? resolveMapTilesetIds(currentMap)[0] : undefined;
   const setSelectedTileset = useTileSelectionStore((state) => state.setSelectedTileset);
 
   useEffect(() => {
-    if (currentTilesetId) {
-      setSelectedTileset(currentTilesetId);
+    if (defaultTilesetId) {
+      setSelectedTileset(defaultTilesetId);
     }
-  }, [currentTilesetId, setSelectedTileset]);
+  }, [currentMapId, defaultTilesetId, setSelectedTileset]);
 
   return {
     canvasRef,
@@ -234,6 +237,7 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     error,
     currentMap,
     currentTileset,
+    tilesets,
     paintTile,
     updateMap,
     setCanvasSize,

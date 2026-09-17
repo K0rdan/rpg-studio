@@ -41,6 +41,7 @@ interface CharsetGenerateDialogProps {
   projectId: string;
   onCharsetGenerated?: () => void;
   iconOnly?: boolean;
+  folderPath?: string;
 }
 
 interface CharsetGenerationParams extends CharsetGenerationRequest {
@@ -56,6 +57,7 @@ export default function CharsetGenerateDialog({
   projectId,
   onCharsetGenerated,
   iconOnly = false,
+  folderPath = '',
 }: CharsetGenerateDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -135,7 +137,7 @@ export default function CharsetGenerateDialog({
       const response = await apiFetch(`/api/projects/${projectId}/sprites/save-generated`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...generationParams, image_data: previewData }),
+        body: JSON.stringify({ ...generationParams, image_data: previewData, folderPath }),
       });
       const result = await response.json();
       if (!response.ok) {

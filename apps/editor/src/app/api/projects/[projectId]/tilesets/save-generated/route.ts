@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { assetImageUrl } from '@/lib/assetImageUrl';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 /**
  * POST /api/projects/[projectId]/tilesets/save-generated
@@ -28,6 +29,7 @@ export async function POST(
     // Parse request body
     const body = await req.json();
     const { name, tile_width, tile_height, style, prompt, image_data } = body;
+    const folderPath = normalizeAssetFolderPath(body.folderPath);
 
     // Validation
     if (!name || !tile_width || !tile_height || !style || !image_data) {
@@ -35,6 +37,9 @@ export async function POST(
         { message: 'Missing required fields: name, tile_width, tile_height, style, image_data' },
         { status: 400 }
       );
+    }
+    if (folderPath === null) {
+      return NextResponse.json({ message: 'Invalid asset folder path' }, { status: 400 });
     }
 
     // Extract base64 data from data URL
@@ -58,6 +63,7 @@ export async function POST(
       _id: tilesetId,
       projectId,
       name,
+      ...(folderPath ? { folderPath } : {}),
       tile_width,
       tile_height,
       storageLocation: storageLocation.storageKey,
@@ -82,6 +88,7 @@ export async function POST(
     return NextResponse.json({
       id: tilesetId.toHexString(),
       name,
+      ...(folderPath ? { folderPath } : {}),
       image_source: assetImageUrl(projectId, 'tileset', tilesetId.toHexString()),
       tile_width,
       tile_height,

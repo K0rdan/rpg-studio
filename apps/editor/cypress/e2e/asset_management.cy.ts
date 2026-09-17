@@ -94,9 +94,12 @@ describe('Asset management', () => {
     cy.contains('Project Tileset').should('be.visible');
 
     cy.get('[data-testid="delete-asset"]').click();
+    // Once deleted the API stops listing it, so the palette must fall back to another tileset.
+    cy.intercept('GET', '**/tilesets', [registryTileset]);
     cy.get('[role="dialog"]').contains('button', 'Delete').click();
     cy.wait('@deleteTileset');
     cy.contains('Project Tileset').should('not.exist');
+    cy.get('#tileset-select').should('contain', 'Built-in Tileset');
   });
 
   it('shows usages and prevents deleting an in-use charset', () => {

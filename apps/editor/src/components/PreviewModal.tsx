@@ -313,7 +313,7 @@ export default function PreviewModal({ isOpen, onClose, data }: PreviewModalProp
             → Maps: {data.maps?.length || 0} | Active Map: {data.maps?.[0]?.name || 'None'}
           </Typography>
           <Typography variant="caption" sx={{ display: 'block' }}>
-            → Tileset ID: {data.maps?.[0]?.tilesetId || 'None'} | Available Tilesets: {data.tilesets?.length || 0}
+            → Tileset ID: {data.maps?.[0]?.tilesetId || 'None'} | Tilesets on map: {(data.maps?.[0]?.tilesetIds ?? []).join(', ') || 'None'} | Available: {data.tilesets?.length || 0}
           </Typography>
           <Typography variant="caption" sx={{ display: 'block' }}>
             → Layers: {data.maps?.[0]?.layers?.length || 0} | 

@@ -14,16 +14,25 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import UploadIcon from '@mui/icons-material/Upload';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 
 interface TilesetUploadProps {
   projectId: string;
   onTilesetUploaded?: () => void;
+  folderPath?: string;
+  iconOnly?: boolean;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const SUPPORTED_FORMATS = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetUploadProps) {
+export default function TilesetUpload({
+  projectId,
+  onTilesetUploaded,
+  folderPath = '',
+  iconOnly = false,
+}: TilesetUploadProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [tileWidth, setTileWidth] = useState(32);
@@ -93,6 +102,7 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
       formData.append('name', name.trim());
       formData.append('tile_width', tileWidth.toString());
       formData.append('tile_height', tileHeight.toString());
+      formData.append('folderPath', folderPath);
 
       const response = await apiFetch(`/api/projects/${projectId}/tilesets`, {
         method: 'POST',
@@ -141,15 +151,36 @@ export default function TilesetUpload({ projectId, onTilesetUploaded }: TilesetU
 
   return (
     <>
-      <Button
-        variant="contained"
-        startIcon={<UploadIcon />}
-        onClick={() => setModalOpen(true)}
-      >
-        Upload Tileset
-      </Button>
+      {iconOnly ? (
+        <Tooltip title={folderPath ? `Upload tileset to ${folderPath}` : 'Upload tileset'}>
+          <IconButton
+            size="small"
+            aria-label="Upload tileset"
+            onClick={(event) => {
+              event.stopPropagation();
+              setModalOpen(true);
+            }}
+          >
+            <UploadIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Button
+          variant="contained"
+          startIcon={<UploadIcon />}
+          onClick={() => setModalOpen(true)}
+        >
+          Upload Tileset
+        </Button>
+      )}
 
-      <Dialog open={modalOpen} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog
+        open={modalOpen}
+        onClick={(event) => event.stopPropagation()}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+      >
         <form onSubmit={handleSubmit}>
           <DialogTitle>Upload Tileset</DialogTitle>
           <DialogContent>

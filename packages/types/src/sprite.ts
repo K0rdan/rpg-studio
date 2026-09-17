@@ -7,6 +7,8 @@ import {
 export interface Sprite {
   id: string;
   name: string;
+  /** Folder below the Charsets root. Missing or empty means the root folder. */
+  folderPath?: string;
   /** Full URL of the spritesheet image (pre-signed URL from storage) */
   image_source: string;
   /** Width of a single animation frame in pixels */

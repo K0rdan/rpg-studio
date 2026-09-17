@@ -18,6 +18,7 @@ import {
   projectOwnerId,
   resolveAssetImageSource,
 } from '@/lib/assetStorage';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 const MAX_SPRITE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
@@ -58,6 +59,7 @@ export async function GET(
         return {
           id: spriteId,
           name: s.name,
+          folderPath: s.folderPath,
           image_source: await resolveAssetImageSource(
             projectId,
             'charset',
@@ -107,9 +109,13 @@ export async function POST(
     const frameWidthRaw = formData.get('frame_width');
     const frameHeightRaw = formData.get('frame_height');
     const animationsRaw = formData.get('animations') as string | null;
+    const folderPath = normalizeAssetFolderPath(formData.get('folderPath'));
 
     if (!file) return NextResponse.json({ message: 'file is required' }, { status: 400 });
     if (!name) return NextResponse.json({ message: 'name is required' }, { status: 400 });
+    if (folderPath === null) {
+      return NextResponse.json({ message: 'Invalid asset folder path' }, { status: 400 });
+    }
     if (file.size > MAX_SPRITE_SIZE_BYTES) {
       return NextResponse.json({ message: 'File too large (max 4MB)' }, { status: 400 });
     }
@@ -155,7 +161,17 @@ export async function POST(
     const now = new Date().toISOString();
 
     // Insert the document first to get the spriteId used in the storage key
-    const doc = { name, projectId, userId, mimeType, frame_width, frame_height, animations, createdAt: now };
+    const doc = {
+      name,
+      ...(folderPath ? { folderPath } : {}),
+      projectId,
+      userId,
+      mimeType,
+      frame_width,
+      frame_height,
+      animations,
+      createdAt: now,
+    };
     const result = await db.collection('sprites').insertOne(doc);
     const spriteId = result.insertedId.toHexString();
 
@@ -176,6 +192,7 @@ export async function POST(
     const responseSprite: Sprite = {
       id: spriteId,
       name,
+      ...(folderPath ? { folderPath } : {}),
       image_source: assetImageUrl(projectId, 'charset', spriteId),
       frame_width,
       frame_height,

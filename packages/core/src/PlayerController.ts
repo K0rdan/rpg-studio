@@ -78,7 +78,7 @@ export class PlayerController {
     if (collision) {
       const resolved = resolveMovement(
         collision.map,
-        collision.tileset,
+        collision.tilesets ?? collision.tileset ?? null,
         { x: this.x, y: this.y },
         { x: targetX, y: targetY },
         DEFAULT_PLAYER_HITBOX,

@@ -1,4 +1,9 @@
-import { blockedCells, blockingRects } from '@packages/core';
+import {
+  blockedCells,
+  blockingRects,
+  resolveMapTilesetIds,
+  type CollisionTilesets,
+} from '@packages/core';
 import type { CollisionRect, Map, Tileset } from '@packages/types';
 
 export interface CollisionOverlayCell {
@@ -6,16 +11,27 @@ export interface CollisionOverlayCell {
   y: number;
 }
 
+export function collisionTilesetsForMap(
+  map: Map,
+  tilesets: Tileset[],
+  editableTileset?: Tileset | null,
+): Array<Tileset | null> {
+  return resolveMapTilesetIds(map).map((id) => {
+    if (editableTileset?.id === id) return editableTileset;
+    return tilesets.find((tileset) => tileset.id === id) ?? null;
+  });
+}
+
 export function collisionOverlayCells(
   map: Map,
-  tileset: Tileset,
+  tilesets: CollisionTilesets,
 ): CollisionOverlayCell[] {
-  return blockedCells(map, tileset);
+  return blockedCells(map, tilesets);
 }
 
 export function collisionOverlayRects(
   map: Map,
-  tileset: Tileset,
+  tilesets: CollisionTilesets,
 ): CollisionRect[] {
-  return blockingRects(map, tileset);
+  return blockingRects(map, tilesets);
 }

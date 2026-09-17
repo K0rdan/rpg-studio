@@ -1,11 +1,18 @@
 import type {
   Layer,
   LayerRenderPriority,
-  Map,
+  Map as GameMap,
   Tileset,
 } from '@packages/types';
 import { Renderer } from './Renderer';
 import type { DepthRenderItem } from './renderDepth';
+import { resolveMapTileset, resolveMapTilesetIds } from './resolveTileset';
+import { decodeTileRef } from './tileRef';
+
+export interface TilesetDrawSource {
+  tileset: Tileset;
+  image: HTMLImageElement;
+}
 
 export interface MapViewOptions {
   focusLayerIndex: number;
@@ -47,25 +54,24 @@ export function resolveLayerDrawMode(
 }
 
 export class MapRenderer {
-  private map: Map;
-  private tileset: Tileset;
-  private tilesetImage: HTMLImageElement;
+  private map: GameMap;
+  private sourcesById: Map<string, TilesetDrawSource>;
   private destTileWidth: number;
   private destTileHeight: number;
   private viewOptions: MapViewOptions | null = null;
 
   constructor(
-    map: Map, 
-    tileset: Tileset, 
-    tilesetImage: HTMLImageElement,
+    map: GameMap,
+    sources: TilesetDrawSource[],
     destTileWidth?: number,
     destTileHeight?: number
   ) {
     this.map = map;
-    this.tileset = tileset;
-    this.tilesetImage = tilesetImage;
-    this.destTileWidth = destTileWidth || tileset.tile_width;
-    this.destTileHeight = destTileHeight || tileset.tile_height;
+    this.sourcesById = new Map(sources.map((source) => [source.tileset.id, source]));
+    const primary = resolveMapTileset(map, sources.map((source) => source.tileset));
+    const primarySource = this.sourcesById.get(primary.id) ?? sources[0];
+    this.destTileWidth = destTileWidth || primarySource?.tileset.tile_width || 32;
+    this.destTileHeight = destTileHeight || primarySource?.tileset.tile_height || 32;
   }
 
   public setViewOptions(options: MapViewOptions | null): void {
@@ -120,7 +126,7 @@ export class MapRenderer {
    * Update map data without reinitializing the renderer
    * Useful for real-time editing
    */
-  public updateMapData(map: Map): void {
+  public updateMapData(map: GameMap): void {
     this.map = map;
   }
 
@@ -162,21 +168,26 @@ export class MapRenderer {
       }
     }
 
-    const srcTileWidth = this.tileset.source_tile_width || this.tileset.tile_width;
-    const srcTileHeight = this.tileset.source_tile_height || this.tileset.tile_height;
-    const cols = Math.floor(this.tilesetImage.width / srcTileWidth);
+    const tilesetIds = resolveMapTilesetIds(this.map);
 
     for (let index = start; index < Math.min(end, layer.data.length); index += 1) {
-      const tileIndex = layer.data[index];
-      if (tileIndex === -1) continue;
+      const decoded = decodeTileRef(layer.data[index]);
+      if (!decoded) continue;
 
+      const tilesetId = tilesetIds[decoded.tilesetIndex];
+      const source = tilesetId ? this.sourcesById.get(tilesetId) : undefined;
+      if (!source) continue;
+
+      const srcTileWidth = source.tileset.source_tile_width || source.tileset.tile_width;
+      const srcTileHeight = source.tileset.source_tile_height || source.tileset.tile_height;
+      const cols = Math.max(1, Math.floor(source.image.width / srcTileWidth));
       const x = (index % this.map.width) * this.destTileWidth;
       const y = Math.floor(index / this.map.width) * this.destTileHeight;
-      const sx = (tileIndex % cols) * srcTileWidth;
-      const sy = Math.floor(tileIndex / cols) * srcTileHeight;
+      const sx = (decoded.localId % cols) * srcTileWidth;
+      const sy = Math.floor(decoded.localId / cols) * srcTileHeight;
 
       renderer.drawTile(
-        this.tilesetImage,
+        source.image,
         sx,
         sy,
         srcTileWidth,

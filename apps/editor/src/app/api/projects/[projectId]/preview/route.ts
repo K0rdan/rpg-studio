@@ -78,6 +78,9 @@ export async function GET(
       id: m._id.toString(),
       _id: undefined,
       tilesetId: m.tilesetId,
+      tilesetIds: Array.isArray(m.tilesetIds) && m.tilesetIds.length > 0
+        ? m.tilesetIds
+        : (m.tilesetId ? [m.tilesetId] : []),
       entities: m.entities || [], // Ensure entities array exists
     }));
 

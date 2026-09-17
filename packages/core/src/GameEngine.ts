@@ -2,12 +2,12 @@ import { GameLoop } from './GameLoop';
 import { Renderer } from './Renderer';
 import { InputManager } from './InputManager';
 import { Scene } from './Scene';
-import { MapRenderer, type MapViewOptions } from './MapRenderer';
+import { MapRenderer, type MapViewOptions, type TilesetDrawSource } from './MapRenderer';
 import { SpriteRenderer } from './SpriteRenderer';
 import { AssetLoader } from './AssetLoader';
 import { PlayerController } from './PlayerController';
 import { EntityRenderer } from './EntityRenderer';
-import { resolveMapTileset } from './resolveTileset';
+import { FALLBACK_TILESET, hasUsableImage, resolveMapTileset, resolveMapTilesetIds } from './resolveTileset';
 import { sortDepthItems, type DepthRenderItem } from './renderDepth';
 import type { TerrainCollisionContext } from './terrainCollision';
 import type {
@@ -35,6 +35,7 @@ export class GameEngine {
   /** Map and tileset the player is resolved against; kept in sync with live editor edits. */
   private currentMap: Map | null = null;
   private currentTileset: Tileset | null = null;
+  private loadedTilesets: Tileset[] = [];
 
   constructor(canvas: HTMLCanvasElement, options?: { scale?: number; enablePlayerControls?: boolean }) {
     this.scale = options?.scale ?? 2; // Default 2x scale for player, can be overridden for editor
@@ -92,47 +93,71 @@ export class GameEngine {
     const currentMap = maps[0];
     console.log('  → Using map:', currentMap.name);
 
-    // Find tileset
     const tileset = resolveMapTileset(currentMap, tilesets);
-    if (tileset.id !== currentMap.tilesetId) {
+    const defaultId = resolveMapTilesetIds(currentMap)[0] ?? currentMap.tilesetId;
+    if (tileset.id !== defaultId) {
       console.warn(
-        `GameEngine: Map "${currentMap.name}" has no usable tileset ("${currentMap.tilesetId}" is missing or has no image), falling back to "${tileset.id}"`
+        `GameEngine: Map "${currentMap.name}" has no usable tileset ("${defaultId}" is missing or has no image), falling back to "${tileset.id}"`
       );
     }
 
-    console.log('GameEngine: Loading tileset image:', tileset.image_source);
-    
-    // Use AssetLoader for robust image loading
-    const tilesetResult = await this.assetLoader.loadImage(tileset.image_source, {
-      timeout: 15000,
-      retries: 3
-    });
-
-    if (!tilesetResult.success) {
-      console.error('GameEngine: Tileset load failed:', tilesetResult.error);
-      console.warn('GameEngine: Using fallback tileset image');
+    const toLoad = tilesets.filter(hasUsableImage);
+    const loadList = toLoad.length > 0 ? toLoad : [tileset.id === FALLBACK_TILESET.id ? FALLBACK_TILESET : tileset];
+    if (!loadList.some((item) => item.id === tileset.id)) {
+      loadList.unshift(tileset);
     }
 
-    const image = tilesetResult.asset!;
-    console.log('GameEngine: Tileset image dimensions:', image.width, 'x', image.height);
+    const sources: TilesetDrawSource[] = [];
+    for (const candidate of loadList) {
+      console.log('GameEngine: Loading tileset image:', candidate.image_source);
+      const tilesetResult = await this.assetLoader.loadImage(candidate.image_source, {
+        timeout: 15000,
+        retries: 3
+      });
+
+      if (!tilesetResult.success) {
+        console.error('GameEngine: Tileset load failed:', tilesetResult.error, candidate.id);
+        if (!tilesetResult.asset) continue;
+      }
+
+      const image = tilesetResult.asset;
+      if (!image) continue;
+      sources.push({ tileset: candidate, image });
+    }
+
+    if (sources.length === 0) {
+      console.warn('GameEngine: Using fallback tileset image');
+      const fallbackResult = await this.assetLoader.loadImage(FALLBACK_TILESET.image_source, {
+        timeout: 15000,
+        retries: 3
+      });
+      if (fallbackResult.asset) {
+        sources.push({ tileset: FALLBACK_TILESET, image: fallbackResult.asset });
+      }
+    }
+
+    const primarySource = sources.find((source) => source.tileset.id === tileset.id) ?? sources[0];
+    if (!primarySource) {
+      console.error('GameEngine: No tileset image could be loaded');
+      return;
+    }
 
     console.log('GameEngine: Initializing with map:', currentMap.name);
-    console.log('GameEngine: Tileset:', tileset.name, `(${tileset.tile_width}x${tileset.tile_height})`);
+    console.log('GameEngine: Tileset:', primarySource.tileset.name, `(${primarySource.tileset.tile_width}x${primarySource.tileset.tile_height})`);
     console.log('GameEngine: Map size:', `${currentMap.width}x${currentMap.height}`);
     console.log('GameEngine: Layers:', currentMap.layers.length);
     console.log('GameEngine: Layer 1 data length:', currentMap.layers[0]?.data?.length);
     
-    // Use tileset's actual dimensions
     const mapRenderer = new MapRenderer(
-      currentMap, 
-      tileset, 
-      image, 
-      tileset.tile_width, 
-      tileset.tile_height
+      currentMap,
+      sources,
+      primarySource.tileset.tile_width,
+      primarySource.tileset.tile_height
     );
     this.mapRenderer = mapRenderer;
     this.currentMap = currentMap;
-    this.currentTileset = tileset;
+    this.currentTileset = primarySource.tileset;
+    this.loadedTilesets = sources.map((source) => source.tileset);
     mapRenderer.setViewOptions(this.mapViewOptions);
     this.scene.loadMap(currentMap);
     this.scene.setMapRenderer(mapRenderer);
@@ -141,8 +166,8 @@ export class GameEngine {
     if (currentMap.entities && currentMap.entities.length > 0) {
       console.log(`GameEngine: Loading ${currentMap.entities.length} entity/entities from map`);
 
-      const tw = tileset.tile_width;
-      const th = tileset.tile_height;
+      const tw = primarySource.tileset.tile_width;
+      const th = primarySource.tileset.tile_height;
 
       // Helper: load a Sprite's image and build a SpriteRenderer, or null on failure
       const loadSpriteRenderer = async (sprite: Sprite): Promise<SpriteRenderer | null> => {
@@ -298,6 +323,7 @@ export class GameEngine {
     this.mapRenderer = null;
     this.currentMap = null;
     this.currentTileset = null;
+    this.loadedTilesets = [];
     this.playerController = null;
     this.entityRenderers = [];
   }
@@ -305,7 +331,14 @@ export class GameEngine {
   /** Terrain context for player movement, or null before a map is loaded. */
   private getCollisionContext(): TerrainCollisionContext | null {
     if (!this.currentMap) return null;
-    return { map: this.currentMap, tileset: this.currentTileset };
+    const tilesets = resolveMapTilesetIds(this.currentMap).map((id) =>
+      this.loadedTilesets.find((tileset) => tileset.id === id) ?? null,
+    );
+    return {
+      map: this.currentMap,
+      tileset: this.currentTileset,
+      tilesets,
+    };
   }
 
   /**

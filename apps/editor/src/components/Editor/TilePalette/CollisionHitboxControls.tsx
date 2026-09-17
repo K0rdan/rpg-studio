@@ -9,9 +9,12 @@ import type { CollisionRect, Tileset } from '@packages/types';
 
 interface CollisionHitboxControlsProps {
   tileset: Tileset;
-  tileId: number;
+  /** `null` keeps the controls in place but inert, so the palette never shifts. */
+  tileId: number | null;
   onChange: (rect: CollisionRect | null) => void;
 }
+
+const FULL_TILE: CollisionRect = { x: 0, y: 0, width: 1, height: 1 };
 
 function clampRect(next: CollisionRect): CollisionRect {
   const x = Math.min(0.95, Math.max(0, next.x));
@@ -26,27 +29,32 @@ export const CollisionHitboxControls = ({
   tileId,
   onChange,
 }: CollisionHitboxControlsProps) => {
-  const rect = tileCollisionRect(tileset.tiles, tileId);
-  const [fitMessage, setFitMessage] = useState<string | null>(null);
+  const disabled = tileId === null;
+  const rect = tileId === null ? FULL_TILE : tileCollisionRect(tileset.tiles, tileId);
+  const [fitMessage, setFitMessage] = useState<{ tileId: number; text: string } | null>(null);
+  // A message about another tile would be misleading now that the controls stay mounted.
+  const visibleFitMessage = fitMessage && fitMessage.tileId === tileId ? fitMessage.text : null;
 
   const patch = (partial: Partial<CollisionRect>) => {
     onChange(clampRect({ ...rect, ...partial }));
   };
 
   const fitOpaque = () => {
+    if (tileId === null) return;
+
     // Tileset images are served by the editor itself, so sampling their pixels
     // through a canvas is allowed without any cross-origin negotiation.
     const image = new Image();
     image.onload = () => {
       const pixels = sampleTilePixels(image, tileId, tileset);
       if (!pixels) {
-        setFitMessage('Could not read tile pixels.');
+        setFitMessage({ tileId, text: 'Could not read tile pixels.' });
         return;
       }
 
       const fitted = fitOpaqueCollisionRect(pixels.data, pixels.width, pixels.height);
       if (!fitted) {
-        setFitMessage('No opaque pixels to fit.');
+        setFitMessage({ tileId, text: 'No opaque pixels to fit.' });
         return;
       }
 
@@ -54,7 +62,7 @@ export const CollisionHitboxControls = ({
       onChange(fitted);
     };
     image.onerror = () => {
-      setFitMessage('Could not load the tileset image.');
+      setFitMessage({ tileId, text: 'Could not load the tileset image.' });
     };
     image.src = tileset.image_source;
   };
@@ -69,6 +77,7 @@ export const CollisionHitboxControls = ({
             type="number"
             label={field}
             value={Number(rect[field].toFixed(2))}
+            disabled={disabled}
             slotProps={{ htmlInput: { min: 0, max: 1, step: 0.05, 'aria-label': `Collision ${field}` } }}
             onChange={(event) => {
               const value = Number(event.target.value);
@@ -79,16 +88,26 @@ export const CollisionHitboxControls = ({
         ))}
       </Stack>
       <Stack direction="row" spacing={1}>
-        <Button size="small" variant="outlined" onClick={fitOpaque} aria-label="Fit opaque">
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={fitOpaque}
+          disabled={disabled}
+          aria-label="Fit opaque"
+        >
           Fit opaque
         </Button>
-        <Button size="small" onClick={() => { setFitMessage(null); onChange(null); }}>
+        <Button
+          size="small"
+          disabled={disabled}
+          onClick={() => { setFitMessage(null); onChange(null); }}
+        >
           Full cell
         </Button>
       </Stack>
-      {fitMessage ? (
+      {visibleFitMessage ? (
         <Alert severity="info" sx={{ mt: 1 }} onClose={() => setFitMessage(null)}>
-          {fitMessage}
+          {visibleFitMessage}
         </Alert>
       ) : null}
     </Box>

@@ -41,6 +41,43 @@ describe('collectAssetUsages', () => {
     ]);
   });
 
+  it('finds an extra tileset only when a packed cell still references it', async () => {
+    const paintedMapId = new ObjectId();
+    const unusedExtraMapId = new ObjectId();
+    await db.collection('maps').insertMany([
+      {
+        _id: paintedMapId,
+        name: 'Mixed',
+        tilesetId: 'grass',
+        tilesetIds: ['grass', 'trees'],
+        layers: [{ name: 'Ground', data: [0, (1 << 16) | 2] }],
+        entities: [],
+      },
+      {
+        _id: unusedExtraMapId,
+        name: 'Orphan extra',
+        tilesetId: 'grass',
+        tilesetIds: ['grass', 'trees'],
+        layers: [{ name: 'Ground', data: [0, -1] }],
+        entities: [],
+      },
+    ]);
+
+    const usages = await collectAssetUsages(
+      db,
+      {
+        maps: [paintedMapId.toHexString(), unusedExtraMapId.toHexString()],
+        characters: [],
+      },
+      'tileset',
+      'trees',
+    );
+
+    expect(usages).toEqual([
+      { type: 'map', id: paintedMapId.toHexString(), name: 'Mixed' },
+    ]);
+  });
+
   it('finds charset references in registered map entities and characters', async () => {
     const mapId = new ObjectId();
     const characterId = new ObjectId();

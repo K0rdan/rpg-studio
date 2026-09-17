@@ -4,6 +4,8 @@ import type { TilesetGenerationMetadata } from './tileset-generation';
 export interface Tileset {
   id: string;
   name: string;
+  /** Folder below the Tilesets root. Missing or empty means the root folder. */
+  folderPath?: string;
   image_source: string;
   tile_width: number;          // Display tile size (e.g., 32px)
   tile_height: number;         // Display tile size (e.g., 32px)

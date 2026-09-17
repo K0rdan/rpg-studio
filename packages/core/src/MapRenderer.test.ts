@@ -44,7 +44,37 @@ describe('MapRenderer', () => {
       height: 64,
     } as unknown as HTMLImageElement;
 
-    mapRenderer = new MapRenderer(map, tileset, image);
+    mapRenderer = new MapRenderer(map, [{ tileset, image }]);
+  });
+
+  it('draws a packed tile from a second tileset image', () => {
+    const trees: Tileset = {
+      id: 'trees',
+      name: 'Trees',
+      image_source: 'trees.png',
+      tile_width: 32,
+      tile_height: 32,
+    };
+    const treeImage = { width: 32, height: 32 } as unknown as HTMLImageElement;
+    map.tilesetIds = ['ts1', 'trees'];
+    map.layers = [{ name: 'Ground', data: [0, 1 << 16, -1, -1] }];
+    mapRenderer = new MapRenderer(map, [
+      { tileset, image },
+      { tileset: trees, image: treeImage },
+    ]);
+
+    mapRenderer.render(renderer);
+
+    expect(renderer.drawTile).toHaveBeenCalledWith(
+      image,
+      0, 0, 32, 32,
+      0, 0, 32, 32,
+    );
+    expect(renderer.drawTile).toHaveBeenCalledWith(
+      treeImage,
+      0, 0, 32, 32,
+      32, 0, 32, 32,
+    );
   });
 
   it('should render tiles correctly', () => {

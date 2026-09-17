@@ -5,11 +5,13 @@ import { ObjectId } from 'mongodb';
 import { DEFAULT_CHARSET_ANIMATIONS, type AssetUsageResponse } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import { collectAssetUsages } from '@/lib/assetUsage';
+import { assetImageUrl } from '@/lib/assetImageUrl';
 import {
   buildSpriteStorageKey,
   projectOwnerId,
   resolveAssetImageSource,
 } from '@/lib/assetStorage';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 // ---------------------------------------------------------------------------
 // GET /api/projects/[projectId]/sprites/[spriteId]
@@ -29,7 +31,13 @@ export async function GET(
     const { db } = await connectToDatabase();
     const { project } = access;
 
-    const sprite = await db.collection('sprites').findOne({ _id: new ObjectId(spriteId) });
+    if (!ObjectId.isValid(spriteId)) {
+      return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
+    }
+    const sprite = await db.collection('sprites').findOne({
+      _id: new ObjectId(spriteId),
+      projectId,
+    });
     if (!sprite) {
       return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
     }
@@ -43,6 +51,7 @@ export async function GET(
     return NextResponse.json({
       id: sprite._id.toHexString(),
       name: sprite.name,
+      folderPath: sprite.folderPath,
       image_source: await resolveAssetImageSource(projectId, 'charset', spriteId, storageKey),
       frame_width: sprite.frame_width ?? 32,
       frame_height: sprite.frame_height ?? 64,
@@ -54,6 +63,76 @@ export async function GET(
     }, { status: 200 });
   } catch (error) {
     console.error('[sprite GET]', error);
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/projects/[projectId]/sprites/[spriteId]
+// ---------------------------------------------------------------------------
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string; spriteId: string }> },
+) {
+  try {
+    const { projectId, spriteId } = await params;
+    const access = await requireProjectAccess(projectId);
+    if (!access.ok) return access.response;
+
+    if (!ObjectId.isValid(spriteId)) {
+      return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
+    }
+
+    const body = await request.json().catch(() => null) as {
+      name?: unknown;
+      folderPath?: unknown;
+    } | null;
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ message: 'Invalid update payload' }, { status: 400 });
+    }
+
+    const hasName = Object.prototype.hasOwnProperty.call(body, 'name');
+    const hasFolderPath = Object.prototype.hasOwnProperty.call(body, 'folderPath');
+    if (!hasName && !hasFolderPath) {
+      return NextResponse.json({ message: 'No supported fields to update' }, { status: 400 });
+    }
+    const name = hasName && typeof body.name === 'string' ? body.name.trim() : null;
+    if (hasName && !name) {
+      return NextResponse.json({ message: 'Asset name cannot be empty' }, { status: 400 });
+    }
+    const folderPath = hasFolderPath ? normalizeAssetFolderPath(body.folderPath) : undefined;
+    if (hasFolderPath && folderPath === null) {
+      return NextResponse.json({ message: 'Invalid asset folder path' }, { status: 400 });
+    }
+
+    const fields: Record<string, unknown> = {};
+    if (name) fields.name = name;
+    if (folderPath !== undefined) fields.folderPath = folderPath;
+
+    const { db } = await connectToDatabase();
+    const sprite = await db.collection('sprites').findOneAndUpdate(
+      { _id: new ObjectId(spriteId), projectId },
+      { $set: fields },
+      { returnDocument: 'after' },
+    );
+    if (!sprite) {
+      return NextResponse.json({ message: 'Sprite not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      id: sprite._id.toHexString(),
+      name: sprite.name,
+      folderPath: sprite.folderPath,
+      image_source: assetImageUrl(projectId, 'charset', spriteId),
+      frame_width: sprite.frame_width ?? 32,
+      frame_height: sprite.frame_height ?? 64,
+      animations: sprite.animations ?? DEFAULT_CHARSET_ANIMATIONS,
+      projectId,
+      createdAt: sprite.createdAt,
+      generation_metadata: sprite.generation_metadata,
+    });
+  } catch (error) {
+    console.error('[sprite PATCH]', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

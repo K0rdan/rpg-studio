@@ -56,4 +56,31 @@ describe('paintTileOnMap', () => {
 
     expect(paintTileOnMap(map, { layerIndex: 0, x: 0, y: 0, tileIndex: 9 })).toBe(map);
   });
+
+  it('packs a second tileset and appends it to tilesetIds', () => {
+    const painted = paintTileOnMap(makeMap(), {
+      layerIndex: 0,
+      x: 0,
+      y: 0,
+      tileIndex: 4,
+      tilesetId: 'tileset-2',
+    });
+
+    expect(painted.tilesetIds).toEqual(['tileset-1', 'tileset-2']);
+    expect(painted.layers[0].data[0]).toBe((1 << 16) | 4);
+    expect(painted.layers[0].data[1]).toBe(-1);
+  });
+
+  it('keeps the local index when painting the default tileset', () => {
+    const painted = paintTileOnMap(makeMap(), {
+      layerIndex: 0,
+      x: 1,
+      y: 0,
+      tileIndex: 7,
+      tilesetId: 'tileset-1',
+    });
+
+    expect(painted.layers[0].data[1]).toBe(7);
+    expect(painted.tilesetIds).toEqual(['tileset-1']);
+  });
 });

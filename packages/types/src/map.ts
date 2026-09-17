@@ -22,7 +22,17 @@ export interface Map {
   name: string;
   width: number;
   height: number;
+  /**
+   * Default tileset and grid source. Alias of `tilesetIds[0]` when that list is
+   * present. Kept so documents created before multi-tileset maps still load.
+   */
   tilesetId: string;
+  /**
+   * Tilesets this map paints with, in packed-index order. Append-only: never
+   * reorder or delete entries, or existing layer values would point at the wrong
+   * tileset. Missing means `[tilesetId]` when `tilesetId` is non-empty.
+   */
+  tilesetIds?: string[];
   layers: Layer[];
   entities?: Entity[]; // Optional for backward compatibility
 }

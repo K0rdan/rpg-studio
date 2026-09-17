@@ -108,6 +108,10 @@ describe('map layer operations', () => {
     expect(normalizeMapLayers(shortData).layers[0].data).toEqual([4, -1, -1, -1]);
   });
 
+  it('fills tilesetIds from a legacy tilesetId', () => {
+    expect(normalizeMapLayers(makeMap()).tilesetIds).toEqual(['tileset-1']);
+  });
+
   it('clamps active indices and detects painted content', () => {
     expect(clampActiveLayer(makeMap(), 8)).toBe(1);
     expect(clampActiveLayer(makeMap(), -2)).toBe(0);

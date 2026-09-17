@@ -14,6 +14,7 @@ import {
   validateTilesetTiles,
   withTilesetTiles,
 } from '@/lib/tilesetTiles';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 type FormattedTileset = Tileset & { projectId: string; createdAt: Date; updatedAt: Date };
 
@@ -57,6 +58,7 @@ async function formatProjectTileset(
   return {
     id: tileset._id.toHexString(),
     name: tileset.name,
+    folderPath: tileset.folderPath,
     image_source: imageUrl,
     tile_width: tileset.tile_width,
     tile_height: tileset.tile_height,
@@ -128,7 +130,8 @@ export async function GET(
 /**
  * PATCH /api/projects/[projectId]/tilesets/[tilesetId]
  *
- * Replace the collision marks (`tiles`) of a tileset
+ * Update a tileset's collision marks (`tiles`), name, or asset folder.
+ * Registry tilesets only accept `tiles`, which go to the per-project overlay.
  */
 export async function PATCH(
   req: NextRequest,
@@ -149,9 +152,28 @@ export async function PATCH(
       return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const payload = validateTilesetTiles((body as { tiles?: unknown } | null)?.tiles);
-    if (!payload.ok) {
-      return NextResponse.json({ message: payload.message }, { status: 400 });
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ message: 'Invalid update payload' }, { status: 400 });
+    }
+    const update = body as { tiles?: unknown; name?: unknown; folderPath?: unknown };
+    const hasTiles = Object.prototype.hasOwnProperty.call(update, 'tiles');
+    const hasName = Object.prototype.hasOwnProperty.call(update, 'name');
+    const hasFolderPath = Object.prototype.hasOwnProperty.call(update, 'folderPath');
+    if (!hasTiles && !hasName && !hasFolderPath) {
+      return NextResponse.json({ message: 'No supported fields to update' }, { status: 400 });
+    }
+
+    const tilesPayload = hasTiles ? validateTilesetTiles(update.tiles) : null;
+    if (tilesPayload && !tilesPayload.ok) {
+      return NextResponse.json({ message: tilesPayload.message }, { status: 400 });
+    }
+    const name = hasName && typeof update.name === 'string' ? update.name.trim() : null;
+    if (hasName && !name) {
+      return NextResponse.json({ message: 'Asset name cannot be empty' }, { status: 400 });
+    }
+    const folderPath = hasFolderPath ? normalizeAssetFolderPath(update.folderPath) : undefined;
+    if (hasFolderPath && folderPath === null) {
+      return NextResponse.json({ message: 'Invalid asset folder path' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
@@ -159,7 +181,13 @@ export async function PATCH(
     // Registry tilesets are read-only assets, so their marks go to the project overlay
     const staticTileset = getTilesetById(tilesetId);
     if (staticTileset) {
-      const tiles = await saveTilesetOverlay(db, projectId, tilesetId, payload.tiles);
+      if (hasName || hasFolderPath || !tilesPayload?.ok) {
+        return NextResponse.json(
+          { message: 'Built-in tileset metadata cannot be changed' },
+          { status: 403 },
+        );
+      }
+      const tiles = await saveTilesetOverlay(db, projectId, tilesetId, tilesPayload.tiles);
 
       return NextResponse.json(
         await formatStaticTileset(db, projectId, staticTileset, tiles),
@@ -171,9 +199,14 @@ export async function PATCH(
       return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
     }
 
+    const fields: Document = { updatedAt: new Date() };
+    if (tilesPayload?.ok) fields.tiles = tilesPayload.tiles;
+    if (name) fields.name = name;
+    if (folderPath !== undefined) fields.folderPath = folderPath;
+
     const tileset = await db.collection('tilesets').findOneAndUpdate(
       { _id: new ObjectId(tilesetId), projectId },
-      { $set: { tiles: payload.tiles, updatedAt: new Date() } },
+      { $set: fields },
       { returnDocument: 'after' }
     );
 

@@ -11,6 +11,7 @@ import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
 import { useMapStore } from '@/stores/mapStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { resizeMapLayers } from '@/lib/mapLayers';
+import { applyDefaultTilesetId } from '@/lib/mapPainting';
 import { LayerPanel } from '../Inspector/LayerPanel';
 import type { Map, Tileset } from '@packages/types';
 
@@ -90,7 +91,7 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
     setSaving(true);
     try {
       const sourceMap = currentMap?.id === mapId ? currentMap : map;
-      const resizedMap = resizeMapLayers(sourceMap, width, height);
+      const resizedMap = applyDefaultTilesetId(resizeMapLayers(sourceMap, width, height), tilesetId);
       const res = await apiFetch(`/api/projects/${projectId}/maps/${mapId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +99,8 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
           name,
           width,
           height,
-          tilesetId: tilesetId || undefined,
+          tilesetId: resizedMap.tilesetId || undefined,
+          tilesetIds: resizedMap.tilesetIds,
           layers: resizedMap.layers,
         }),
       });
@@ -253,8 +255,8 @@ export const MapProperties = ({ mapId }: MapPropertiesProps) => {
 
         {/* Tileset */}
         <FormControl size="small" fullWidth sx={fieldSx}>
-          <InputLabel>Tileset</InputLabel>
-          <Select value={tilesetId} onChange={e => setTilesetId(e.target.value)} label="Tileset">
+          <InputLabel>Default tileset</InputLabel>
+          <Select value={tilesetId} onChange={e => setTilesetId(e.target.value)} label="Default tileset">
             <MenuItem value=""><em style={{ color: '#666' }}>None</em></MenuItem>
             {tilesets.map(ts => (
               <MenuItem key={ts.id} value={ts.id} sx={{ color: '#fff' }}>{ts.name}</MenuItem>

@@ -1,14 +1,17 @@
 import type { CollisionRect, Layer, Map, Tileset } from '@packages/types';
 import { resolveLayerRenderPriority } from './MapRenderer';
+import { EMPTY_TILE, decodeTileRef } from './tileRef';
 
-/** Layer data value for a cell with no tile painted on it. Never blocking. */
-export const EMPTY_TILE = -1;
+export { EMPTY_TILE };
 
 /** Map fields terrain collision reads. Keeps the editor overlay free of a full `Map`. */
 export type CollisionMap = Pick<Map, 'width' | 'height' | 'layers'>;
 
 /** Tileset fields terrain collision reads. */
 export type CollisionTileset = Pick<Tileset, 'tiles'>;
+
+/** One tileset or a list aligned with `map.tilesetIds`. */
+export type CollisionTilesets = CollisionTileset | Array<CollisionTileset | null> | null | undefined;
 
 export interface CellCoordinate {
   x: number;
@@ -45,10 +48,28 @@ export const DEFAULT_PLAYER_HITBOX: ActorHitbox = {
 
 export const FULL_TILE_RECT: CollisionRect = { x: 0, y: 0, width: 1, height: 1 };
 
-/** Map and tileset a moving actor is resolved against. */
+/** Map and tilesets a moving actor is resolved against. */
 export interface TerrainCollisionContext {
   map: CollisionMap;
-  tileset: CollisionTileset | null;
+  tileset?: CollisionTileset | null;
+  tilesets?: Array<CollisionTileset | null>;
+}
+
+function tilesetList(tilesets: CollisionTilesets): Array<CollisionTileset | null> {
+  if (tilesets == null) return [];
+  return Array.isArray(tilesets) ? tilesets : [tilesets];
+}
+
+function collisionForPackedTile(
+  tilesets: CollisionTilesets,
+  packedTile: number,
+): { tileset: CollisionTileset | null | undefined; localId: number } | null {
+  const decoded = decodeTileRef(packedTile);
+  if (!decoded) return null;
+  return {
+    tileset: tilesetList(tilesets)[decoded.tilesetIndex],
+    localId: decoded.localId,
+  };
 }
 
 /**
@@ -79,20 +100,23 @@ export function aabbsOverlap(a: CollisionRect, b: CollisionRect): boolean {
 }
 
 function collidableTile(
-  tileset: CollisionTileset | null | undefined,
-  tileId: number,
+  tilesets: CollisionTilesets,
+  packedTile: number,
 ): NonNullable<Tileset['tiles']>[number] | undefined {
-  if (tileId === EMPTY_TILE) return undefined;
-  return tileset?.tiles?.find((tile) => tile.id === tileId && tile.is_collidable === true);
+  const resolved = collisionForPackedTile(tilesets, packedTile);
+  if (!resolved) return undefined;
+  return resolved.tileset?.tiles?.find(
+    (tile) => tile.id === resolved.localId && tile.is_collidable === true,
+  );
 }
 
 function tileSolidInCell(
-  tileset: CollisionTileset | null | undefined,
-  tileId: number,
+  tilesets: CollisionTilesets,
+  packedTile: number,
   cellX: number,
   cellY: number,
 ): CollisionRect | null {
-  const tile = collidableTile(tileset, tileId);
+  const tile = collidableTile(tilesets, packedTile);
   if (!tile) return null;
 
   const local = tile.collisionRect ?? FULL_TILE_RECT;
@@ -107,7 +131,7 @@ function tileSolidInCell(
 /** Solids in map space for one cell, including a full cell when the cell is off the map. */
 export function solidsAtCell(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
   cellX: number,
   cellY: number,
 ): CollisionRect[] {
@@ -122,7 +146,7 @@ export function solidsAtCell(
     if (!participatesInCollision(layer)) continue;
     const tileId = layer.data[index];
     if (tileId === undefined) continue;
-    const solid = tileSolidInCell(tileset, tileId, cellX, cellY);
+    const solid = tileSolidInCell(tilesets, tileId, cellX, cellY);
     if (solid) solids.push(solid);
   }
 
@@ -130,14 +154,14 @@ export function solidsAtCell(
 }
 
 /** Blocking marks are sparse: an absent entry or a falsy flag is walkable. */
-function isTileCollidable(tileset: CollisionTileset | null | undefined, tileId: number): boolean {
-  return collidableTile(tileset, tileId) !== undefined;
+function isTileCollidable(tilesets: CollisionTilesets, packedTile: number): boolean {
+  return collidableTile(tilesets, packedTile) !== undefined;
 }
 
 /** A cell blocks movement when it is off the map or any participating layer paints a blocking tile. */
 export function isCellBlocked(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
   x: number,
   y: number,
 ): boolean {
@@ -148,20 +172,20 @@ export function isCellBlocked(
   return map.layers.some((layer) => {
     if (!participatesInCollision(layer)) return false;
     const tileId = layer.data[index];
-    return tileId !== undefined && isTileCollidable(tileset, tileId);
+    return tileId !== undefined && isTileCollidable(tilesets, tileId);
   });
 }
 
 /** Every in-bounds cell that currently has at least one solid, in row-major order. */
 export function blockedCells(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
 ): CellCoordinate[] {
   const cells: CellCoordinate[] = [];
 
   for (let y = 0; y < map.height; y += 1) {
     for (let x = 0; x < map.width; x += 1) {
-      if (isCellBlocked(map, tileset, x, y)) cells.push({ x, y });
+      if (isCellBlocked(map, tilesets, x, y)) cells.push({ x, y });
     }
   }
 
@@ -171,13 +195,13 @@ export function blockedCells(
 /** In-bounds solid rectangles the overlay and runtime share. */
 export function blockingRects(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
 ): CollisionRect[] {
   const rects: CollisionRect[] = [];
 
   for (let y = 0; y < map.height; y += 1) {
     for (let x = 0; x < map.width; x += 1) {
-      rects.push(...solidsAtCell(map, tileset, x, y));
+      rects.push(...solidsAtCell(map, tilesets, x, y));
     }
   }
 
@@ -224,7 +248,7 @@ function solidKey(solid: CollisionRect): string {
  */
 export function isMoveAllowed(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
   from: TilePosition,
   to: TilePosition,
   hitbox: ActorHitbox = FULL_TILE_HITBOX,
@@ -234,13 +258,13 @@ export function isMoveAllowed(
   const alreadyOverlapping = new Set<string>();
 
   for (const cell of occupiedCells(from.x, from.y, hitbox)) {
-    for (const solid of solidsAtCell(map, tileset, cell.x, cell.y)) {
+    for (const solid of solidsAtCell(map, tilesets, cell.x, cell.y)) {
       if (aabbsOverlap(fromBox, solid)) alreadyOverlapping.add(solidKey(solid));
     }
   }
 
   return occupiedCells(to.x, to.y, hitbox).every((cell) => {
-    return solidsAtCell(map, tileset, cell.x, cell.y).every((solid) => {
+    return solidsAtCell(map, tilesets, cell.x, cell.y).every((solid) => {
       if (alreadyOverlapping.has(solidKey(solid))) return true;
       return !aabbsOverlap(toBox, solid);
     });
@@ -253,7 +277,7 @@ export function isMoveAllowed(
  */
 export function resolveMovement(
   map: CollisionMap,
-  tileset: CollisionTileset | null | undefined,
+  tilesets: CollisionTilesets,
   from: TilePosition,
   to: TilePosition,
   hitbox: ActorHitbox = FULL_TILE_HITBOX,
@@ -266,11 +290,11 @@ export function resolveMovement(
   let { x, y } = from;
 
   for (let step = 0; step < steps; step += 1) {
-    if (isMoveAllowed(map, tileset, { x, y }, { x: x + stepX, y }, hitbox)) {
+    if (isMoveAllowed(map, tilesets, { x, y }, { x: x + stepX, y }, hitbox)) {
       x += stepX;
     }
 
-    if (isMoveAllowed(map, tileset, { x, y }, { x, y: y + stepY }, hitbox)) {
+    if (isMoveAllowed(map, tilesets, { x, y }, { x, y: y + stepY }, hitbox)) {
       y += stepY;
     }
   }

@@ -5,9 +5,14 @@ import type { Tileset } from '@packages/types';
 interface TilesetSelectorProps {
   tilesets: Tileset[];
   loading?: boolean;
+  gridSize?: { width: number; height: number };
 }
 
-export const TilesetSelector = ({ tilesets, loading = false }: TilesetSelectorProps) => {
+export const TilesetSelector = ({
+  tilesets,
+  loading = false,
+  gridSize,
+}: TilesetSelectorProps) => {
   const selectedTilesetId = useTileSelectionStore((state) => state.selectedTilesetId);
   const setSelectedTileset = useTileSelectionStore((state) => state.setSelectedTileset);
 
@@ -46,11 +51,19 @@ export const TilesetSelector = ({ tilesets, loading = false }: TilesetSelectorPr
           label="Tileset"
           onChange={(e) => handleChange(e.target.value)}
         >
-          {tilesets.map((tileset) => (
-            <MenuItem key={tileset.id} value={tileset.id}>
-              {tileset.name}
-            </MenuItem>
-          ))}
+          {tilesets.map((tileset) => {
+            const incompatible = gridSize !== undefined && (
+              tileset.tile_width !== gridSize.width ||
+              tileset.tile_height !== gridSize.height
+            );
+
+            return (
+              <MenuItem key={tileset.id} value={tileset.id} disabled={incompatible}>
+                {tileset.name}
+                {incompatible ? ' (incompatible grid)' : ''}
+              </MenuItem>
+            );
+          })}
         </Select>
       </FormControl>
     </Box>

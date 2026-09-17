@@ -386,3 +386,17 @@ describe('partial tile solids', () => {
     expect(resolved.y).toBeCloseTo(0.5);
   });
 });
+
+describe('multi-tileset collision', () => {
+  it('uses the packed tileset index when the same local id differs across tilesets', () => {
+    const packedTree = (1 << 16) | WALL;
+    const map = makeMap([makeLayer({ data: [FLOOR, packedTree, FLOOR, FLOOR, FLOOR, FLOOR, FLOOR, FLOOR, FLOOR] })]);
+    map.tilesetIds = ['tileset-1', 'trees'];
+    const grass = makeTileset({ tiles: [] });
+    const trees = makeTileset({ id: 'trees', tiles: [{ id: WALL, is_collidable: true }] });
+
+    expect(isCellBlocked(map, [grass, trees], 1, 0)).toBe(true);
+    expect(isCellBlocked(map, [grass, trees], 0, 0)).toBe(false);
+    expect(isCellBlocked(map, grass, 1, 0)).toBe(false);
+  });
+});

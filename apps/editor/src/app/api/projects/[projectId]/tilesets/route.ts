@@ -9,6 +9,7 @@ import { requireProjectAccess } from '@/lib/apiAuth';
 import { normalizeTilesetTiles } from '@/lib/tilesetTiles';
 import { assetImageUrl } from '@/lib/assetImageUrl';
 import { resolveAssetImageSource } from '@/lib/assetStorage';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -55,6 +56,7 @@ export async function GET(
         return {
           id: tilesetId,
           name: tileset.name,
+          folderPath: tileset.folderPath,
           image_source: await resolveAssetImageSource(
             projectId,
             'tileset',
@@ -107,6 +109,7 @@ export async function POST(
     const name = formData.get('name') as string;
     const tile_width = formData.get('tile_width');
     const tile_height = formData.get('tile_height');
+    const folderPath = normalizeAssetFolderPath(formData.get('folderPath'));
 
     // Validate required fields
     if (!file || !name || !tile_width || !tile_height) {
@@ -114,6 +117,9 @@ export async function POST(
         { message: 'Missing required fields: file, name, tile_width, tile_height' },
         { status: 400 }
       );
+    }
+    if (folderPath === null) {
+      return NextResponse.json({ message: 'Invalid asset folder path' }, { status: 400 });
     }
 
     // Validate file
@@ -154,12 +160,12 @@ export async function POST(
     // Upload to storage
     const storage = getTilesetStorage();
     let storageLocation;
-    const storageTilesetId = new ObjectId().toHexString();
+    const tilesetId = new ObjectId();
     try {
       storageLocation = await storage.uploadTilesetImage({
         userId,
         projectId,
-        tilesetId: storageTilesetId,
+        tilesetId: tilesetId.toHexString(),
         mimeType,
         data: buffer,
       });
@@ -173,14 +179,13 @@ export async function POST(
       throw error;
     }
 
-    const tilesetId = new ObjectId();
-
     // Save tileset metadata to database
     const tilesetsCollection = db.collection('tilesets');
     const tilesetDoc = {
       _id: tilesetId,
       projectId,
       name,
+      ...(folderPath ? { folderPath } : {}),
       tile_width: tileWidth,
       tile_height: tileHeight,
       storageLocation: storageLocation.storageKey,
@@ -199,6 +204,7 @@ export async function POST(
     const tileset: Tileset & { projectId: string; createdAt: Date; updatedAt: Date } = {
       id: tilesetId.toHexString(),
       name,
+      ...(folderPath ? { folderPath } : {}),
       image_source: assetImageUrl(projectId, 'tileset', tilesetId.toHexString()),
       tile_width: tileWidth,
       tile_height: tileHeight,

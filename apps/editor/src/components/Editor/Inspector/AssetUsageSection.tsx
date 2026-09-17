@@ -23,14 +23,16 @@ import type {
   Map,
 } from '@packages/types';
 import { apiFetch } from '@/lib/apiFetch';
+import {
+  ASSET_DELETED_EVENT,
+  ASSET_DELETE_REQUEST_EVENT,
+  readAssetDeleteEventDetail,
+} from '@/lib/assetEvents';
 import { selectMap } from '@/lib/mapSelection';
 import { useToast } from '@/context/ToastContext';
 import { useEntitySelectionStore } from '@/stores/entitySelectionStore';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
 import { useSelectionStore } from '@/stores/selectionStore';
-
-export const ASSET_DELETE_REQUEST_EVENT = 'rpgstudio:asset-delete-request';
-export const ASSET_DELETED_EVENT = 'rpgstudio:asset-deleted';
 
 interface AssetUsageSectionProps {
   projectId: string;
@@ -38,11 +40,6 @@ interface AssetUsageSectionProps {
   assetId: string;
   assetName: string;
   canDelete: boolean;
-}
-
-interface AssetDeleteEventDetail {
-  kind: AssetKind;
-  assetId: string;
 }
 
 const usageLabel = (usage: AssetUsage): string => {
@@ -101,7 +98,7 @@ export const AssetUsageSection = ({
 
   useEffect(() => {
     const handleDeleteRequest = (event: Event) => {
-      const detail = (event as CustomEvent<AssetDeleteEventDetail>).detail;
+      const detail = readAssetDeleteEventDetail(event);
       if (detail?.kind === kind && detail.assetId === assetId && canDelete) {
         setConfirmOpen(true);
       }

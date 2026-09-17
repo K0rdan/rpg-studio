@@ -1,5 +1,21 @@
 import type { Map, Tileset } from '@packages/types';
 
+export type MapTilesetRef = Pick<Map, 'tilesetId'> & { tilesetIds?: string[] };
+
+/**
+ * Ordered tileset ids a map paints with. Older documents only store `tilesetId`.
+ */
+export function resolveMapTilesetIds(map: MapTilesetRef | null | undefined): string[] {
+  if (!map) return [];
+  if (map.tilesetIds && map.tilesetIds.length > 0) {
+    return map.tilesetIds;
+  }
+  if (typeof map.tilesetId === 'string' && map.tilesetId.length > 0) {
+    return [map.tilesetId];
+  }
+  return [];
+}
+
 /**
  * Last-resort tileset, used only when no tileset at all is available.
  *
@@ -27,6 +43,8 @@ function hasUsableImage(tileset: Tileset | undefined): tileset is Tileset {
   return typeof tileset?.image_source === 'string' && tileset.image_source.trim() !== '';
 }
 
+export { hasUsableImage };
+
 /**
  * Resolve the tileset a map paints with.
  *
@@ -38,11 +56,12 @@ function hasUsableImage(tileset: Tileset | undefined): tileset is Tileset {
  * fallback grid beats handing the loader a URL that can never resolve.
  */
 export function resolveMapTileset(
-  map: Pick<Map, 'tilesetId'> | null | undefined,
+  map: MapTilesetRef | null | undefined,
   tilesets: Tileset[] = []
 ): Tileset {
-  const byId = map?.tilesetId
-    ? tilesets.find((tileset) => tileset.id === map.tilesetId)
+  const defaultId = resolveMapTilesetIds(map)[0];
+  const byId = defaultId
+    ? tilesets.find((tileset) => tileset.id === defaultId)
     : undefined;
 
   if (hasUsableImage(byId)) {

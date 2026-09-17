@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FALLBACK_TILESET, resolveMapTileset } from './resolveTileset';
+import { FALLBACK_TILESET, resolveMapTileset, resolveMapTilesetIds } from './resolveTileset';
 import type { Tileset } from '@packages/types';
 
 const makeTileset = (id: string, image_source: string): Tileset => ({
@@ -43,6 +43,13 @@ describe('resolveMapTileset', () => {
     const tilesets = [makeTileset('broken', '   ')];
 
     expect(resolveMapTileset({ tilesetId: 'broken' }, tilesets)).toBe(FALLBACK_TILESET);
+  });
+
+  it('uses tilesetIds[0] as the default when both fields are present', () => {
+    const tilesets = [makeTileset('a', 'a.png'), makeTileset('b', 'b.png')];
+
+    expect(resolveMapTileset({ tilesetId: 'a', tilesetIds: ['b', 'a'] }, tilesets).id).toBe('b');
+    expect(resolveMapTilesetIds({ tilesetId: 'a', tilesetIds: ['b', 'a'] })).toEqual(['b', 'a']);
   });
 
   it('uses the bundled fallback when there is no tileset at all', () => {

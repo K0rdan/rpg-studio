@@ -4,10 +4,14 @@ import { Box, CircularProgress, FormControlLabel, Switch, Typography } from '@mu
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TileGrid } from './TileGrid';
+import { TilesetSelector } from './TilesetSelector';
 import { CollisionHitboxControls } from './CollisionHitboxControls';
 import { apiFetch } from '@/lib/apiFetch';
+import { ASSET_DELETED_EVENT, readAssetDeleteEventDetail } from '@/lib/assetEvents';
 import { useEditorStore } from '@/stores/editorStore';
+import { useMapStore } from '@/stores/mapStore';
 import { useTileSelectionStore } from '@/stores/tileSelectionStore';
+import { resolveMapTileset } from '@packages/core';
 import type { Tileset } from '@packages/types';
 
 interface TilePaletteProps {
@@ -20,7 +24,9 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
 
   // Without an explicit tileset, show the one the map canvas actually renders with.
   const activeTilesetId = useTileSelectionStore((state) => state.selectedTilesetId);
-  const effectiveTilesetId = tilesetId ?? activeTilesetId ?? undefined;
+  const setSelectedTileset = useTileSelectionStore((state) => state.setSelectedTileset);
+  const clearTileSelection = useTileSelectionStore((state) => state.clearSelection);
+  const effectiveTilesetId = activeTilesetId ?? tilesetId ?? undefined;
 
   const tileset = useEditorStore((state) => state.tileset.current);
   const isTilesetDirty = useEditorStore((state) => state.tileset.isDirty);
@@ -28,6 +34,8 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
   const setTileCollidable = useEditorStore((state) => state.setTileCollidable);
   const setTileCollisionRect = useEditorStore((state) => state.setTileCollisionRect);
   const selectedTileIndex = useTileSelectionStore((state) => state.selectedTileIndex);
+  const currentMap = useMapStore((state) => state.currentMap);
+  const [tilesets, setTilesets] = useState<Tileset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +48,11 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
         setLoading(true);
         setError(null);
 
+        const listResponse = await apiFetch(`/api/tilesets?projectId=${projectId}`);
+        if (!listResponse.ok) throw new Error('Failed to fetch tilesets');
+        const availableTilesets: Tileset[] = await listResponse.json();
+        setTilesets(availableTilesets);
+
         if (effectiveTilesetId) {
           // Fetch specific tileset
           const response = await apiFetch(`/api/projects/${projectId}/tilesets/${effectiveTilesetId}`);
@@ -48,11 +61,9 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
           setCurrentTileset(data);
         } else {
           // Fetch first available tileset
-          const response = await apiFetch(`/api/tilesets?projectId=${projectId}`);
-          if (!response.ok) throw new Error('Failed to fetch tilesets');
-          const data: Tileset[] = await response.json();
-          if (data.length > 0) {
-            setCurrentTileset(data[0]);
+          if (availableTilesets.length > 0) {
+            setCurrentTileset(availableTilesets[0]);
+            setSelectedTileset(availableTilesets[0].id);
           } else {
             setError('No tilesets available');
           }
@@ -66,12 +77,38 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
     };
 
     fetchTileset();
-  }, [effectiveTilesetId, projectId, setCurrentTileset]);
+  }, [effectiveTilesetId, projectId, setCurrentTileset, setSelectedTileset]);
+
+  useEffect(() => {
+    if (tilesetId) {
+      setSelectedTileset(tilesetId);
+    }
+  }, [tilesetId, setSelectedTileset]);
+
+  useEffect(() => {
+    const handleAssetDeleted = (event: Event) => {
+      const detail = readAssetDeleteEventDetail(event);
+      if (detail?.kind !== 'tileset') return;
+
+      setTilesets((current) => current.filter((candidate) => candidate.id !== detail.assetId));
+
+      // Dropping the stale selection lets the fetch effect fall back to the first
+      // remaining tileset (or report that none is left).
+      if (detail.assetId === effectiveTilesetId) {
+        clearTileSelection();
+        setCurrentTileset(null);
+      }
+    };
+
+    window.addEventListener(ASSET_DELETED_EVENT, handleAssetDeleted);
+    return () => window.removeEventListener(ASSET_DELETED_EVENT, handleAssetDeleted);
+  }, [clearTileSelection, effectiveTilesetId, setCurrentTileset]);
 
   const selectedTileIsCollidable = selectedTileIndex !== null
     && tileset?.tiles?.some(
       (tile) => tile.id === selectedTileIndex && tile.is_collidable === true,
     ) === true;
+  const defaultTileset = currentMap ? resolveMapTileset(currentMap, tilesets) : null;
 
   if (loading) {
     return (
@@ -116,6 +153,15 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
         overflow: 'hidden',
       }}
     >
+      <TilesetSelector
+        tilesets={tilesets}
+        loading={loading}
+        gridSize={defaultTileset ? {
+          width: defaultTileset.tile_width,
+          height: defaultTileset.tile_height,
+        } : undefined}
+      />
+
       {/* Header */}
       <Box
         sx={{
@@ -148,11 +194,17 @@ export const TilePalette = ({ tilesetId }: TilePaletteProps) => {
           }
           label="Blocking"
         />
-        {selectedTileIsCollidable && selectedTileIndex !== null && tileset ? (
+        {/* Kept mounted (inert when the tile does not block) so switching tiles
+            never resizes the header and shifts the grid below. */}
+        {tileset ? (
           <CollisionHitboxControls
             tileset={tileset}
-            tileId={selectedTileIndex}
-            onChange={(rect) => setTileCollisionRect(selectedTileIndex, rect)}
+            tileId={selectedTileIsCollidable ? selectedTileIndex : null}
+            onChange={(rect) => {
+              if (selectedTileIndex !== null) {
+                setTileCollisionRect(selectedTileIndex, rect);
+              }
+            }}
           />
         ) : null}
       </Box>

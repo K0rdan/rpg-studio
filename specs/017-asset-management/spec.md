@@ -115,3 +115,7 @@ As a game creator, I can delete a project tileset or charset that nothing uses, 
 - **SC-003**: 100% of attempted deletes of in-use or built-in assets leave the asset in place and show why.
 - **SC-004**: 100% of confirmed deletes of unused project assets remove them from the Assets list and from later usage queries.
 - **SC-005**: Sounds never expose preview, usage, or delete in this feature.
+
+## Follow-up
+
+Feature `021-asset-folders` builds on this one and lifts two of the exclusions above: file import of new assets, and reaching delete without the asset Inspector being open. It also adds user-defined folders for tilesets and charsets. The usage rules and delete refusals specified here are unchanged by it.

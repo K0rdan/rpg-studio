@@ -15,6 +15,7 @@ import {
   GridOn as CollisionIcon,
 } from '@mui/icons-material';
 import { ToolButton } from './ToolButton';
+import { mapSavePayload } from '@/lib/mapSavePayload';
 import { useEditorStore } from '@/stores/editorStore';
 import { useMapStore } from '@/stores/mapStore';
 import { useToast } from '@/context/ToastContext';
@@ -76,11 +77,7 @@ export const ToolBar = () => {
         const mapResponse = await apiFetch(`/api/projects/${projectId}/maps/${currentMap.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            layers: currentMap.layers,
-            width: currentMap.width,
-            height: currentMap.height,
-          }),
+          body: JSON.stringify(mapSavePayload(currentMap)),
         });
 
         if (!mapResponse.ok) {

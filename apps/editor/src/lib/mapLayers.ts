@@ -1,4 +1,5 @@
 import type { Layer, LayerRenderPriority, Map } from '@packages/types';
+import { resolveMapTilesetIds } from '@packages/core';
 
 export type LayerDirection = 'up' | 'down';
 
@@ -26,7 +27,20 @@ export function normalizeMapLayers(map: Map): Map {
     layers.length === map.layers?.length &&
     layers.every((layer, index) => layer.data === map.layers[index].data);
 
-  return unchanged ? map : { ...map, layers };
+  const tilesetIds = resolveMapTilesetIds(map);
+  const tilesetId = tilesetIds[0] ?? map.tilesetId ?? '';
+  const tilesetsUnchanged =
+    tilesetId === (map.tilesetId ?? '') &&
+    (map.tilesetIds === undefined ? tilesetIds.length === 0 : map.tilesetIds === tilesetIds);
+
+  const withLayers = unchanged ? map : { ...map, layers };
+  if (tilesetsUnchanged) return withLayers;
+
+  return {
+    ...withLayers,
+    tilesetId,
+    ...(tilesetIds.length > 0 ? { tilesetIds } : {}),
+  };
 }
 
 export function addMapLayer(map: Map): LayerMutationResult {

@@ -1,3 +1,4 @@
+import { mapUsesTileset } from '@packages/core';
 import type { AssetKind, AssetUsage, AssetUsageTarget } from '@packages/types';
 import { ObjectId, type Db } from 'mongodb';
 
@@ -12,10 +13,16 @@ interface StoredEntity {
   spriteId?: string;
 }
 
+interface StoredLayer {
+  data?: number[];
+}
+
 interface StoredMap {
   _id: ObjectId;
   name: string;
   tilesetId?: string;
+  tilesetIds?: string[];
+  layers?: StoredLayer[];
   entities?: StoredEntity[];
 }
 
@@ -94,7 +101,20 @@ export async function collectAssetUsages(
 
   for (const map of maps) {
     const mapId = map._id.toHexString();
-    if (kind === 'tileset' && map.tilesetId === assetId) {
+    if (
+      kind === 'tileset' &&
+      mapUsesTileset(
+        {
+          tilesetId: map.tilesetId ?? '',
+          tilesetIds: map.tilesetIds,
+          layers: (map.layers ?? []).map((layer) => ({
+            name: '',
+            data: layer.data ?? [],
+          })),
+        },
+        assetId,
+      )
+    ) {
       candidates.push({
         usage: { type: 'map', id: mapId, name: map.name },
       });

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       width,
       height,
       tilesetId: tilesetId || '',
+      tilesetIds: tilesetId ? [tilesetId] : [],
       layers: [{
         name: 'Layer 1',
         data: new Array(width * height).fill(-1),

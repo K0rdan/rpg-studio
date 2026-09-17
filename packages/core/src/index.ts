@@ -4,6 +4,8 @@ export * from './InputManager';
 export * from './Scene';
 export * from './MapRenderer';
 export * from './resolveTileset';
+export * from './tileRef';
+export * from './mapTilesetUsage';
 export * from './renderDepth';
 export * from './terrainCollision';
 export * from './fitOpaqueCollisionRect';

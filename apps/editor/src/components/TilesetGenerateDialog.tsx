@@ -36,6 +36,7 @@ interface TilesetGenerateDialogProps {
   projectId: string;
   onTilesetGenerated?: () => void;
   iconOnly?: boolean;
+  folderPath?: string;
 }
 
 interface TilesetGenerationParams extends TilesetGenerationRequest {
@@ -51,6 +52,7 @@ export default function TilesetGenerateDialog({
   projectId,
   onTilesetGenerated,
   iconOnly = false,
+  folderPath = '',
 }: TilesetGenerateDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -120,6 +122,7 @@ export default function TilesetGenerateDialog({
         body: JSON.stringify({
           ...generationParams,
           image_data: previewData,
+          folderPath,
         }),
       });
 

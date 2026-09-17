@@ -12,6 +12,7 @@ import { requireProjectAccess } from '@/lib/apiAuth';
 import { assetImageUrl } from '@/lib/assetImageUrl';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 
 const MAX_GENERATED_SPRITE_SIZE = 4 * 1024 * 1024;
 
@@ -22,6 +23,7 @@ interface SaveGeneratedCharsetRequest {
   style: CharsetStyle;
   prompt?: string;
   image_data: string;
+  folderPath?: string;
 }
 
 export async function POST(
@@ -37,6 +39,7 @@ export async function POST(
 
     const body: SaveGeneratedCharsetRequest = await req.json();
     const { name, frame_width, frame_height, style, prompt, image_data } = body;
+    const folderPath = normalizeAssetFolderPath(body.folderPath);
     const imageMatch = image_data?.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
 
     if (
@@ -45,6 +48,7 @@ export async function POST(
       || !isValidCharsetFrameDimension(frame_height)
       || !Object.values(CharsetStyle).includes(style)
       || !imageMatch
+      || folderPath === null
     ) {
       return NextResponse.json(
         { message: 'Invalid generated charset data' },
@@ -89,6 +93,7 @@ export async function POST(
     await db.collection('sprites').insertOne({
       _id: spriteId,
       name: name.trim(),
+      ...(folderPath ? { folderPath } : {}),
       projectId,
       userId: access.userId,
       mimeType: 'image/png',
@@ -109,6 +114,7 @@ export async function POST(
     return NextResponse.json({
       id: spriteId.toHexString(),
       name: name.trim(),
+      ...(folderPath ? { folderPath } : {}),
       image_source: assetImageUrl(projectId, 'charset', spriteId.toHexString()),
       frame_width,
       frame_height,
