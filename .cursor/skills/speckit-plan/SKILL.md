@@ -56,11 +56,12 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, FEATURE_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
+2. **Load context**: Read FEATURE_SPEC, `.specify/memory/constitution.md`, and `.specify/memory/technical-context.md`. Load IMPL_PLAN template (already copied).
 
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
-   - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
-   - Fill Constitution Check section from constitution
+   - Fill Technical Context from `.specify/memory/technical-context.md` (Plan fill-in). Override only feature-specific Storage, Constraints, Scale/Scope, and Primary Dependencies. Do **not** mark Language, Testing, Target Platform, or Project Type as NEEDS CLARIFICATION. Use NEEDS CLARIFICATION only for facts that file cannot answer.
+   - Fill Constitution Check from the constitution **and** the gates table in technical-context.md (I–XI; VI–XI are N/A unless the feature is graphic-asset generation)
+   - Use the real monorepo tree from technical-context.md in Project Structure — never leave the template Option 1/2/3 placeholders
    - Evaluate gates (ERROR if violations unjustified)
    - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
    - Phase 1: Generate data-model.md, contracts/, quickstart.md

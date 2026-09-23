@@ -68,6 +68,7 @@ export async function GET(
           source_tile_width: tileset.source_tile_width,
           source_tile_height: tileset.source_tile_height,
           tiles: normalizeTilesetTiles(tileset.tiles),
+          generation_metadata: tileset.generation_metadata,
           projectId: tileset.projectId,
           createdAt: tileset.createdAt,
           updatedAt: tileset.updatedAt,

@@ -1,0 +1,13 @@
+node_modules/
+.git/
+Dockerfile*
+.dockerignore
+*.log*
+**/.env*
+coverage/
+.next/
+dist/
+build/
+.turbo/
+cypress/videos/
+cypress/screenshots/

@@ -1,5 +1,5 @@
 import type { Map } from '@packages/types';
-import { paintTileOnMap } from './mapPainting';
+import { paintStampOnMap, paintTileOnMap } from './mapPainting';
 
 const makeMap = (): Map => ({
   id: 'map-1',
@@ -82,5 +82,21 @@ describe('paintTileOnMap', () => {
 
     expect(painted.layers[0].data[1]).toBe(7);
     expect(painted.tilesetIds).toEqual(['tileset-1']);
+  });
+
+  it('paints an 8x8 stamp clipped to the map bounds', () => {
+    const painted = paintStampOnMap(makeMap(), {
+      layerIndex: 0,
+      x: 2,
+      y: 1,
+      tileIndex: 0,
+      tilesetId: 'tileset-1',
+    });
+
+    expect(painted.layers[0].data[6]).toBe(0);
+    expect(painted.layers[0].data[7]).toBe(1);
+    expect(painted.layers[0].data[10]).toBe(8);
+    expect(painted.layers[0].data[11]).toBe(9);
+    expect(painted.layers[0].data[5]).toBe(-1);
   });
 });

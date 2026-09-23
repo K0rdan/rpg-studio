@@ -44,7 +44,7 @@ import { resolveTilesetOrigin } from '@/lib/tilesetOrigin';
 import { useProjectExplorerStore } from '@/stores/projectExplorerStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { AssetContextMenu } from './AssetContextMenu';
-import { AssetFolderSection } from './AssetFolderSection';
+import { AssetFolderSection, GenerationStatusBadge } from './AssetFolderSection';
 
 type ContextAsset =
   | { kind: 'tileset'; asset: Tileset }
@@ -81,6 +81,7 @@ export const AssetsTree = () => {
   const [deleteTarget, setDeleteTarget] = useState<ContextAsset | null>(null);
   const [deleteUsage, setDeleteUsage] = useState<AssetUsageResponse | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [regenerateTilesetId, setRegenerateTilesetId] = useState<string | null>(null);
 
   const setSelection = useSelectionStore((state) => state.setSelection);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
@@ -314,6 +315,7 @@ export const AssetsTree = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ImageIcon sx={{ fontSize: 16 }} />
                 <Typography variant="body2">{asset.name}</Typography>
+                <GenerationStatusBadge status={asset.generation_metadata?.status} />
               </Box>
             )}
             onAssetSelect={(asset) => selectAsset({ kind: 'tileset', asset })}
@@ -357,6 +359,17 @@ export const AssetsTree = () => {
         </TreeItem>
       </SimpleTreeView>
 
+      <TilesetGenerateDialog
+        projectId={projectId}
+        hideTrigger
+        regenerateTilesetId={regenerateTilesetId}
+        onClose={() => setRegenerateTilesetId(null)}
+        onTilesetGenerated={() => {
+          setRegenerateTilesetId(null);
+          void fetchAssets();
+        }}
+      />
+
       <AssetContextMenu
         position={contextMenu}
         canDelete={
@@ -364,7 +377,16 @@ export const AssetsTree = () => {
           || (contextMenu?.target.kind === 'tileset'
             && resolveTilesetOrigin(contextMenu.target.asset.id) === 'project')
         }
+        canRegenerate={
+          contextMenu?.target.kind === 'tileset'
+          && Boolean(contextMenu.target.asset.generation_metadata?.generated)
+        }
         onClose={() => setContextMenu(null)}
+        onRegenerate={() => {
+          if (contextMenu?.target.kind !== 'tileset') return;
+          setRegenerateTilesetId(contextMenu.target.asset.id);
+          setContextMenu(null);
+        }}
         onMove={() => {
           if (!contextMenu) return;
           setMoveTarget(contextMenu.target);

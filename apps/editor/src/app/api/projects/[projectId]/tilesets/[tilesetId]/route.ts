@@ -15,6 +15,7 @@ import {
   withTilesetTiles,
 } from '@/lib/tilesetTiles';
 import { normalizeAssetFolderPath } from '@/lib/assetFolders';
+import { ensureLineageIndexes, findDependents } from '@/lib/generation/lineage';
 
 type FormattedTileset = Tileset & { projectId: string; createdAt: Date; updatedAt: Date };
 
@@ -65,6 +66,7 @@ async function formatProjectTileset(
     source_tile_width: tileset.source_tile_width,
     source_tile_height: tileset.source_tile_height,
     tiles: normalizeTilesetTiles(tileset.tiles),
+    generation_metadata: tileset.generation_metadata,
     projectId: tileset.projectId,
     createdAt: tileset.createdAt,
     updatedAt: tileset.updatedAt,
@@ -96,7 +98,10 @@ export async function GET(
     if (staticTileset) {
       // Return static tileset (only the collision overlay needs a database read)
       return NextResponse.json(
-        await formatStaticTileset(db, projectId, staticTileset),
+        {
+          ...await formatStaticTileset(db, projectId, staticTileset),
+          dependents: [],
+        },
         { status: 200 }
       );
     }
@@ -117,8 +122,16 @@ export async function GET(
       return NextResponse.json({ message: 'Tileset not found' }, { status: 404 });
     }
 
+    await ensureLineageIndexes(db);
+    const dependents = tileset.generation_metadata?.generated
+      ? await findDependents(db, projectId, tileset._id.toHexString())
+      : [];
+
     return NextResponse.json(
-      await formatProjectTileset(projectId, tileset),
+      {
+        ...await formatProjectTileset(projectId, tileset),
+        dependents,
+      },
       { status: 200 }
     );
   } catch (error) {

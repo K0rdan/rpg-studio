@@ -195,6 +195,82 @@ describe('Tileset by ID API', () => {
         tiles: [{ id: 3, is_collidable: true }],
       });
     });
+
+    it('returns only same-project generated dependents in plain language', async () => {
+      const familyId = new ObjectId();
+      const childId = new ObjectId();
+      const foreignId = new ObjectId();
+      const otherProjectId = new ObjectId().toHexString();
+      await db.collection('projects').insertOne({
+        _id: new ObjectId(otherProjectId),
+        name: 'Other',
+        userId,
+        maps: [],
+        characters: [],
+        tilesets: [],
+      });
+      await db.collection('tilesets').insertMany([
+        {
+          _id: familyId,
+          projectId,
+          name: 'grass',
+          tile_width: 32,
+          tile_height: 32,
+          storageLocation: 'grass.png',
+          generation_metadata: {
+            generated: true,
+            role: 'family',
+            label: 'grass',
+            status: 'fresh',
+          },
+        },
+        {
+          _id: childId,
+          projectId,
+          name: 'grass ↔ dirt',
+          tile_width: 32,
+          tile_height: 32,
+          storageLocation: 'transition.png',
+          generation_metadata: {
+            generated: true,
+            role: 'transition',
+            label: 'grass ↔ dirt',
+            status: 'fresh',
+            sourceFamilyIds: [familyId.toHexString()],
+            pairFamilyIds: [familyId.toHexString(), new ObjectId().toHexString()],
+          },
+        },
+        {
+          _id: foreignId,
+          projectId: otherProjectId,
+          name: 'foreign child',
+          generation_metadata: {
+            generated: true,
+            role: 'family',
+            sourceFamilyIds: [familyId.toHexString()],
+          },
+        },
+      ]);
+
+      const generated = await GET({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId: familyId.toHexString() }),
+      });
+      const generatedData = await generated.json();
+      expect(generated.status).toBe(200);
+      expect(generatedData.dependents).toEqual([
+        {
+          id: childId.toHexString(),
+          name: 'grass ↔ dirt',
+          role: 'transition',
+          status: 'fresh',
+        },
+      ]);
+
+      const imported = await GET({} as NextRequest, {
+        params: Promise.resolve({ projectId, tilesetId }),
+      });
+      expect((await imported.json()).dependents).toEqual([]);
+    });
   });
 
   describe('PATCH /api/projects/[projectId]/tilesets/[tilesetId]', () => {

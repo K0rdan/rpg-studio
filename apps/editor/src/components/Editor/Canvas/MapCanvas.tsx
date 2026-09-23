@@ -23,6 +23,7 @@ import {
 } from '@/lib/canvasCamera';
 import { isTypingTarget } from '@/lib/keyboardTarget';
 import { emptyCellsForActiveLayer } from '@/lib/layerFocus';
+import { isFixedBlockTileset } from '@/lib/mapPainting';
 import { collisionOverlayCells, collisionOverlayRects, collisionTilesetsForMap } from '@/lib/collisionOverlay';
 import { ENTITY_TEMPLATES } from '@/constants/entityTemplates';
 import { CanvasLoading } from './CanvasLoading';
@@ -42,6 +43,7 @@ export const MapCanvas = () => {
     currentTileset,
     tilesets,
     paintTile,
+    paintStamp,
     setCanvasSize,
   } = useMapEngine(projectId);
   
@@ -371,7 +373,11 @@ export const MapCanvas = () => {
     const tileCoords = screenToTileCoords(e);
     if (!tileCoords) return;
     
-    paintTile(tileCoords.x, tileCoords.y, selectedTileIndex, selectedTilesetId ?? undefined);
+    if (isFixedBlockTileset(selectedTileset)) {
+      paintStamp(tileCoords.x, tileCoords.y, selectedTilesetId ?? undefined);
+    } else {
+      paintTile(tileCoords.x, tileCoords.y, selectedTileIndex, selectedTilesetId ?? undefined);
+    }
     setMapDirty(true);
   };
 

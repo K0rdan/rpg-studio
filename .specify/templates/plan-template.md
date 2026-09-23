@@ -12,26 +12,27 @@
 ## Technical Context
 
 <!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
+  Copy the Plan fill-in block from `.specify/memory/technical-context.md`, then
+  override only Storage, Constraints, Scale/Scope, and feature-specific
+  Primary Dependencies. Stack fields are known — do not mark them
+  NEEDS CLARIFICATION.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: TypeScript ~6, strict mode  
+**Primary Dependencies**: Next.js 16 App Router, React 19, MUI 9, Zustand 5, MongoDB driver 7, Better Auth, `@packages/types`, `@packages/core`, `@packages/storage`; Canvas 2D in core; Vite 8 in player  
+**Storage**: MongoDB (`projects`, `maps`, `tilesets`, `sprites`, `characters`); blob images via `@packages/storage`. IDs are `string` except `_id` queries → `ObjectId`. Feature: [collections/fields/blobs this feature touches, or N/A]  
+**Testing**: Vitest (`packages/core`), Jest (`apps/editor`, `packages/storage`), Cypress (`apps/editor/cypress`)  
+**Target Platform**: Modern desktop browsers (editor Next.js + player Vite/Canvas, including iframe preview)  
+**Project Type**: Turborepo web monorepo (`apps/*`, `packages/*`)  
+**Performance Goals**: Keep the existing ~60 FPS Canvas loop unless this feature is persistence-only (then: no change to the loop)  
+**Constraints**: Constitution I–V always; VI–XI if generation. Types first; no React in core; player stays a loader. Feature: [extra constraints]  
+**Scale/Scope**: [files and surfaces this feature changes — see placement table in technical-context.md]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Copy the gates table from `.specify/memory/technical-context.md` and mark PASS / N/A / FAIL with one line of evidence each. FAIL requires Complexity Tracking.
 
 ## Project Structure
 
@@ -48,51 +49,25 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
+
 <!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
+  List ONLY the files this feature will add or change. Use real paths from
+  `.specify/memory/technical-context.md`. Do not use generic backend/frontend trees.
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+packages/types/src/
+packages/core/src/          # if runtime/render/collision
+packages/storage/src/       # if blob provider
+apps/editor/src/lib/
+apps/editor/src/app/api/
+apps/editor/src/components/
+apps/editor/src/stores/
+apps/editor/cypress/e2e/
+apps/player/src/            # only if the player loader must change
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Types in `packages/types`, runtime in `packages/core`, persistence/API/UI in `apps/editor`, player untouched unless the spec requires a runtime load change.
 
 ## Complexity Tracking
 

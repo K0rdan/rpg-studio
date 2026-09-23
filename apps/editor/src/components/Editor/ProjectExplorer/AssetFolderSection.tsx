@@ -1,13 +1,28 @@
 'use client';
 
 import type { MouseEvent, ReactNode } from 'react';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { CreateNewFolder, DeleteOutlined, Folder } from '@mui/icons-material';
 import type { Sprite, Tileset } from '@packages/types';
 import { assetFolderAncestors } from '@/lib/assetFolders';
 
 type Asset = Tileset | Sprite;
+
+export function GenerationStatusBadge({ status }: { status?: string }) {
+  if (status !== 'stale') {
+    return null;
+  }
+  return (
+    <Chip
+      label="Stale"
+      size="small"
+      color="warning"
+      aria-label="Stale tileset"
+      sx={{ height: 16, fontSize: '0.6rem' }}
+    />
+  );
+}
 
 interface AssetFolderSectionProps<TAsset extends Asset> {
   rootId: string;

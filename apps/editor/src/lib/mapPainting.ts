@@ -80,3 +80,29 @@ export const paintTileOnMap = (map: Map, input: PaintTileInput): Map => {
     layers: nextMap.layers.map((current, idx) => (idx === layerIndex ? { ...current, data } : current)),
   };
 };
+
+export const FIXED_BLOCK_STAMP_SIZE = 8;
+
+export const paintStampOnMap = (
+  map: Map,
+  input: PaintTileInput & { columns?: number; rows?: number },
+): Map => {
+  const columns = input.columns ?? FIXED_BLOCK_STAMP_SIZE;
+  const rows = input.rows ?? FIXED_BLOCK_STAMP_SIZE;
+  let next = map;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      next = paintTileOnMap(next, {
+        ...input,
+        x: input.x + column,
+        y: input.y + row,
+        tileIndex: row * columns + column,
+      });
+    }
+  }
+  return next;
+};
+
+export function isFixedBlockTileset(tileset: { generation_metadata?: { tilingMode?: string } } | null | undefined): boolean {
+  return tileset?.generation_metadata?.tilingMode === 'fixed-block';
+}

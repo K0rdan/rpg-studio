@@ -9,16 +9,8 @@
 ## 📚 Documentation Structure
 
 ### Core Documentation
-- **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** - Complete technical guide
-  - Architecture overview
-  - Design patterns
-  - Authentication
-  - Routing & navigation
-  - Database
-  - Storage
-  - Development guide
-  - Deployment
-  - Troubleshooting
+- **[`.specify/memory/technical-context.md`](../.specify/memory/technical-context.md)** — current stack, APIs, domain model, and `/speckit-plan` fill-in (prefer this)
+- **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** — older narrative guide (Auth.js references are stale; see technical-context.md)
 
 ### Design Patterns
 - **[DESIGN_MONGODB_OBJECTID_PATTERN.md](./DESIGN_MONGODB_OBJECTID_PATTERN.md)** - ObjectId vs String pattern

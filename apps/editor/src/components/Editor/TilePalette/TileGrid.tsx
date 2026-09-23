@@ -1,5 +1,6 @@
 import { Box, CircularProgress, Tooltip, Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
+import { isFixedBlockTileset } from '@/lib/mapPainting';
 import { useTileSelectionStore } from '@/stores/tileSelectionStore';
 import type { Tileset } from '@packages/types';
 
@@ -117,6 +118,32 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
     const y = Math.floor(index / columns);
     setSelectedTile(index, { x, y });
   };
+
+  if (isFixedBlockTileset(tileset)) {
+    const isSelected = selectedTileIndex === 0;
+    return (
+      <Box id="tile-grid" sx={{ p: 2, overflow: 'auto', flex: 1 }}>
+        <Box
+          onClick={() => handleTileClick(0)}
+          aria-label="Fixed 8×8 stamp"
+          sx={{
+            width: displayTileWidth * 4,
+            height: displayTileHeight * 4,
+            backgroundImage: `url(${tileset.image_source})`,
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            imageRendering: 'pixelated',
+            cursor: 'pointer',
+            border: isSelected ? '3px solid #2196f3' : '1px solid transparent',
+            boxShadow: isSelected ? '0 0 8px rgba(33, 150, 243, 0.5)' : 'none',
+          }}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+          Fixed 8×8 stamp • {displayTileWidth}×{displayTileHeight}px cells
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box

@@ -19,6 +19,7 @@ interface UseMapEngineReturn {
   currentTileset: Tileset | null;
   tilesets: Tileset[];
   paintTile: (tileX: number, tileY: number, tileIndex: number, tilesetId?: string) => void;
+  paintStamp: (tileX: number, tileY: number, tilesetId?: string) => void;
   updateMap: (map: Map) => void;
   setCanvasSize: (width: number, height: number) => void;
 }
@@ -201,6 +202,16 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     });
   };
 
+  const paintStamp = (tileX: number, tileY: number, tilesetId?: string) => {
+    useMapStore.getState().paintStamp({
+      layerIndex: useEditorStore.getState().map.activeLayer,
+      x: tileX,
+      y: tileY,
+      tileIndex: 0,
+      tilesetId,
+    });
+  };
+
   // Update map function
   const updateMap = (map: Map) => {
     useMapStore.getState().setCurrentMap(map);
@@ -239,6 +250,7 @@ export function useMapEngine(projectId: string): UseMapEngineReturn {
     currentTileset,
     tilesets,
     paintTile,
+    paintStamp,
     updateMap,
     setCanvasSize,
   };

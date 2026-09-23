@@ -103,11 +103,16 @@ subsequent stages in order to ship or to be tested.
 
 ## Technical Stack Adherence
 
-Editor (`apps/editor`): Next.js (App Router) + TypeScript + React
-Player (`apps/player`): Vite
-Documentation (`apps/docs`): Docusaurus
-Engine (`packages/core`): Pure TypeScript, no framework, using the native Canvas 2D API.
-Types (`packages/types`): Pure TypeScript.
+Editor (`apps/editor`): Next.js 16 (App Router) + TypeScript + React 19 + MUI + Zustand.
+Player (`apps/player`): Vite + `@packages/core` only.
+Documentation (`apps/docs`): Docusaurus.
+Engine (`packages/core`): Pure TypeScript, no framework, native Canvas 2D API.
+Types (`packages/types`): Pure TypeScript — source of truth.
+Storage (`packages/storage`): Azure Blob / Azurite / in-memory.
+Auth: Better Auth (editor API routes).
+Database: MongoDB; application IDs are strings (ObjectId only for `_id` queries).
+
+Project-wide planning details: `.specify/memory/technical-context.md`.
 
 ## Code Quality & Review
 

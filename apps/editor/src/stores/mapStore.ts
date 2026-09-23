@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { LayerRenderPriority, Map } from '@packages/types';
-import { paintTileOnMap, type PaintTileInput } from '@/lib/mapPainting';
+import { paintStampOnMap, paintTileOnMap, type PaintTileInput } from '@/lib/mapPainting';
 import {
   addMapLayer,
   moveMapLayer,
@@ -28,6 +28,7 @@ interface MapState {
   setActiveMapId: (mapId: string | null) => void;
   setCurrentMap: (map: Map | null) => void;
   paintTile: (input: PaintTileInput) => void;
+  paintStamp: (input: PaintTileInput) => void;
   addLayer: () => number | null;
   renameLayer: (index: number, name: string) => void;
   removeLayer: (index: number, activeLayer: number) => number;
@@ -56,6 +57,11 @@ export const useMapStore = create<MapState>((set, get) => ({
   paintTile: (input) =>
     set((state) =>
       state.currentMap ? { currentMap: paintTileOnMap(state.currentMap, input) } : state,
+    ),
+
+  paintStamp: (input) =>
+    set((state) =>
+      state.currentMap ? { currentMap: paintStampOnMap(state.currentMap, input) } : state,
     ),
 
   addLayer: () => {

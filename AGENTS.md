@@ -7,7 +7,7 @@
 
 ## 1. Project Overview
 
-RPG Studio is a 2D game editor monorepo (Turborepo). It allows users to create and run 2D games through a set of specialized apps and shared packages.
+RPG Studio is a 2D game editor monorepo. It allows users to create and run 2D games through a set of specialized apps and shared packages.
 
 **Key principle**: `packages/types` is the source of truth. Every feature starts there.
 
@@ -20,14 +20,15 @@ RPG Studio is a 2D game editor monorepo (Turborepo). It allows users to create a
 ├── turbo.json
 ├── package.json
 ├── apps/
-│   ├── editor/       # Next.js (App Router) — game creation interface
-│   ├── player/       # Vite — runtime for playing games
-│   └── docs/         # Docusaurus — documentation site
+│   ├── docs/         # Documentation to use the editor or player
+│   ├── editor/       # Game creation interface
+│   └── player/       # Runtime for playing games
 └── packages/
-    ├── core/         # Pure game engine (Canvas 2D, Vanilla TS) — NO React
-    ├── types/        # Shared TypeScript definitions — SOURCE OF TRUTH
-    ├── ui/           # Shared React components (editor only)
-    ├── tsconfig/     # Shared TS configs
+    ├── core/         # Pure game engine
+    ├── types/        # Shared type definitions — SOURCE OF TRUTH
+    ├── storage/      # Technical storage asset
+    ├── ui/           # Shared React components (currently unused)
+    ├── tsconfig/     # Shared Typescript configurations
     └── eslint-config/ # Shared linting rules
 ```
 
@@ -35,29 +36,24 @@ RPG Studio is a 2D game editor monorepo (Turborepo). It allows users to create a
 
 ## 3. Technical Stack
 
-| Scope | Technology |
-|---|---|
-| Editor (`apps/editor`) | Next.js (App Router), React, TypeScript, MUI |
-| Player (`apps/player`) | Vite, TypeScript |
-| Docs (`apps/docs`) | Docusaurus |
-| Engine (`packages/core`) | Vanilla TypeScript, Canvas 2D API |
-| Types (`packages/types`) | Pure TypeScript |
-| Auth | Better-Auth — GitHub, Google, Microsoft, Email |
-| Storage | Azure Storage with Service Principal |
-| Database | MongoDB Atlas |
-| Monorepo | Turborepo |
+| Scope                         | Technology                                                        |
+| ----------------------------- | ----------------------------------------------------------------- |
+| Editor (`apps/editor`)        | Next.js 16 (App Router), React 19, TypeScript 6, MUI 9, Zustand 5 |
+| Player (`apps/player`)        | Vite 8, TypeScript                                                |
+| Docs (`apps/docs`)            | Docusaurus 3                                                      |
+| Engine (`packages/core`)      | Vanilla TypeScript, Canvas 2D API (Vitest)                        |
+| Types (`packages/types`)      | Pure TypeScript                                                   |
+| Auth                          | Better Auth — magic link (SMTP); email/password in development    |
+| Storage (`@packages/storage`) | Azure Blob or Azurite; images proxied by the editor               |
+| Database                      | MongoDB (Atlas or local Docker)                                   |
+| Monorepo                      | Turborepo / npm workspaces                                        |
 
 ---
 
 ## 4. Agent Workflows (Spec-Driven Development)
 
 This project uses Spec-Driven Development via Spec Kit.
-All workflow commands and conventions are defined in:
-
-```
-.agent/workflows/
-```
-
+All workflow commands and conventions are defined in: `.agent/workflows/`.
 Before implementing any feature, consult the relevant workflow files in that directory.
 The standard development sequence is: **constitution → specify → clarify → plan → tasks → implement**.
 
@@ -66,15 +62,18 @@ The standard development sequence is: **constitution → specify → clarify →
 ## 5. Golden Rules — Must Follow
 
 ### Architecture
+
 - **Types first**: Any new game logic or editor feature MUST be modeled in `packages/types` before any implementation.
 - **Core agnosticism**: NEVER put React, Next.js, or any UI framework code in `packages/core`. It must remain framework-agnostic.
 - **Player minimalism**: `apps/player` must stay minimal — it only loads `packages/core` and `game.json`. Do not add unnecessary dependencies.
 - **Native Canvas**: In `packages/core`, do NOT use external engines (Phaser, PixiJS, etc.) unless explicitly instructed. Use `CanvasRenderingContext2D` only.
 
 ### Data
+
 - **MongoDB IDs**: Always use `string` for IDs in application code. Only convert to `ObjectId` when querying the `_id` field directly. See `specs/DESIGN_MONGODB_OBJECTID_PATTERN.md` for details.
 
 ### Code Quality
+
 - All code must be written in **TypeScript** with strict typing.
 - Shared types belong in `packages/types`, never duplicated across apps.
 - Follow existing ESLint rules defined in `packages/eslint-config`.
@@ -94,16 +93,19 @@ The standard development sequence is: **constitution → specify → clarify →
 ## 7. Testing Standards
 
 ### Unit & Integration — Jest
+
 - Used for logic in `packages/core` and `packages/types`.
 - Test files colocated with source: `*.test.ts` or `*.spec.ts`.
 - Run tests: `npm run test` from the relevant package.
 
 ### End-to-End — Cypress
+
 - Used for `apps/editor` user flows.
 - Tests located in `apps/editor/cypress/`.
 - Run E2E tests: `npm run cypress` from `apps/editor`.
 
 ### Guidelines
+
 - Every new feature in `packages/core` must include unit tests.
 - Critical editor user flows must have a corresponding Cypress test.
 - Do not ship features with failing tests.
@@ -114,23 +116,24 @@ The standard development sequence is: **constitution → specify → clarify →
 
 ### Apps
 
-| App | Dev | Build | Notes |
-|---|---|---|---|
-| `apps/editor` | `npm run dev` | `npm run build` | Next.js, `npm run start` to serve |
-| `apps/player` | `npm run dev` | `npm run build` | Vite, `npm run preview` to serve |
-| `apps/docs` | `npm run start` | `npm run build` | Docusaurus, `npm run typecheck` for tests |
+| App           | Dev             | Build           | Notes                                     |
+| ------------- | --------------- | --------------- | ----------------------------------------- |
+| `apps/editor` | `npm run dev`   | `npm run build` | Next.js, `npm run start` to serve         |
+| `apps/player` | `npm run dev`   | `npm run build` | Vite, `npm run preview` to serve          |
+| `apps/docs`   | `npm run start` | `npm run build` | Docusaurus, `npm run typecheck` for tests |
 
 ### Packages
 
-| Package | Dev | Build |
-|---|---|---|
-| `packages/core` | `npm run dev` | `npm run build` |
-| `packages/types` | `npm run dev` | `npm run build` |
-| `packages/ui` | `npm run dev` | `npm run build` |
-| `packages/eslint-config` | — | not required |
-| `packages/tsconfig` | — | not required |
+| Package                  | Dev           | Build           |
+| ------------------------ | ------------- | --------------- |
+| `packages/core`          | `npm run dev` | `npm run build` |
+| `packages/types`         | `npm run dev` | `npm run build` |
+| `packages/ui`            | `npm run dev` | `npm run build` |
+| `packages/eslint-config` | —             | not required    |
+| `packages/tsconfig`      | —             | not required    |
 
 ### Monorepo (from root)
+
 ```bash
 npm run dev      # Start all apps in parallel
 npm run build    # Build all packages and apps
@@ -145,6 +148,7 @@ When uncertain, apply this order of priority:
 
 1. Check `packages/types` — does the data structure already exist?
 2. Check `packages/core` — does the game logic already exist?
-3. Check `.agent/workflows/` — is there a workflow that applies?
-4. Check `specs/` — is there a design decision document?
-5. Then implement.
+3. Check `.specify/memory/technical-context.md` — stack, APIs, placement
+4. Check `.agent/workflows/` — is there a workflow that applies?
+5. Check `specs/` — is there a design decision document?
+6. Then implement.
