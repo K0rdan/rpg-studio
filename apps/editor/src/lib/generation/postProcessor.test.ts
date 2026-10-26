@@ -12,6 +12,7 @@ import {
   postProcessGeneratedImage,
   postProcessTileSheet,
   removeBackground,
+  resolveRequestedTilingMode,
   verifySelfTiling,
 } from './postProcessor';
 
@@ -167,5 +168,28 @@ describe('postProcessGeneratedImage', () => {
     expect(result.tilingMode).toBe('individual');
     expect(result.selfTilingScore).toBeUndefined();
     expect(raw[3]).toBe(0);
+  });
+});
+
+describe('resolveRequestedTilingMode', () => {
+  it('keeps the computed mode when the client omits tilingMode', () => {
+    expect(resolveRequestedTilingMode(undefined, 'fixed-block')).toEqual({
+      ok: true,
+      mode: 'fixed-block',
+    });
+  });
+
+  it('honors a valid requested mode over the computed fallback', () => {
+    expect(resolveRequestedTilingMode('individual', 'fixed-block')).toEqual({
+      ok: true,
+      mode: 'individual',
+    });
+  });
+
+  it('rejects an invalid requested mode', () => {
+    expect(resolveRequestedTilingMode('wraparound', 'individual')).toEqual({
+      ok: false,
+      message: 'Invalid tiling mode',
+    });
   });
 });

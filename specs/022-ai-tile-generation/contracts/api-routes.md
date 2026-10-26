@@ -42,7 +42,8 @@ Request:
 {
   "stage": "base" | "family" | "transition",
   "category": "vegetation",
-  "label": "grass",
+  "subjectDescription": "short dense green grass",
+  "name": "grass-ground",
   "generationMode": "texture",
   "model": "gpt",
   "pairFamilyIds": ["idA", "idB"],
@@ -53,11 +54,13 @@ Request:
 | Field | Rules |
 |-------|--------|
 | `stage` | Required. `base` only when the project has no `role: family` tileset (else 409). `family` requires ≥1 family. `transition` requires ≥2 families and `pairFamilyIds` length 2. |
-| `category` / `label` | Required for `base` and `family`. Ignored for `transition` (derived from the pair). |
+| `category` | Required for `base` and `family` as classification metadata; not used as the requested visual subject. Ignored for transitions. |
+| `subjectDescription` | Required for `base` and `family`; 1–200 characters describing the desired material or object. It is the functional content request used in prompt construction. |
+| `name` | Required asset name, 1–64 characters. Metadata only; never included in the model prompt. |
 | `generationMode` | Required for `creator-choice` categories (`vegetation`, `elevation`, `structure`). Forbidden to contradict implied categories (`ground`/`water` → `texture`, `decoration` → `prop`); conflict → 400. Ignored for `transition` (always `texture`). |
 | `model` | Optional override; else project `generationModel` (not `modelPreference`). |
 | `pairFamilyIds` | Required for `transition`. |
-| `regenerateTilesetId` | Optional; when set, this is a regenerate of that document (same uniqueness key). |
+| `regenerateTilesetId` | Optional; when set, this regenerates that asset by id. Its name/path are retained unless changed by the creator. |
 
 Server loads `styleSpec` from the project (400/409 if missing). Server loads reference images from blob storage for stages `family` and `transition` (and for `base` only if `regenerateTilesetId` points at a family that had sources — first-family regen still has none).
 
@@ -72,8 +75,9 @@ Response **200**:
   "preview_data": "data:image/png;base64,…",
   "generation_params": {
     "stage": "base",
+    "name": "grass-ground",
     "category": "vegetation",
-    "label": "grass",
+    "subjectDescription": "short dense green grass",
     "generationMode": "texture",
     "tilingMode": "individual",
     "selfTilingScore": 0.94,
@@ -108,8 +112,8 @@ Request:
   "tile_height": 32,
   "image_data": "data:image/png;base64,…",
   "folderPath": "",
+  "subjectDescription": "short dense green grass",
   "category": "vegetation",
-  "label": "grass",
   "role": "family",
   "generationMode": "texture",
   "tilingMode": "individual",
@@ -124,7 +128,7 @@ Request:
 
 Server MUST run PostProcessor again on `image_data` (do not trust the
 client). Dimensions must match project `styleSpec.tileSize`. Duplicate
-`category`+`label` without `regenerateTilesetId` → **409**. Server
+asset names are allowed; asset id is the identity. Server
 recomputes `generationMode` / `tilingMode` / `selfTilingScore`; it
 MUST NOT persist client-supplied tiling fields blindly.
 
@@ -160,8 +164,8 @@ List includes `generation_metadata` (legacy + new fields) so the UI can flag sta
 
 | Status | When |
 |--------|------|
-| 400 | Missing style, invalid category/label/stage, bad image, missing or conflicting `generationMode` |
-| 409 | Stage not allowed yet; duplicate family; style change without confirm; model not_supported / quota / misconfigured |
+| 400 | Missing style/name/description, invalid category/stage, bad image, missing or conflicting `generationMode` |
+| 409 | Stage not allowed yet; style change without confirm; model not_supported / quota / misconfigured |
 | 429 | Provider rate limit |
 | 502 | Provider upstream failure after mapping |
 | 500 | Unexpected |

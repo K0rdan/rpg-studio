@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "dotenv": "^17.4.2",
-    "mongodb": "^7.6.0"
+    "mongodb": "^7.7.0"
   },
   "scripts": {
     "dev:infra": "docker compose up -d",
@@ -21,7 +21,7 @@
     "copy:blobs": "node scripts/copy-blobs-to-azurite.mjs"
   },
   "devDependencies": {
-    "turbo": "^2.10.13",
+    "turbo": "^2.11.10",
     "typescript": "~6.0.3"
   },
   "allowScripts": {

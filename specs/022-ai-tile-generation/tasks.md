@@ -329,3 +329,13 @@ T049 Cypress model-selection flow
 - `sourceFamilyIds` and `pairFamilyIds` contain string ids; `ObjectId` is used only for `_id` queries.
 - Never reorder `project.tilesets` or map `tilesetIds`.
 - Charset generation remains on its existing flow and is out of scope.
+
+## Phase 10: Separate asset metadata from generation content
+
+**Purpose**: Let creators classify and organize generated assets independently
+from the content description sent to the image model.
+
+- [x] T066 Add a bounded generation description to accepted family metadata and document that legacy `label` values are not generation subjects in `packages/types/src/tileset-generation.ts` and `specs/022-ai-tile-generation/data-model.md`.
+- [x] T067 Update base/family prompts to use only a concise material/object description; keep category, asset name, folder path, and labels out of prompt text in `apps/editor/src/lib/generation/promptBuilder.ts` and `promptBuilder.test.ts`.
+- [x] T068 Replace the family-label input with asset name, folder path, and texture/object description fields; persist the description for regeneration in `apps/editor/src/components/TilesetGenerateDialog.tsx` and the generate/save routes.
+- [x] T069 Revise the feature requirements, prompt/API contracts, quickstart, and route/browser coverage for category-as-classification, duplicate asset names, user-selected storage path, and regeneration descriptions.

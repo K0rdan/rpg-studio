@@ -1,24 +1,15 @@
-import type {
-  GenerationMode,
-  ProjectStyleSpec,
-  TileFamilyCategory,
-} from '@packages/types';
+import type { GenerationMode, ProjectStyleSpec } from '@packages/types';
 
 export interface BasePromptInput {
   style: ProjectStyleSpec;
-  category: TileFamilyCategory;
-  label: string;
+  subjectDescription: string;
   generationMode: GenerationMode;
 }
 
-export interface FamilyPromptInput extends BasePromptInput {
-  referenceLabels: string[];
-}
+export type FamilyPromptInput = BasePromptInput;
 
 export interface TransitionPromptInput {
   style: ProjectStyleSpec;
-  familyA: { category: TileFamilyCategory; label: string };
-  familyB: { category: TileFamilyCategory; label: string };
 }
 
 export interface BuiltPrompt {
@@ -30,19 +21,21 @@ function sheetInstructions(style: ProjectStyleSpec): string {
     ? ` Use a ${style.mood} mood and theme.`
     : '';
   return [
-    `Use an exact 8×8 grid containing 64 square cells, each representing one ${style.tileSize}×${style.tileSize} pixel tile.`,
+    `Create a ${style.tileSize * 8}×${style.tileSize * 8} pixel image.`,
     `Use a ${style.perspective} perspective.${moodInstruction}`,
-    'Keep every cell aligned to the grid with crisp hard edges and no margins, spacing, labels, or borders.',
-    `The complete sheet will be ${style.tileSize * 8}×${style.tileSize * 8} pixels.`,
   ].join(' ');
 }
 
-function modeInstructions(generationMode: GenerationMode): string {
+function modeInstructions(
+  style: ProjectStyleSpec,
+  generationMode: GenerationMode,
+  subjectDescription: string,
+): string {
   switch (generationMode) {
     case 'texture':
-      return 'Each cell is a continuous wrapping material whose left/right and top/bottom edges match themselves for seamless self-tiling.';
+      return `A single seamless, tileable ${style.perspective} texture for a 2D RPG: ${subjectDescription.trim()}. Edge-to-edge continuous pattern whose outer left/right and top/bottom edges wrap seamlessly, with no visible seams, grid lines, borders, framing, or distinct centered objects.`;
     case 'prop':
-      return 'Each cell is an isolated decorative object on a flat, uniform background. Do not draw a landscape and do not rely on real transparency.';
+      return `Create pixel art of ${subjectDescription.trim()} as an isolated decorative object on a flat, uniform background. Do not draw a landscape and do not rely on real transparency.`;
     default: {
       const exhaustive: never = generationMode;
       return exhaustive;
@@ -50,34 +43,39 @@ function modeInstructions(generationMode: GenerationMode): string {
   }
 }
 
+function textureExclusions(generationMode: GenerationMode): string {
+  // This instruction only applies to terrain textures, never to props.
+  return generationMode === 'texture'
+    ? 'Show only the requested terrain material: no other terrain types or materials, paths, stones, distinct objects, or centered focal elements.'
+    : '';
+}
+
 export function buildBasePrompt({
   style,
-  category,
-  label,
+  subjectDescription,
   generationMode,
 }: BasePromptInput): BuiltPrompt {
   return {
     prompt: [
-      `Create a pixel-art 2D tileset family for ${category}: ${label}.`,
-      modeInstructions(generationMode),
       sheetInstructions(style),
+      'Create a pixel-art image.',
+      modeInstructions(style, generationMode, subjectDescription),
+      textureExclusions(generationMode),
     ].join(' '),
   };
 }
 
 export function buildFamilyPrompt({
   style,
-  category,
-  label,
+  subjectDescription,
   generationMode,
-  referenceLabels,
 }: FamilyPromptInput): BuiltPrompt {
-  const references = referenceLabels.join(', ');
   return {
     prompt: [
-      `Create a pixel-art 2D tileset family for ${category}: ${label}.`,
-      modeInstructions(generationMode),
-      `Match the attached reference image(s) for ${references} in palette, outline weight, lighting, and level of detail.`,
+      'Create a pixel-art image.',
+      modeInstructions(style, generationMode, subjectDescription),
+      textureExclusions(generationMode),
+      'Match the attached reference image(s) in palette, outline weight, lighting, and level of detail.',
       sheetInstructions(style),
     ].join(' '),
   };
@@ -85,13 +83,11 @@ export function buildFamilyPrompt({
 
 export function buildTransitionPrompt({
   style,
-  familyA,
-  familyB,
 }: TransitionPromptInput): BuiltPrompt {
   return {
     prompt: [
-      `Create pixel-art 2D transition tiles that join ${familyA.category}: ${familyA.label} with ${familyB.category}: ${familyB.label}.`,
-      modeInstructions('texture'),
+      'Create pixel-art 2D transition tiles joining the two attached terrain families.',
+      'Create an uninterrupted transition atlas with edge, corner, and join variants between the two terrain families. Each tile must self-tile seamlessly and preserve the visual continuity of both families.',
       'Match the attached reference image(s) for both families in palette, outline weight, lighting, and edge occupancy.',
       'Fill the sheet with edge, corner, and join variants so adjacent map regions meet continuously.',
       sheetInstructions(style),

@@ -52,6 +52,14 @@ export const GENERATION_UNAVAILABLE_REASONS = [
 export type GenerationUnavailableReason =
   typeof GENERATION_UNAVAILABLE_REASONS[number];
 
+/** Formats accepted from image-generation providers before post-processing. */
+export const RAW_GENERATION_IMAGE_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+] as const;
+export type RawGenerationImageMimeType =
+  typeof RAW_GENERATION_IMAGE_MIME_TYPES[number];
+
 export interface ProjectStyleSpec {
   tileSize: TileSize;
   perspective: ProjectPerspective;
@@ -72,7 +80,7 @@ export interface GenerationClientRequest {
 }
 
 export interface RawGenerationResult {
-  mimeType: 'image/png';
+  mimeType: RawGenerationImageMimeType;
   bytes: Uint8Array;
   model: GenerationModelId;
 }
@@ -104,7 +112,9 @@ export interface TilesetGenerationMetadata {
   model?: GenerationModelId;
   role?: GenerationRole;
   category?: TileFamilyCategory;
+  /** Legacy display metadata. Never used as generation content. */
   label?: string;
+  generationDescription?: string;
   status?: GenerationStatus;
   sourceFamilyIds?: string[];
   pairFamilyIds?: [string, string];
@@ -174,8 +184,23 @@ export function isGenerationUnavailableReason(
   return isOneOf(value, GENERATION_UNAVAILABLE_REASONS);
 }
 
+export function isRawGenerationImageMimeType(
+  value: unknown,
+): value is RawGenerationImageMimeType {
+  return isOneOf(value, RAW_GENERATION_IMAGE_MIME_TYPES);
+}
+
+/** @deprecated Labels are legacy metadata; validate current asset names with isAssetName. */
 export function isGenerationLabel(value: unknown): value is string {
   return isTrimmedString(value, 64);
+}
+
+export function isAssetName(value: unknown): value is string {
+  return isTrimmedString(value, 64);
+}
+
+export function isGenerationDescription(value: unknown): value is string {
+  return isTrimmedString(value, 200);
 }
 
 export function isProjectStyleSpec(value: unknown): value is ProjectStyleSpec {
@@ -222,7 +247,7 @@ export function isGenerationClientRequest(
 export function isRawGenerationResult(value: unknown): value is RawGenerationResult {
   return (
     isRecord(value)
-    && value.mimeType === 'image/png'
+    && isRawGenerationImageMimeType(value.mimeType)
     && value.bytes instanceof Uint8Array
     && isGenerationModelId(value.model)
   );

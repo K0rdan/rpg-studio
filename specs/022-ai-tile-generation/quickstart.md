@@ -14,11 +14,11 @@ Expect: reload still shows that style; generate is no longer blocked for missing
 
 ## 2. First family
 
-Request generate: category `vegetation`, label `grass`, generation mode **texture** (vegetation is creator-choice; the toggle must be set). Do not fill a free-form image prompt (control must not exist).
+Request generate: category `vegetation`, texture description `short dense green grass`, asset name `grass-ground`, folder path `Terrain/Grass`, and generation mode **texture** (vegetation is creator-choice; the toggle must be set). Do not submit a complete free-form image prompt.
 
 Expect: preview PNG whose width and height are **256×256** (32×8). Preview states individually reusable vs fixed-block. Reject once: Assets list unchanged. Generate again and **accept**.
 
-Expect: a project tileset named from the label, usable in the map palette, `generation_metadata.role === 'family'`, `status === 'fresh'`, `generationMode === 'texture'`, `tilingMode` set, `sourceFamilyIds` empty. `tile_width` remains 32 even if `tilingMode` is `fixed-block`.
+Expect: a project tileset with the supplied name and folder path, and `generation_metadata.generationDescription === 'short dense green grass'`. It is usable in the map palette, `generation_metadata.role === 'family'`, `status === 'fresh'`, `generationMode === 'texture'`, `tilingMode` set, `sourceFamilyIds` empty. `tile_width` remains 32 even if `tilingMode` is `fixed-block`.
 
 ## 3. Grid contract
 
@@ -52,3 +52,5 @@ Recorded 2026-09-22 during `/speckit-implement` of Phases 3–8.
 | Story 1 manual guide (style → reject → accept 256×256 grass) | Covered by Jest generate/save tests and the Cypress MVP intercept test |
 
 Palette quantization (`png({ palette: true, colours: 32, dither: 0 })`) is enabled: hard-edge and transparency assertions passed.
+
+The results above predate Phase 10 (asset metadata/content separation). The updated route, prompt, type, and Cypress coverage has not been executed yet.

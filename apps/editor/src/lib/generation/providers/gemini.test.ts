@@ -65,7 +65,7 @@ describe('GeminiGenerationClient', () => {
     });
 
     expect(generateContent).toHaveBeenCalledWith({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3.1-flash-lite-image',
       contents: 'structured prompt',
       config: {
         responseModalities: ['Image'],
@@ -75,6 +75,32 @@ describe('GeminiGenerationClient', () => {
     expect(result).toEqual({
       mimeType: 'image/png',
       bytes: new Uint8Array(Buffer.from('png bytes')),
+      model: 'gemini',
+    });
+  });
+
+  it('accepts JPEG output for post-processing', async () => {
+    generateContent.mockResolvedValue({
+      candidates: [{
+        content: {
+          parts: [{
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: Buffer.from('jpeg bytes').toString('base64'),
+            },
+          }],
+        },
+      }],
+    });
+
+    await expect(new GeminiGenerationClient().generate({
+      model: 'gemini',
+      prompt: 'structured prompt',
+      referenceImages: [],
+      tileSize: 32,
+    })).resolves.toEqual({
+      mimeType: 'image/jpeg',
+      bytes: new Uint8Array(Buffer.from('jpeg bytes')),
       model: 'gemini',
     });
   });

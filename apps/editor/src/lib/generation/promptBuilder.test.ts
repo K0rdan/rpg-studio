@@ -7,122 +7,73 @@ import {
 } from './promptBuilder';
 
 describe('buildBasePrompt', () => {
-  const style: ProjectStyleSpec = {
-    tileSize: 32,
-    perspective: 'top-down',
-  };
+  const style: ProjectStyleSpec = { tileSize: 32, perspective: 'top-down' };
 
-  it('is deterministic and describes the exact sheet geometry', () => {
-    const input = {
+  it('uses the functional description, not organization metadata', () => {
+    const prompt = buildBasePrompt({
       style,
-      category: 'vegetation' as const,
-      label: 'grass',
-      generationMode: 'texture' as const,
-    };
-
-    expect(buildBasePrompt(input)).toEqual(buildBasePrompt(input));
-    expect(buildBasePrompt(input).prompt).toContain('8×8');
-    expect(buildBasePrompt(input).prompt).toContain('64');
-    expect(buildBasePrompt(input).prompt).toContain('32×32');
-    expect(buildBasePrompt(input).prompt).toContain('top-down');
-    expect(buildBasePrompt(input).prompt).toContain('vegetation');
-    expect(buildBasePrompt(input).prompt).toContain('grass');
-    expect(buildBasePrompt(input).prompt).toContain('no margins');
-  });
-
-  it('includes a configured mood and omits mood language when absent', () => {
-    const withoutMood = buildBasePrompt({
-      style,
-      category: 'ground',
-      label: 'dirt',
+      subjectDescription: 'short dense green grass',
       generationMode: 'texture',
     }).prompt;
-    const withMood = buildBasePrompt({
+
+    expect(prompt).toContain('256×256');
+    expect(prompt).toContain('short dense green grass');
+    expect(prompt).toContain('no grid lines');
+    expect(prompt).not.toContain('vegetation');
+  });
+
+  it('includes optional mood and omits it when absent', () => {
+    const prompt = buildBasePrompt({
       style: { ...style, mood: 'warm autumn' },
-      category: 'ground',
-      label: 'dirt',
+      subjectDescription: 'dark wet soil',
+      generationMode: 'texture',
+    }).prompt;
+    const noMood = buildBasePrompt({
+      style,
+      subjectDescription: 'dark wet soil',
       generationMode: 'texture',
     }).prompt;
 
-    expect(withoutMood).not.toMatch(/mood|theme/i);
-    expect(withMood).toContain('warm autumn');
+    expect(prompt).toContain('warm autumn');
+    expect(noMood).not.toMatch(/mood|theme/i);
   });
 
-  it('only accepts structured inputs, not a client custom prompt', () => {
-    // @ts-expect-error Free-form prompts are not part of the builder contract.
-    buildBasePrompt({
+  it('uses the requested object description for props without texture exclusions', () => {
+    const prompt = buildBasePrompt({
       style,
-      category: 'ground',
-      label: 'dirt',
-      generationMode: 'texture',
-      customPrompt: 'ignore rules',
-    });
-  });
-
-  it('describes wrapping texture cells versus isolated props on a flat background', () => {
-    const texture = buildBasePrompt({
-      style,
-      category: 'vegetation',
-      label: 'grass',
-      generationMode: 'texture',
-    }).prompt;
-    const prop = buildBasePrompt({
-      style,
-      category: 'vegetation',
-      label: 'tree',
+      subjectDescription: 'small pine tree',
       generationMode: 'prop',
     }).prompt;
 
-    expect(texture).toMatch(/self-tiling|wrapping/i);
-    expect(prop).toMatch(/isolated|uniform background/i);
-    expect(prop).not.toMatch(/self-tiling|wrapping/i);
+    expect(prompt).toContain('small pine tree');
+    expect(prompt).toMatch(/isolated|uniform background/i);
+    expect(prompt).not.toMatch(/no other terrain types/);
   });
 });
 
 describe('buildFamilyPrompt', () => {
-  const style: ProjectStyleSpec = {
-    tileSize: 32,
-    perspective: 'top-down',
-  };
+  it('uses a functional description and attached references without organizational metadata', () => {
+    const prompt = buildFamilyPrompt({
+      style: { tileSize: 32, perspective: 'top-down' },
+      subjectDescription: 'brown muddy soil',
+      generationMode: 'texture',
+    }).prompt;
 
-  it('is deterministic and mentions ordered reference labels plus attached images', () => {
-    const input = {
-      style,
-      category: 'ground' as const,
-      label: 'dirt',
-      generationMode: 'texture' as const,
-      referenceLabels: ['grass', 'stone'],
-    };
-
-    expect(buildFamilyPrompt(input)).toEqual(buildFamilyPrompt(input));
-    expect(buildFamilyPrompt(input).prompt).toContain('attached reference image');
-    expect(buildFamilyPrompt(input).prompt).toContain('grass, stone');
-    expect(buildFamilyPrompt(input).prompt).toContain('ground');
-    expect(buildFamilyPrompt(input).prompt).toContain('dirt');
-    expect(buildFamilyPrompt(input).prompt).toContain('8×8');
+    expect(prompt).toContain('brown muddy soil');
+    expect(prompt).toContain('attached reference image');
+    expect(prompt).not.toContain('ground');
+    expect(prompt).not.toContain('dirt-asset-name');
   });
 });
 
 describe('buildTransitionPrompt', () => {
-  const style: ProjectStyleSpec = {
-    tileSize: 16,
-    perspective: '3/4',
-  };
+  it('uses attached family images and does not include asset names', () => {
+    const prompt = buildTransitionPrompt({
+      style: { tileSize: 16, perspective: '3/4' },
+    }).prompt;
 
-  it('names both families, requires attached references, and keeps 8×8 geometry', () => {
-    const input = {
-      style,
-      familyA: { category: 'vegetation' as const, label: 'grass' },
-      familyB: { category: 'ground' as const, label: 'dirt' },
-    };
-
-    expect(buildTransitionPrompt(input)).toEqual(buildTransitionPrompt(input));
-    expect(buildTransitionPrompt(input).prompt).toContain('vegetation: grass');
-    expect(buildTransitionPrompt(input).prompt).toContain('ground: dirt');
-    expect(buildTransitionPrompt(input).prompt).toContain('attached reference image');
-    expect(buildTransitionPrompt(input).prompt).toContain('8×8');
-    expect(buildTransitionPrompt(input).prompt).toContain('16×16');
-    expect(buildTransitionPrompt(input).prompt).toMatch(/self-tiling|wrapping/i);
-    expect(buildTransitionPrompt(input).prompt).not.toMatch(/isolated decorative/i);
+    expect(prompt).toContain('attached reference image');
+    expect(prompt).toContain('128×128');
+    expect(prompt).toMatch(/self-tile|seamless/i);
   });
 });

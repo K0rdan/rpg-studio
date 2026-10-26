@@ -6,14 +6,15 @@ import { requireProjectAccess } from '@/lib/apiAuth';
 import { assetImageUrl } from '@/lib/assetImageUrl';
 import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 import {
-  isGenerationLabel,
+  isAssetName,
+  isGenerationDescription,
   isGenerationModelId,
   isProjectStyleSpec,
   isTileFamilyCategory,
   type GenerationRole,
+  type TilingMode,
 } from '@packages/types';
 import {
-  findDuplicateFamily,
   findTransitionForPair,
   generatedTilesetId,
   listAcceptedFamilies,
@@ -22,7 +23,10 @@ import {
 } from '@/lib/generation/familyLookup';
 import { resolveGenerationMode } from '@/lib/generation/category-config';
 import { markDependentsStale } from '@/lib/generation/lineage';
-import { postProcessGeneratedImage } from '@/lib/generation/postProcessor';
+import {
+  postProcessGeneratedImage,
+  resolveRequestedTilingMode,
+} from '@/lib/generation/postProcessor';
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -65,12 +69,15 @@ export async function POST(
     const prompt = request.prompt;
     const model = request.model;
     const role = request.role as GenerationRole | undefined;
+    const hasFolderPath = Object.prototype.hasOwnProperty.call(request, 'folderPath');
     const folderPath = normalizeAssetFolderPath(request.folderPath);
     const regenerateTilesetId = typeof request.regenerateTilesetId === 'string'
       && request.regenerateTilesetId
       ? request.regenerateTilesetId
       : null;
-    const label = typeof request.label === 'string' ? request.label.trim() : request.label;
+    const subjectDescription = typeof request.subjectDescription === 'string'
+      ? request.subjectDescription.trim()
+      : request.subjectDescription;
     const styleSpec = access.project.styleSpec;
 
     if (!isProjectStyleSpec(styleSpec)) {
@@ -103,27 +110,23 @@ export async function POST(
     const category = request.category;
     let sourceFamilyIds = readStringArray(request.sourceFamilyIds);
     let pairFamilyIds: [string, string] | null = null;
-    let name = typeof request.name === 'string' && request.name.trim()
+    const name = typeof request.name === 'string' && request.name.trim()
       ? request.name.trim()
       : '';
+    if (!isAssetName(name)) {
+      return NextResponse.json({ message: 'Asset name must contain 1–64 characters' }, { status: 400 });
+    }
 
     if (role === 'family') {
-      if (!isTileFamilyCategory(category) || !isGenerationLabel(label)) {
+      if (!isTileFamilyCategory(category) || !isGenerationDescription(subjectDescription)) {
         return NextResponse.json(
-          { message: 'Invalid family acceptance payload' },
+          { message: 'A family requires a category and a texture or object description' },
           { status: 400 },
         );
       }
       const remainingFamilies = regenerateTilesetId
         ? families.filter((family) => generatedTilesetId(family) !== regenerateTilesetId)
         : families;
-      const duplicate = findDuplicateFamily(remainingFamilies, category, label);
-      if (duplicate) {
-        return NextResponse.json(
-          { message: 'A generated family with this category and label already exists' },
-          { status: 409 },
-        );
-      }
       if (!regenerateTilesetId && remainingFamilies.length === 0 && sourceFamilyIds.length !== 0) {
         return NextResponse.json(
           { message: 'A first family cannot record source families' },
@@ -136,7 +139,6 @@ export async function POST(
           { status: 400 },
         );
       }
-      name = name || label;
     } else {
       const requestedPair = readStringArray(request.pairFamilyIds);
       if (requestedPair.length !== 2 || requestedPair[0] === requestedPair[1]) {
@@ -163,7 +165,6 @@ export async function POST(
           { status: 409 },
         );
       }
-      name = name || `${pairFamilies[0]?.generation_metadata?.label ?? 'A'} ↔ ${pairFamilies[1]?.generation_metadata?.label ?? 'B'}`;
     }
 
     const resolvedMode = resolveGenerationMode({
@@ -181,7 +182,7 @@ export async function POST(
     const imageBuffer = Buffer.from(base64Data, 'base64');
     let processedImage: Buffer;
     let processedMode = resolvedMode.mode;
-    let tilingMode: 'individual' | 'fixed-block' = 'individual';
+    let tilingMode: TilingMode = 'individual';
     let selfTilingScore: number | undefined;
     try {
       const processed = await postProcessGeneratedImage(
@@ -191,8 +192,12 @@ export async function POST(
       );
       processedImage = Buffer.from(processed.bytes);
       processedMode = processed.generationMode;
-      tilingMode = processed.tilingMode;
       selfTilingScore = processed.selfTilingScore;
+      const resolvedTiling = resolveRequestedTilingMode(request.tilingMode, processed.tilingMode);
+      if (!resolvedTiling.ok) {
+        return NextResponse.json({ message: resolvedTiling.message }, { status: 400 });
+      }
+      tilingMode = resolvedTiling.mode;
     } catch {
       return NextResponse.json({ message: 'Invalid generated PNG image' }, { status: 400 });
     }
@@ -206,7 +211,7 @@ export async function POST(
       model,
       role,
       ...(isTileFamilyCategory(category) ? { category } : {}),
-      ...(isGenerationLabel(label) ? { label } : {}),
+      ...(isGenerationDescription(subjectDescription) ? { generationDescription: subjectDescription } : {}),
       status: 'fresh' as const,
       sourceFamilyIds,
       ...(pairFamilyIds ? { pairFamilyIds } : {}),
@@ -239,7 +244,7 @@ export async function POST(
         {
           $set: {
             name,
-            ...(folderPath ? { folderPath } : {}),
+            ...(hasFolderPath ? { folderPath } : {}),
             tile_width: styleSpec.tileSize,
             tile_height: styleSpec.tileSize,
             storageLocation: storageLocation.storageKey,
@@ -261,7 +266,7 @@ export async function POST(
       return NextResponse.json({
         id: regenerateTilesetId,
         name,
-        ...(folderPath ? { folderPath } : {}),
+        ...(hasFolderPath ? { folderPath } : {}),
         image_source: assetImageUrl(projectId, 'tileset', regenerateTilesetId),
         tile_width: styleSpec.tileSize,
         tile_height: styleSpec.tileSize,

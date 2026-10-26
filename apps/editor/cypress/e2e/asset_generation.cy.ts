@@ -48,7 +48,7 @@ describe('Asset Generation', () => {
     cy.get('button[aria-label="Generate tileset"]').click();
 
     cy.contains('Generate AI Tileset').should('be.visible');
-    cy.contains('Family label').should('be.visible');
+    cy.contains('Asset name').should('be.visible');
     cy.contains('Charset Name').should('not.exist');
     cy.contains('Custom Prompt').should('not.exist');
   });
@@ -83,6 +83,7 @@ describe('Asset Generation', () => {
       request.reply(accepted ? [{
         id: tilesetId,
         name: 'grass',
+        folderPath: 'Terrain/Grass',
         image_source: preview,
         tile_width: 32,
         tile_height: 32,
@@ -92,7 +93,7 @@ describe('Asset Generation', () => {
           role: 'family',
           status: 'fresh',
           category: 'vegetation',
-          label: 'grass',
+          generationDescription: 'short dense green grass',
           sourceFamilyIds: [],
         },
       }] : []);
@@ -112,8 +113,10 @@ describe('Asset Generation', () => {
       expect(request.body).to.deep.equal({
         stage: 'base',
         category: 'vegetation',
-        label: 'grass',
+        name: 'grass',
+        subjectDescription: 'short dense green grass',
         generationMode: 'texture',
+        tilingMode: 'individual',
       });
       generateCount += 1;
       request.reply({
@@ -121,8 +124,8 @@ describe('Asset Generation', () => {
         generation_params: {
           stage: 'base',
           name: 'grass',
+          subjectDescription: 'short dense green grass',
           category: 'vegetation',
-          label: 'grass',
           generationMode: 'texture',
           tilingMode: 'individual',
           tile_width: 32,
@@ -136,12 +139,16 @@ describe('Asset Generation', () => {
       });
     }).as('generateFamily');
     cy.intercept('POST', `/api/projects/${projectId}/tilesets/save-generated`, (request) => {
+      expect(request.body.name).to.eq('grass');
+      expect(request.body.subjectDescription).to.eq('short dense green grass');
+      expect(request.body.folderPath).to.eq('Terrain/Grass');
       accepted = true;
       request.reply({
         statusCode: 201,
         body: {
         id: tilesetId,
         name: 'grass',
+        folderPath: 'Terrain/Grass',
         tile_width: 32,
         tile_height: 32,
         generation_metadata: {
@@ -149,7 +156,7 @@ describe('Asset Generation', () => {
           role: 'family',
           status: 'fresh',
           category: 'vegetation',
-          label: 'grass',
+          generationDescription: 'short dense green grass',
           sourceFamilyIds: [],
         },
       },
@@ -158,7 +165,9 @@ describe('Asset Generation', () => {
 
     cy.get('button[aria-label="Generate tileset"]').click();
     cy.contains('Generate AI Tileset').should('be.visible');
-    cy.get('input[aria-label="Family label"]').type('grass');
+    cy.get('input[aria-label="Asset name"]').type('grass');
+    cy.get('input[aria-label="Asset folder path"]').type('Terrain/Grass');
+    cy.get('[aria-label="Generation description"]').type('short dense green grass');
     cy.contains('button', 'Generate').click();
     cy.wait(['@saveStyle', '@generateFamily']);
     cy.contains('Preview Generated Tileset').should('be.visible');
@@ -226,15 +235,16 @@ describe('Asset Generation', () => {
     cy.intercept('POST', `/api/projects/${projectId}/tilesets/generate`, (request) => {
       expect(request.body.stage).to.eq('family');
       expect(request.body.category).to.eq('ground');
-      expect(request.body.label).to.eq('dirt');
+      expect(request.body.name).to.eq('dirt');
+      expect(request.body.subjectDescription).to.eq('brown muddy soil');
       expect(request.body.sourceFamilyIds).to.deep.eq([grassId]);
       request.reply({
         preview_data: preview,
         generation_params: {
           stage: 'family',
           name: 'dirt',
+          subjectDescription: 'brown muddy soil',
           category: 'ground',
-          label: 'dirt',
           role: 'family',
           tile_width: 32,
           tile_height: 32,
@@ -255,9 +265,10 @@ describe('Asset Generation', () => {
     }).as('acceptDirt');
 
     cy.get('button[aria-label="Generate tileset"]').click();
-    cy.get('[aria-label="Family category"]').click();
+    cy.get('[aria-label="Asset category"]').click();
     cy.contains('li', 'ground').click();
-    cy.get('input[aria-label="Family label"]').type('dirt');
+    cy.get('input[aria-label="Asset name"]').type('dirt');
+    cy.get('[aria-label="Generation description"]').type('brown muddy soil');
     cy.contains('Suggested transition with grass').should('be.visible');
     cy.contains('button', 'Generate').click();
     cy.wait('@generateDirt');
@@ -354,6 +365,7 @@ describe('Asset Generation', () => {
     cy.get('button[aria-label="Generate tileset"]').click();
     cy.get('[aria-label="Generation mode"]').click();
     cy.contains('li', 'Transition tiles').click();
+    cy.get('input[aria-label="Asset name"]').type('grass-dirt-transition');
     cy.contains('button', 'Generate').click();
     cy.wait('@generateTransition');
     cy.contains('button', 'Accept').click();
@@ -532,7 +544,8 @@ describe('Asset Generation', () => {
     cy.wait('@loadProject');
     cy.get('[aria-label="Generation model"]').click();
     cy.contains('li', 'GPT').click();
-    cy.get('input[aria-label="Family label"]').type('grass');
+    cy.get('input[aria-label="Asset name"]').type('grass');
+    cy.get('[aria-label="Generation description"]').type('short dense green grass');
     cy.contains('button', 'Generate').click();
     cy.wait('@generateWithModel');
     cy.contains('Preview Generated Tileset').should('be.visible');
@@ -561,6 +574,7 @@ describe('Asset Generation', () => {
     cy.intercept('POST', `/api/projects/${projectId}/tilesets/generate`, (request) => {
       expect(request.body.category).to.eq('decoration');
       expect(request.body.generationMode).to.eq(undefined);
+      expect(request.body.tilingMode).to.eq('fixed-block');
       request.reply({
         preview_data: preview,
         generation_params: {
@@ -582,10 +596,13 @@ describe('Asset Generation', () => {
     }).as('generateProp');
 
     cy.get('button[aria-label="Generate tileset"]').click();
-    cy.get('[aria-label="Family category"]').click();
+    cy.get('[aria-label="Asset category"]').click();
     cy.contains('li', 'decoration').click();
     cy.get('[aria-label="Texture or prop"]').should('not.exist');
-    cy.get('input[aria-label="Family label"]').type('bush');
+    cy.get('[aria-label="Tiling mode"]').click();
+    cy.contains('li', 'Single fixed 8×8 stamp').click();
+    cy.get('input[aria-label="Asset name"]').type('bush');
+    cy.get('[aria-label="Generation description"]').type('small green bush');
     cy.contains('button', 'Generate').click();
     cy.wait('@generateProp');
     cy.contains('a single fixed 8×8 stamp').should('be.visible');

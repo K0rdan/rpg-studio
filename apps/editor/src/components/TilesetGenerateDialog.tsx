@@ -27,12 +27,14 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/apiFetch';
+import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 import { areCategoriesCommonlyAdjacent } from '@/lib/generation/adjacency';
 import { categoryModeOf } from '@/lib/generation/category-config';
 import {
   COMMON_TILE_SIZES,
   GENERATION_MODEL_IDS,
   TILE_FAMILY_CATEGORIES,
+  TILING_MODES,
   type GenerationMode,
   type GenerationModelId,
   type ProjectPerspective,
@@ -55,8 +57,8 @@ interface TilesetGenerateDialogProps {
 interface TilesetGenerationParams {
   stage: 'base' | 'family' | 'transition';
   name: string;
+  subjectDescription?: string;
   category?: TileFamilyCategory;
-  label?: string;
   role: 'family' | 'transition';
   tile_width: number;
   tile_height: number;
@@ -79,7 +81,6 @@ interface FamilyOption {
   id: string;
   name: string;
   category?: TileFamilyCategory;
-  label?: string;
 }
 
 interface DependentSummary {
@@ -106,6 +107,19 @@ function modelLabel(model: GenerationModelId): string {
   }
 }
 
+function tilingModeLabel(mode: TilingMode): string {
+  switch (mode) {
+    case 'individual':
+      return 'Individually reusable tiles';
+    case 'fixed-block':
+      return 'Single fixed 8×8 stamp';
+    default: {
+      const exhaustive: never = mode;
+      return exhaustive;
+    }
+  }
+}
+
 export default function TilesetGenerateDialog({
   projectId,
   onTilesetGenerated,
@@ -118,9 +132,12 @@ export default function TilesetGenerateDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const open = internalOpen || Boolean(regenerateTilesetId);
   const [mode, setMode] = useState<DialogMode>('family');
-  const [label, setLabel] = useState('');
+  const [assetName, setAssetName] = useState('');
+  const [subjectDescription, setSubjectDescription] = useState('');
+  const [assetFolderPath, setAssetFolderPath] = useState(folderPath);
   const [category, setCategory] = useState<TileFamilyCategory>('vegetation');
   const [generationMode, setGenerationMode] = useState<GenerationMode>('texture');
+  const [tilingMode, setTilingMode] = useState<TilingMode>('individual');
   const [tileSize, setTileSize] = useState<ProjectStyleSpec['tileSize']>(32);
   const [perspective, setPerspective] = useState<ProjectPerspective>('top-down');
   const [mood, setMood] = useState('');
@@ -141,6 +158,10 @@ export default function TilesetGenerateDialog({
   const { showToast } = useToast();
 
   const isRegenerate = Boolean(regenerateTilesetId);
+  const categoryGenerationMode = categoryModeOf(category);
+  const effectiveGenerationMode = categoryGenerationMode === 'creator-choice'
+    ? generationMode
+    : categoryGenerationMode;
 
   useEffect(() => {
     if (!open) return;
@@ -173,9 +194,8 @@ export default function TilesetGenerateDialog({
           .filter((tileset) => tileset.generation_metadata?.generated && tileset.generation_metadata.role === 'family')
           .map((tileset) => ({
             id: tileset.id,
-            name: tileset.generation_metadata?.label || tileset.name,
+            name: tileset.name,
             category: tileset.generation_metadata?.category,
-            label: tileset.generation_metadata?.label,
           }));
         setFamilies(accepted);
         setTransitions(tilesets.filter((tileset) => tileset.generation_metadata?.role === 'transition'));
@@ -193,9 +213,13 @@ export default function TilesetGenerateDialog({
             if (metadata?.role === 'transition') {
               setMode('transition');
             }
+            setAssetName(tileset.name);
+            setAssetFolderPath(tileset.folderPath ?? '');
             if (metadata?.category) setCategory(metadata.category);
-            if (metadata?.label) setLabel(metadata.label);
+            if (metadata?.generationDescription) setSubjectDescription(metadata.generationDescription);
+            else if (metadata?.label) setSubjectDescription(metadata.label);
             if (metadata?.generationMode) setGenerationMode(metadata.generationMode);
+            if (metadata?.tilingMode) setTilingMode(metadata.tilingMode);
           }
         }
       } catch (error) {
@@ -209,6 +233,10 @@ export default function TilesetGenerateDialog({
       active = false;
     };
   }, [open, projectId, regenerateTilesetId, showToast]);
+
+  useEffect(() => {
+    if (open && !regenerateTilesetId) setAssetFolderPath(folderPath);
+  }, [folderPath, open, regenerateTilesetId]);
 
   const suggestedPartner = useMemo(() => {
     return families.find((family) => (
@@ -234,9 +262,12 @@ export default function TilesetGenerateDialog({
   const handleClose = () => {
     setInternalOpen(false);
     resetPreview();
-    setLabel('');
+    setAssetName('');
+    setSubjectDescription('');
+    setAssetFolderPath(folderPath);
     setCategory('vegetation');
     setGenerationMode('texture');
+    setTilingMode('individual');
     setMode('family');
     setSourceFamilyId('');
     setPairA('');
@@ -247,13 +278,20 @@ export default function TilesetGenerateDialog({
   };
 
   const handleGenerate = async () => {
-    if (mode === 'family' && !isRegenerate) {
-      const trimmedLabel = label.trim();
-      if (!trimmedLabel || trimmedLabel.length > 64) {
-        showToast('Family label must contain 1–64 characters', 'error');
-        return;
-      }
+    if (!assetName.trim() || assetName.trim().length > 64) {
+      showToast('Asset name must contain 1–64 characters', 'error');
+      return;
     }
+    if (mode === 'family' && (!subjectDescription.trim() || subjectDescription.trim().length > 200)) {
+      showToast('Enter a texture or object description (1–200 characters)', 'error');
+      return;
+    }
+    const normalizedFolderPath = normalizeAssetFolderPath(assetFolderPath);
+    if (normalizedFolderPath === null) {
+      showToast('Enter a valid asset folder path (maximum 255 characters; no . or .. segments)', 'error');
+      return;
+    }
+    setAssetFolderPath(normalizedFolderPath);
     if (mode === 'transition' && families.length < 2 && !isRegenerate) {
       showToast('Accept two families before generating a transition', 'error');
       return;
@@ -286,13 +324,14 @@ export default function TilesetGenerateDialog({
       }
 
       const body: Record<string, unknown> = isRegenerate
-        ? { regenerateTilesetId }
+        ? { regenerateTilesetId, name: assetName.trim(), subjectDescription: subjectDescription.trim() }
         : mode === 'transition'
-          ? { stage: 'transition', pairFamilyIds: [pairA, pairB] }
+          ? { stage: 'transition', name: assetName.trim(), pairFamilyIds: [pairA, pairB] }
           : {
             stage: families.length === 0 ? 'base' : 'family',
             category,
-            label: label.trim(),
+            name: assetName.trim(),
+            subjectDescription: subjectDescription.trim(),
             ...(categoryModeOf(category) === 'creator-choice'
               ? { generationMode }
               : {}),
@@ -301,6 +340,7 @@ export default function TilesetGenerateDialog({
       if (requestModel !== projectModel) {
         body.model = requestModel;
       }
+      body.tilingMode = tilingMode;
 
       const response = await apiFetch(`/api/projects/${projectId}/tilesets/generate`, {
         method: 'POST',
@@ -341,7 +381,7 @@ export default function TilesetGenerateDialog({
         body: JSON.stringify({
           ...generationParams,
           image_data: previewData,
-          folderPath,
+          folderPath: assetFolderPath,
         }),
       });
 
@@ -433,7 +473,7 @@ export default function TilesetGenerateDialog({
               </Card>
               <Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  <strong>Family:</strong> {generationParams?.label || generationParams?.name}
+                  <strong>Asset name:</strong> {generationParams?.name}
                 </Typography>
                 {generationParams?.category && (
                   <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -515,23 +555,50 @@ export default function TilesetGenerateDialog({
                 </FormControl>
               )}
 
-              {mode === 'family' && !isRegenerate && (
+              <TextField
+                label="Asset name"
+                placeholder="e.g. forest-floor"
+                slotProps={{ htmlInput: { 'aria-label': 'Asset name', maxLength: 64 } }}
+                value={assetName}
+                onChange={(event) => setAssetName(event.target.value)}
+                required
+                fullWidth
+                disabled={loading || !styleLoaded}
+              />
+              <TextField
+                label="Asset folder path"
+                placeholder="e.g. Terrain/Forest"
+                helperText="Use / between folders, or leave empty for the root folder."
+                slotProps={{ htmlInput: { 'aria-label': 'Asset folder path', maxLength: 255 } }}
+                value={assetFolderPath}
+                onChange={(event) => setAssetFolderPath(event.target.value)}
+                fullWidth
+                disabled={loading || !styleLoaded}
+              />
+
+              {mode === 'family' && (
                 <>
                   <TextField
-                    label="Family label"
-                    slotProps={{ htmlInput: { 'aria-label': 'Family label', maxLength: 64 } }}
-                    value={label}
-                    onChange={(event) => setLabel(event.target.value)}
+                    label={effectiveGenerationMode === 'texture' ? 'Texture description' : 'Object description'}
+                    helperText="Describe only the material or object to generate, not the visual style or a full image prompt."
+                    placeholder={effectiveGenerationMode === 'texture'
+                      ? 'e.g. short dense green grass with small clover'
+                      : 'e.g. small pine tree with a rounded canopy'}
+                    slotProps={{ htmlInput: { 'aria-label': 'Generation description', maxLength: 200 } }}
+                    value={subjectDescription}
+                    onChange={(event) => setSubjectDescription(event.target.value)}
                     required
                     fullWidth
                     disabled={loading || !styleLoaded}
+                    multiline
+                    minRows={2}
                   />
                   <FormControl fullWidth disabled={loading}>
-                    <InputLabel>Family category</InputLabel>
+                    <InputLabel>Asset category</InputLabel>
                     <Select
                       value={category}
-                      label="Family category"
-                      inputProps={{ 'aria-label': 'Family category' }}
+                      label="Asset category"
+                      inputProps={{ 'aria-label': 'Asset category' }}
                       onChange={(event) => setCategory(event.target.value as TileFamilyCategory)}
                     >
                       {TILE_FAMILY_CATEGORIES.map((value) => (
@@ -621,6 +688,20 @@ export default function TilesetGenerateDialog({
                   )}
                 </>
               )}
+
+              <FormControl fullWidth disabled={loading || !styleLoaded}>
+                <InputLabel>Tiling mode</InputLabel>
+                <Select
+                  value={tilingMode}
+                  label="Tiling mode"
+                  inputProps={{ 'aria-label': 'Tiling mode' }}
+                  onChange={(event) => setTilingMode(event.target.value as TilingMode)}
+                >
+                  {TILING_MODES.map((mode) => (
+                    <MenuItem key={mode} value={mode}>{tilingModeLabel(mode)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               <Typography variant="subtitle2">Project style</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>

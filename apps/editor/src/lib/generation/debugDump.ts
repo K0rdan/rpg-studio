@@ -84,7 +84,7 @@ export interface GenerationPreviewDump {
   processed: Buffer;
   model: string;
   stage: unknown;
-  label?: unknown;
+  assetName?: unknown;
   prompt?: string;
   cwd?: string;
 }
@@ -107,8 +107,8 @@ export async function dumpGenerationPreview(
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const stage = typeof input.stage === 'string' ? slug(input.stage) : 'stage';
-    const label = typeof input.label === 'string' ? slug(input.label) : 'unlabeled';
-    const prefix = `${stamp}-${stage}-${label}-${slug(input.model)}`;
+    const assetName = typeof input.assetName === 'string' ? slug(input.assetName) : 'unnamed';
+    const prefix = `${stamp}-${stage}-${assetName}-${slug(input.model)}`;
     const rawName = `${prefix}-raw.png`;
     const postName = `${prefix}-post.png`;
     const promptName = `${prefix}-prompt.txt`;

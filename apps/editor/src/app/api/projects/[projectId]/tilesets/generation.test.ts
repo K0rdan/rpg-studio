@@ -34,10 +34,14 @@ jest.mock('@/lib/generation/generationClient', () => {
     getGenerationClient: jest.fn(),
   };
 });
-jest.mock('@/lib/generation/postProcessor', () => ({
-  postProcessTileSheet: jest.fn(),
-  postProcessGeneratedImage: jest.fn(),
-}));
+jest.mock('@/lib/generation/postProcessor', () => {
+  const actual = jest.requireActual('@/lib/generation/postProcessor') as typeof import('@/lib/generation/postProcessor');
+  return {
+    ...actual,
+    postProcessTileSheet: jest.fn(),
+    postProcessGeneratedImage: jest.fn(),
+  };
+});
 
 const mockedConnectToDatabase = connectToDatabase as jest.Mock;
 const mockedGetSession = auth.api.getSession as unknown as jest.Mock;
@@ -103,9 +107,19 @@ describe('US1 tileset generation routes', () => {
     await connection.close();
   });
 
-  const request = (body: unknown) => ({
-    json: jest.fn().mockResolvedValue(body),
-  }) as unknown as NextRequest;
+  const request = (body: unknown) => {
+    const payload = body as Record<string, unknown>;
+    const normalized = { ...payload };
+    // Keep older route scenarios concise while the new contract separates asset
+    // naming from the functional generation description.
+    if (typeof normalized.label === 'string') {
+      normalized.name ??= normalized.label.trim();
+      normalized.subjectDescription ??= normalized.label.trim();
+    }
+    return {
+      json: jest.fn().mockResolvedValue(normalized),
+    } as unknown as NextRequest;
+  };
   const params = () => ({ params: Promise.resolve({ projectId }) });
 
   it('refuses generation without a saved style or with a custom prompt', async () => {
@@ -132,7 +146,8 @@ describe('US1 tileset generation routes', () => {
     const response = await generate(request({
       stage: 'base',
       category: 'vegetation',
-      label: 'grass',
+      name: 'grass-ground',
+      subjectDescription: 'short green grass',
       generationMode: 'texture',
     }), params());
     const data = await response.json();
@@ -142,7 +157,8 @@ describe('US1 tileset generation routes', () => {
     expect(data.generation_params).toMatchObject({
       stage: 'base',
       category: 'vegetation',
-      label: 'grass',
+      name: 'grass-ground',
+      subjectDescription: 'short green grass',
       generationMode: 'texture',
       tilingMode: 'individual',
       tile_width: 32,
@@ -155,9 +171,42 @@ describe('US1 tileset generation routes', () => {
       referenceImages: [],
       tileSize: 32,
     }));
+    const sentPrompt = generateImage.mock.calls[0][0].prompt as string;
+    expect(sentPrompt).toContain('short green grass');
+    expect(sentPrompt).not.toContain('grass-ground');
+    expect(sentPrompt).not.toContain('vegetation');
     expect(mockedPostProcess).toHaveBeenCalledWith(expect.anything(), 32, 'texture');
     expect(uploadTilesetImage).not.toHaveBeenCalled();
     expect(await db.collection('tilesets').countDocuments()).toBe(0);
+  });
+
+  it('honors a requested tilingMode and refuses an invalid one before generate', async () => {
+    mockedPostProcess.mockResolvedValueOnce({
+      mimeType: 'image/png',
+      bytes: new Uint8Array(png),
+      generationMode: 'texture',
+      tilingMode: 'individual',
+      selfTilingScore: 1,
+    });
+    const honored = await generate(request({
+      stage: 'base',
+      category: 'vegetation',
+      label: 'grass',
+      generationMode: 'texture',
+      tilingMode: 'fixed-block',
+    }), params());
+    expect(honored.status).toBe(200);
+    expect((await honored.json()).generation_params.tilingMode).toBe('fixed-block');
+
+    const rejected = await generate(request({
+      stage: 'base',
+      category: 'vegetation',
+      label: 'meadow',
+      generationMode: 'texture',
+      tilingMode: 'wraparound',
+    }), params());
+    expect(rejected.status).toBe(400);
+    expect(generateImage).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a creator-choice category without generationMode and a conflicting implied mode', async () => {
@@ -172,6 +221,18 @@ describe('US1 tileset generation routes', () => {
       label: 'dirt',
       generationMode: 'prop',
     }), params())).status).toBe(400);
+  });
+
+  it('requires a functional generation description even when asset metadata is supplied', async () => {
+    const response = await generate(request({
+      stage: 'base',
+      name: 'ground-01',
+      category: 'vegetation',
+      generationMode: 'texture',
+    }), params());
+
+    expect(response.status).toBe(400);
+    expect(generateImage).not.toHaveBeenCalled();
   });
 
   it('post-processes accepted data again and persists fresh first-family metadata', async () => {
@@ -202,7 +263,7 @@ describe('US1 tileset generation routes', () => {
       generated: true,
       role: 'family',
       category: 'vegetation',
-      label: 'grass',
+      generationDescription: 'grass',
       generationMode: 'texture',
       tilingMode: 'individual',
       status: 'fresh',
@@ -211,7 +272,33 @@ describe('US1 tileset generation routes', () => {
     });
   });
 
-  it('rejects duplicate normalized category and label before upload', async () => {
+  it('persists a requested tilingMode instead of the recomputed fallback', async () => {
+    mockedPostProcess.mockResolvedValueOnce({
+      mimeType: 'image/png',
+      bytes: new Uint8Array(png),
+      generationMode: 'texture',
+      tilingMode: 'individual',
+      selfTilingScore: 1,
+    });
+    const response = await saveGenerated(request({
+      name: 'grass',
+      tile_width: 32,
+      tile_height: 32,
+      image_data: `data:image/png;base64,${png.toString('base64')}`,
+      category: 'vegetation',
+      label: 'stamp-grass',
+      generationMode: 'texture',
+      tilingMode: 'fixed-block',
+      role: 'family',
+      sourceFamilyIds: [],
+      model: 'gemini',
+      prompt: 'structured prompt',
+    }), params());
+    expect(response.status).toBe(201);
+    expect((await response.json()).generation_metadata.tilingMode).toBe('fixed-block');
+  });
+
+  it('allows duplicate organizational names and categories for distinct described materials', async () => {
     await db.collection('tilesets').insertOne({
       _id: new ObjectId(),
       projectId,
@@ -221,6 +308,7 @@ describe('US1 tileset generation routes', () => {
         category: 'vegetation',
         label: 'Grass',
       },
+      name: 'grass',
     });
     const response = await saveGenerated(request({
       name: 'grass',
@@ -229,14 +317,15 @@ describe('US1 tileset generation routes', () => {
       image_data: `data:image/png;base64,${png.toString('base64')}`,
       category: 'vegetation',
       label: ' grass ',
+      subjectDescription: 'lush grass',
       role: 'family',
       sourceFamilyIds: [],
       model: 'gemini',
       prompt: 'structured prompt',
     }), params());
 
-    expect(response.status).toBe(409);
-    expect(uploadTilesetImage).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(uploadTilesetImage).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a later family without an accepted reference family', async () => {
@@ -330,6 +419,7 @@ describe('US1 tileset generation routes', () => {
     });
     expect((await generate(request({
       stage: 'transition',
+      name: 'grass-transition',
       pairFamilyIds: [grassId.toHexString(), new ObjectId().toHexString()],
     }), params())).status).toBe(409);
 
@@ -348,6 +438,7 @@ describe('US1 tileset generation routes', () => {
 
     const preview = await generate(request({
       stage: 'transition',
+      name: 'grass-dirt-transition',
       pairFamilyIds: [dirtId.toHexString(), grassId.toHexString()],
     }), params());
     const previewData = await preview.json();

@@ -29,7 +29,7 @@ describe('dumpGenerationPreview', () => {
       processed: Buffer.from([4, 5, 6]),
       model: 'gemini',
       stage: 'base',
-      label: 'grass',
+      assetName: 'grass',
       cwd,
     })).resolves.toBeNull();
 
@@ -48,7 +48,7 @@ describe('dumpGenerationPreview', () => {
       processed,
       model: 'gemini',
       stage: 'base',
-      label: 'grass',
+      assetName: 'grass',
       prompt,
       cwd,
     });

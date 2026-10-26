@@ -17,6 +17,7 @@ export type GeneratedTilesetDocument = WithId<Document> & {
     role?: string;
     category?: TileFamilyCategory;
     label?: string;
+    generationDescription?: string;
     status?: string;
     sourceFamilyIds?: string[];
     pairFamilyIds?: [string, string];
@@ -29,10 +30,6 @@ export type GeneratedTilesetDocument = WithId<Document> & {
 
 export function generatedTilesetId(document: GeneratedTilesetDocument): string {
   return document._id.toHexString();
-}
-
-export function normalizeFamilyLabel(label: string): string {
-  return label.trim().toLocaleLowerCase();
 }
 
 export function sortPairFamilyIds(left: string, right: string): [string, string] {
@@ -63,19 +60,6 @@ export async function listAcceptedFamilies(
   }).toArray() as GeneratedTilesetDocument[];
 
   return documents.sort((left, right) => generatedAt(right) - generatedAt(left));
-}
-
-export function findDuplicateFamily(
-  families: GeneratedTilesetDocument[],
-  category: TileFamilyCategory,
-  label: string,
-): GeneratedTilesetDocument | undefined {
-  const normalized = normalizeFamilyLabel(label);
-  return families.find((family) => (
-    family.generation_metadata?.category === category
-    && typeof family.generation_metadata.label === 'string'
-    && normalizeFamilyLabel(family.generation_metadata.label) === normalized
-  ));
 }
 
 export function findTransitionForPair(

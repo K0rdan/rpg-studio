@@ -13,13 +13,13 @@ As a game creator, I define the project's tile size, perspective, and optional m
 
 **Why this priority**: Nothing else in this feature has meaning until a style exists and one accepted family can serve as the project's visual anchor. This slice is a usable MVP on its own.
 
-**Independent Test**: On a project with no generated families, save a style (tile size + perspective), request a first family named "grass" in the `vegetation` category with generation mode `texture`, review the result, accept it, and confirm those tiles appear in the project as usable tiles matching the chosen size and grid. Do this without generating a second family or any transitions.
+**Independent Test**: On a project with no generated families, save a style (tile size + perspective), request a `texture` in the `vegetation` category described as "short dense green grass", give the asset a name and folder path, review it, accept it, and confirm the tiles appear at the chosen size and grid in that folder.
 
 **Acceptance Scenarios**:
 
 1. **Given** a project with no style yet, **When** the creator sets tile size, perspective, and optionally a short mood, **Then** that style is stored on the project and is reused automatically on later generations.
 2. **Given** a saved project style, **When** the creator starts a new generation, **Then** they are not asked to re-enter tile size or perspective.
-3. **Given** a saved style and no accepted family, **When** the creator requests a first family by picking a category, a short free-form label (for example category `vegetation`, label "grass"), and — when the category allows both — a generation mode (`texture` or `prop`), **Then** the system produces a coherent set of tiles for that family and presents it for review, including whether the result is individually reusable tiles or a single fixed-block stamp.
+3. **Given** a saved style and no accepted family, **When** the creator requests a first family by picking an organizational category, entering a short material/object description, choosing a generation mode when available, and specifying an asset name and folder path, **Then** the system generates that described content and presents it for review, including whether it is individually reusable or a fixed-block stamp.
 4. **Given** a first-family preview, **When** the creator accepts it, **Then** those tiles become usable in the project, that family becomes the project's visual reference for later generations, and its status is recorded as fresh.
 5. **Given** a first-family preview, **When** the creator rejects it or asks for another attempt, **Then** the rejected result is not stored as a usable tile set.
 6. **Given** any image presented as a usable tile, **When** the creator inspects it, **Then** its dimensions and grid alignment match the project style exactly.
@@ -28,15 +28,15 @@ As a game creator, I define the project's tile size, perspective, and optional m
 
 ### User Story 2 - Generate another family in the same visual language (Priority: P2)
 
-As a game creator, I request a second terrain family (for example dirt or water). The result looks like it belongs with the family I already accepted, and I can accept it or try again.
+As a game creator, I request another described material (for example muddy dirt or deep blue water), classify it, name it, and choose where to store it. The result looks like it belongs with the family I already accepted, and I can accept it or try again.
 
 **Why this priority**: Visual continuity across families is the core product promise. It depends on P1 but does not require transitions.
 
-**Independent Test**: With one accepted family, request a new family in category `ground` labeled "dirt", compare it to the first family, accept it, and confirm both families remain independently usable. Do this without generating transition tiles.
+**Independent Test**: With one accepted family, request a new family in category `ground` with description "muddy brown soil with small pebbles", compare it to the first family, accept it, and confirm both remain independently usable.
 
 **Acceptance Scenarios**:
 
-1. **Given** at least one accepted family, **When** the creator requests a new family by picking a category and a short label, **Then** generation uses one or more already accepted family images as visual references in addition to the category and label.
+1. **Given** at least one accepted family, **When** the creator requests a new family by picking an organizational category and entering a material/object description, **Then** generation uses that description and one or more accepted family images; the category is not treated as the requested visual subject.
 2. **Given** a new-family preview, **When** the creator compares it to existing accepted families, **Then** they can accept it into the project or request another generation without the preview becoming a usable tile set.
 3. **Given** two accepted families in the same project, **When** a reviewer looks at them side by side, **Then** they share a consistent visual language (perceived palette, style, and level of detail) without the creator having retouched pixels.
 4. **Given** a project style, **When** a later family is accepted, **Then** its usable tiles still match that style's tile size and grid alignment.
@@ -101,8 +101,8 @@ As a game creator, I pick which available AI model to use for the project by def
 - Generation is refused until a project style with tile size and perspective is saved.
 - Changing tile size or perspective after families exist is either refused or requires an explicit confirmation that existing tiles will no longer match the style until regenerated.
 - A generation that fails or is interrupted MUST NOT leave a partial image stored or shown as a usable tile.
-- The creator MUST NOT paste a free-form image prompt that bypasses the structured family request (category + label + project style + references).
-- A family name that already exists within the same category is either refused or treated as regeneration of that family, never as a silent duplicate with no lineage.
+- The creator MUST NOT submit a complete free-form image prompt. A concise material/object description is allowed as functional generation input; category, style, generation mode, and attached references remain structured inputs.
+- Asset names are organizational metadata. Duplicate names are allowed; identity and regeneration use the asset id, not the name or category.
 - Transition generation for a pair that already has accepted transitions is treated as regeneration of that transition set, with the same impact awareness as family regeneration.
 - Only accepted families count as visual references; rejected previews MUST NOT become references.
 - If the only remaining accepted family is deleted through existing asset-management rules, later family generation behaves as a new first family (no image reference available).
@@ -120,9 +120,9 @@ As a game creator, I pick which available AI model to use for the project by def
 - **FR-001**: Creators MUST be able to save a per-project style specification that includes tile size, perspective, and an optional short mood/theme.
 - **FR-002**: Subsequent generations in that project MUST reuse the saved style without the creator re-entering it.
 - **FR-003**: Creators MUST complete generation entirely inside the editor; they MUST NOT be required to configure an external automation tool for sequencing, anchoring, or finishing tiles.
-- **FR-004**: Creators MUST request a family by picking a category from a controlled list and providing a short free-form label (and the saved style), not by submitting a free-form generation prompt.
+- **FR-004**: Creators MUST request a family by choosing a controlled organizational category, providing a concise material/object description, and supplying an asset name and folder path. The description specifies generated content; the name and folder path are metadata only. Creators MUST NOT submit a complete free-form image prompt.
 - **FR-005**: The first accepted family in a project MUST become the visual reference for later generations.
-- **FR-006**: Every generation after the first family MUST use at least one previously accepted generated image as a visual reference, together with the category and label. Style continuity MUST NOT be attempted by restating style in text alone.
+- **FR-006**: Every generation after the first family MUST use at least one previously accepted generated image as a visual reference, together with the material/object description. Style continuity MUST NOT be attempted by restating style in text alone. Category, asset name, and folder path MUST NOT be used as substitutes for the content description in the prompt.
 - **FR-007**: Transition generation MUST be offered only when at least two families are accepted, and MUST use both families of the requested pair as visual references.
 - **FR-007a**: When two accepted families belong to categories configured as commonly-adjacent, the system MUST proactively offer transition generation for that pair.
 - **FR-008**: Creators MUST be able to review a result and either accept it as usable project tiles or discard it and request another generation.
@@ -140,11 +140,14 @@ As a game creator, I pick which available AI model to use for the project by def
 - **FR-018**: For `texture` mode, the system MUST verify that each extracted tile is self-tileable (its edges are compatible with themselves in repetition) before it can be presented as a usable tile. Tiles failing this check MUST NOT be offered for acceptance as individual reusable tiles.
 - **FR-019**: If self-tiling verification is not available or not passing for a given generation, the system MAY fall back to treating the generated result as a single fixed block (a non-decomposable N×M pattern placed as one unit), rather than individually reusable tiles. The creator MUST be informed which mode (individually reusable vs fixed block) the accepted result uses.
 - **FR-020**: For `prop` mode, the system MUST remove or neutralize the generated background locally (the system MUST NOT rely on the generative model producing a genuinely transparent background), before the object can be composited onto ground tiles or shown as a usable decoration.
+- **FR-021**: In `texture` mode, the prompt MUST describe one uninterrupted material covering the full image as a seamless tileable texture, without visible grid lines or dividers. The pattern MUST be continuous across the implicit cell boundaries and wrap across the image's outer edges. It MUST prohibit competing terrain/materials, paths, stones, distinct objects, and centered focal elements. These content exclusions are texture-only; prop and transition prompts retain their mode-specific content instructions. Individual extracted tiles are independently verified before being offered as reusable tiles under FR-018.
+- **FR-022**: A creator MUST provide a concise description of the desired material in `texture` mode or desired object in `prop` mode. The description MUST be bounded to 200 characters and MUST be incorporated as the content subject in generation prompts. Category, asset name, and folder path are classification/storage metadata and MUST NOT appear as the requested subject in generation prompts.
+- **FR-023**: A creator MUST be able to set the generated tileset's asset name and folder path before acceptance. Regeneration MUST preserve these values unless the creator changes them.
 
 ### Key Entities
 
 - **Project style**: The project's fixed visual contract for generated tiles (tile size, perspective, optional mood). Reused for every generation in the project.
-- **Tile family**: An accepted, named set of tiles representing one terrain or element. Has a controlled **category** (for example `ground`, `water`, `elevation`, `vegetation`, `structure`, `decoration`) and a short free-form **label** (for example "grass", "autumn grass"). The category drives transition-adjacency suggestions and which generation modes apply; the label is used for display and in generation requests. Carries a **generation mode** (`texture` or `prop`) and a **tiling mode** (`individual` or `fixed-block`). A `texture` family is either individually reusable self-tiling-verified tiles, or — as a fallback — one non-decomposable 8×8 stamp in the map palette. A `prop` family is isolated objects with background removed by local post-processing. May be used as a visual reference by later families and transitions. Carries a **status** of fresh or stale.
+- **Tile family**: An accepted set of tiles with an asset name, folder path, organizational category, and generation description. Category controls transition suggestions and applicable generation modes. Name and path control asset organization; the description controls requested content. The family carries a **generation mode** (`texture` or `prop`) and a **tiling mode** (`individual` or `fixed-block`). A `texture` family is either individually reusable self-tiling-verified tiles, or — as a fallback — one non-decomposable 8×8 stamp in the map palette. A `prop` family is isolated objects with background removed by local post-processing. It may be a visual reference for later families and transitions, and has a fresh or stale status.
 - **Transition set**: An accepted set of edge/join tiles that belongs to a specific pair of families and depends on both. Always treated as `texture` for generation and post-processing. Carries a **status** of fresh or stale, independent of the status of the two families it joins.
 - **Generation preview**: A not-yet-accepted result. Visible for review; not a usable tile set and not a reference until accepted.
 - **Generation lineage**: The recorded links from each accepted family or transition set to the reference image(s) used to create it, used to regenerate, to warn about impact, and to determine which elements to mark stale after a regeneration.
@@ -188,5 +191,5 @@ As a game creator, I pick which available AI model to use for the project by def
 - **SC-003**: 100% of images delivered as usable tiles match the project style's tile dimensions and grid alignment.
 - **SC-004**: In 100% of regeneration attempts on a family that has dependents, the creator sees those dependents listed before they confirm, and 100% of those dependents are marked stale (never auto-regenerated) once the regeneration is accepted.
 - **SC-005**: A creator can go from an empty project style to one accepted family without leaving the editor and without generating any later-stage asset.
-- **SC-006**: A creator who is not a specialist artist can obtain two accepted families and their transition tiles in a single editing session, using only category selection, short labels, style settings, and accept/retry—not free-form image prompts.
+- **SC-006**: A creator who is not a specialist artist can obtain two accepted families and their transition tiles in a single editing session using category, concise content descriptions, asset name/path, style settings, and accept/retry—without composing complete image prompts.
 - **SC-007**: When two accepted families belong to commonly-adjacent categories, the creator is offered a transition suggestion without having to already know that transitions are possible.

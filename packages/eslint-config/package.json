@@ -11,6 +11,6 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "eslint-config-turbo": "^2.10.13"
+    "eslint-config-turbo": "^2.11.10"
   }
 }

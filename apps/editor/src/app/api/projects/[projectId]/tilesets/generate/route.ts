@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import {
-  isGenerationLabel,
+  isAssetName,
+  isGenerationDescription,
   isGenerationModelId,
   isProjectStyleSpec,
   isTileFamilyCategory,
@@ -15,7 +16,6 @@ import {
   getGenerationClient,
 } from '@/lib/generation/generationClient';
 import {
-  findDuplicateFamily,
   generatedTilesetId,
   listAcceptedFamilies,
   loadReferenceImages,
@@ -24,7 +24,10 @@ import {
 } from '@/lib/generation/familyLookup';
 import { resolveGenerationMode } from '@/lib/generation/category-config';
 import { dumpGenerationPreview } from '@/lib/generation/debugDump';
-import { postProcessGeneratedImage } from '@/lib/generation/postProcessor';
+import {
+  postProcessGeneratedImage,
+  resolveRequestedTilingMode,
+} from '@/lib/generation/postProcessor';
 import {
   buildBasePrompt,
   buildFamilyPrompt,
@@ -118,6 +121,12 @@ export async function POST(
     if (model instanceof NextResponse) {
       return model;
     }
+    if (request.tilingMode !== undefined) {
+      const requestedTiling = resolveRequestedTilingMode(request.tilingMode, 'individual');
+      if (!requestedTiling.ok) {
+        return NextResponse.json({ message: requestedTiling.message }, { status: 400 });
+      }
+    }
 
     const regenerateTilesetId = typeof request.regenerateTilesetId === 'string'
       && request.regenerateTilesetId
@@ -128,7 +137,10 @@ export async function POST(
 
     let stage = request.stage;
     let category = request.category;
-    let label = typeof request.label === 'string' ? request.label.trim() : request.label;
+    let assetName = typeof request.name === 'string' ? request.name.trim() : request.name;
+    let subjectDescription = typeof request.subjectDescription === 'string'
+      ? request.subjectDescription.trim()
+      : request.subjectDescription;
     let sourceFamilies: GeneratedTilesetDocument[] = [];
     let pairFamilyIds: [string, string] | null = null;
     let role: 'family' | 'transition' = 'family';
@@ -153,9 +165,15 @@ export async function POST(
         existing.generation_metadata.sourceFamilyIds?.length ? 'family' : 'base'
       );
       category = existing.generation_metadata.category;
-      label = existing.generation_metadata.label;
+      assetName = typeof request.name === 'string' ? request.name.trim() : existing.name;
+      subjectDescription = typeof request.subjectDescription === 'string'
+        ? request.subjectDescription.trim()
+        : existing.generation_metadata.generationDescription ?? existing.generation_metadata.label;
       if (request.generationMode === undefined) {
         request.generationMode = existing.generation_metadata.generationMode;
+      }
+      if (request.tilingMode === undefined) {
+        request.tilingMode = existing.generation_metadata.tilingMode;
       }
       if (role === 'transition' && existing.generation_metadata.pairFamilyIds) {
         pairFamilyIds = sortPairFamilyIds(...existing.generation_metadata.pairFamilyIds);
@@ -176,16 +194,12 @@ export async function POST(
           { status: 409 },
         );
       }
-      if (!isTileFamilyCategory(category) || !isGenerationLabel(label)) {
+      if (!isTileFamilyCategory(category)
+        || !isAssetName(assetName)
+        || !isGenerationDescription(subjectDescription)) {
         return NextResponse.json(
-          { message: 'Invalid first-family generation parameters' },
+          { message: 'Enter an asset name and a texture or object description (1–200 characters)' },
           { status: 400 },
-        );
-      }
-      if (!regenerateTilesetId && findDuplicateFamily(families, category, label)) {
-        return NextResponse.json(
-          { message: 'A generated family with this category and label already exists' },
-          { status: 409 },
         );
       }
       const resolvedMode = resolveGenerationMode({
@@ -198,11 +212,10 @@ export async function POST(
       }
       prompt = buildBasePrompt({
         style,
-        category,
-        label,
+        subjectDescription,
         generationMode: resolvedMode.mode,
       }).prompt;
-      name = label;
+      name = assetName;
       generationMode = resolvedMode.mode;
     } else if (stage === 'family') {
       if (families.length === 0) {
@@ -211,16 +224,12 @@ export async function POST(
           { status: 409 },
         );
       }
-      if (!isTileFamilyCategory(category) || !isGenerationLabel(label)) {
+      if (!isTileFamilyCategory(category)
+        || !isAssetName(assetName)
+        || !isGenerationDescription(subjectDescription)) {
         return NextResponse.json(
-          { message: 'Invalid family generation parameters' },
+          { message: 'Enter an asset name and a texture or object description (1–200 characters)' },
           { status: 400 },
-        );
-      }
-      if (!regenerateTilesetId && findDuplicateFamily(families, category, label)) {
-        return NextResponse.json(
-          { message: 'A generated family with this category and label already exists' },
-          { status: 409 },
         );
       }
       if (sourceFamilies.length === 0) {
@@ -249,16 +258,15 @@ export async function POST(
       }
       prompt = buildFamilyPrompt({
         style,
-        category,
-        label,
+        subjectDescription,
         generationMode: resolvedMode.mode,
-        referenceLabels: sourceFamilies.map((family) => (
-          family.generation_metadata?.label ?? family.name ?? generatedTilesetId(family)
-        )),
       }).prompt;
-      name = label;
+      name = assetName;
       generationMode = resolvedMode.mode;
     } else if (stage === 'transition') {
+      if (!isAssetName(assetName)) {
+        return NextResponse.json({ message: 'Asset name must contain 1–64 characters' }, { status: 400 });
+      }
       if (families.length < 2) {
         return NextResponse.json(
           { message: 'Accept two families before generating a transition' },
@@ -285,17 +293,9 @@ export async function POST(
         );
       }
       role = 'transition';
-      const familyA = {
-        category: sourceFamilies[0].generation_metadata?.category ?? 'ground',
-        label: sourceFamilies[0].generation_metadata?.label ?? sourceFamilies[0].name ?? 'A',
-      };
-      const familyB = {
-        category: sourceFamilies[1].generation_metadata?.category ?? 'ground',
-        label: sourceFamilies[1].generation_metadata?.label ?? sourceFamilies[1].name ?? 'B',
-      };
       generationMode = 'texture';
-      prompt = buildTransitionPrompt({ style, familyA, familyB }).prompt;
-      name = `${familyA.label} ↔ ${familyB.label}`;
+      prompt = buildTransitionPrompt({ style }).prompt;
+      name = assetName;
     } else {
       return NextResponse.json(
         { message: 'Invalid generation stage' },
@@ -334,13 +334,18 @@ export async function POST(
       style.tileSize,
       generationMode,
     );
+    const resolvedTiling = resolveRequestedTilingMode(request.tilingMode, processed.tilingMode);
+    if (!resolvedTiling.ok) {
+      return NextResponse.json({ message: resolvedTiling.message }, { status: 400 });
+    }
+    const tilingMode = resolvedTiling.mode;
     const outputBuffer = Buffer.from(processed.bytes);
     await dumpGenerationPreview({
       rawBytes: rawResult.bytes,
       processed: outputBuffer,
       model,
       stage,
-      label,
+      assetName,
       prompt,
     });
 
@@ -349,11 +354,13 @@ export async function POST(
       generation_params: {
         stage,
         name,
+        subjectDescription: isGenerationDescription(subjectDescription)
+          ? subjectDescription
+          : undefined,
         category: isTileFamilyCategory(category) ? category : undefined,
-        label: isGenerationLabel(label) ? label : undefined,
         role,
         generationMode: processed.generationMode,
-        tilingMode: processed.tilingMode,
+        tilingMode,
         selfTilingScore: processed.selfTilingScore,
         tile_width: style.tileSize,
         tile_height: style.tileSize,

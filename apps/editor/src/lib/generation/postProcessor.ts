@@ -1,15 +1,34 @@
 import sharp from 'sharp';
 
-import type {
-  GenerationMode,
-  ProcessedGenerationResult,
-  RawGenerationResult,
-  TileSize,
+import {
+  isTilingMode,
+  type GenerationMode,
+  type ProcessedGenerationResult,
+  type RawGenerationResult,
+  type TileSize,
+  type TilingMode,
 } from '@packages/types';
 
 const GRID_SIZE = 8;
 export const SELF_TILING_PASS_THRESHOLD = 0.92;
 const BACKGROUND_DISTANCE_THRESHOLD = 36;
+
+export type ResolveTilingModeResult =
+  | { ok: true; mode: TilingMode }
+  | { ok: false; message: string };
+
+export function resolveRequestedTilingMode(
+  requested: unknown,
+  computed: TilingMode,
+): ResolveTilingModeResult {
+  if (requested === undefined) {
+    return { ok: true, mode: computed };
+  }
+  if (!isTilingMode(requested)) {
+    return { ok: false, message: 'Invalid tiling mode' };
+  }
+  return { ok: true, mode: requested };
+}
 
 function pixelOffset(x: number, y: number, width: number): number {
   return (y * width + x) * 4;

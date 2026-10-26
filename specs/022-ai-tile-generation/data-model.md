@@ -37,7 +37,10 @@ export interface TilesetGenerationMetadata {
   model?: GenerationModelId;
   role?: GenerationRole;
   category?: TileFamilyCategory;
+  /** Legacy metadata; not a generation subject. */
   label?: string;
+  /** Concise requested material/object content, used for regeneration. */
+  generationDescription?: string;
   status?: GenerationStatus;
   sourceFamilyIds?: string[];
   pairFamilyIds?: [string, string];
@@ -77,7 +80,10 @@ by the pre-022 single-shot flow (or by manual import) has
 prompt, generated_at }` — it renders and behaves exactly as before.
 Absence of `category`/`role` means "not part of the 022 lineage
 system"; such tilesets are excluded from adjacency suggestions and
-dependent lookups. Absence of `generationMode`/`tilingMode` means
+dependent lookups. Asset `name` and `folderPath` are organization fields;
+`generationDescription` is the functional content request. Legacy
+`label` metadata is never used in new prompts. Absence of
+`generationMode`/`tilingMode` means
 the palette stays per-cell (imported and pre-022 generated sheets).
 
 ---

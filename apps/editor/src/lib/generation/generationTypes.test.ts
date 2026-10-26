@@ -1,11 +1,13 @@
 import {
   TilesetStyle,
+  isAssetName,
   isGenerationClientRequest,
-  isGenerationLabel,
+  isGenerationDescription,
   isGenerationMode,
   isGenerationReferenceImage,
   isProcessedGenerationResult,
   isProjectStyleSpec,
+  isRawGenerationResult,
   isTileFamilyCategory,
   isTilingMode,
 } from '@packages/types';
@@ -110,16 +112,16 @@ describe('generation type guards', () => {
       expect(isTileFamilyCategory(category)).toBe(false);
     });
 
-    it('accepts trimmed labels from 1 through 64 characters', () => {
-      expect(isGenerationLabel('g')).toBe(true);
-      expect(isGenerationLabel('autumn grass')).toBe(true);
-      expect(isGenerationLabel('x'.repeat(64))).toBe(true);
+    it('accepts asset names from 1 through 64 characters', () => {
+      expect(isAssetName('g')).toBe(true);
+      expect(isAssetName('autumn-grass')).toBe(true);
+      expect(isAssetName('x'.repeat(64))).toBe(true);
     });
 
     it.each(['', ' grass', 'grass ', 'x'.repeat(65), null, 32])(
-      'rejects malformed label %#',
-      (label) => {
-        expect(isGenerationLabel(label)).toBe(false);
+      'rejects malformed asset name %#',
+      (name) => {
+        expect(isAssetName(name)).toBe(false);
       },
     );
 
@@ -150,9 +152,29 @@ describe('generation type guards', () => {
         selfTilingScore: 1.4,
       })).toBe(false);
     });
+
+    it('accepts PNG and JPEG provider output before post-processing', () => {
+      expect(isRawGenerationResult(rawGenerationFixture)).toBe(true);
+      expect(isRawGenerationResult({
+        ...rawGenerationFixture,
+        mimeType: 'image/jpeg',
+      })).toBe(true);
+      expect(isRawGenerationResult({
+        ...rawGenerationFixture,
+        mimeType: 'image/webp',
+      })).toBe(false);
+    });
   });
 
   describe('client request fields', () => {
+    it('validates short generation descriptions', () => {
+      expect(isGenerationDescription('lush green grass')).toBe(true);
+      expect(isGenerationDescription('x'.repeat(200))).toBe(true);
+      expect(isGenerationDescription('')).toBe(false);
+      expect(isGenerationDescription(' x')).toBe(false);
+      expect(isGenerationDescription('x'.repeat(201))).toBe(false);
+    });
+
     it('accepts a structured first-family request', () => {
       expect(isGenerationClientRequest({
         model: 'gemini',
