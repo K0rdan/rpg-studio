@@ -166,6 +166,11 @@ describe('US1 tileset generation routes', () => {
       model: 'gemini',
       sourceFamilyIds: [],
     });
+    expect(data.generation_params.promptSections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'new-image', title: 'New image' }),
+      expect.objectContaining({ id: 'content', title: 'Requested content' }),
+      expect.objectContaining({ id: 'output', title: 'Output contract' }),
+    ]));
     expect(generateImage).toHaveBeenCalledWith(expect.objectContaining({
       model: 'gemini',
       referenceImages: [],
@@ -175,18 +180,24 @@ describe('US1 tileset generation routes', () => {
     expect(sentPrompt).toContain('short green grass');
     expect(sentPrompt).not.toContain('grass-ground');
     expect(sentPrompt).not.toContain('vegetation');
-    expect(mockedPostProcess).toHaveBeenCalledWith(expect.anything(), 32, 'texture');
+    expect(mockedPostProcess).toHaveBeenCalledWith(
+      expect.anything(),
+      32,
+      expect.objectContaining({ kind: 'surface', generationMode: 'texture', width: 32, height: 32 }),
+      expect.objectContaining({ downscale: 'nearest', quantiser: 'sharp' }),
+    );
     expect(uploadTilesetImage).not.toHaveBeenCalled();
     expect(await db.collection('tilesets').countDocuments()).toBe(0);
   });
 
-  it('honors a requested tilingMode and refuses an invalid one before generate', async () => {
+  it('ignores a client tiling override and refuses an invalid one before generate', async () => {
     mockedPostProcess.mockResolvedValueOnce({
       mimeType: 'image/png',
       bytes: new Uint8Array(png),
       generationMode: 'texture',
       tilingMode: 'individual',
       selfTilingScore: 1,
+      reviewPassed: true,
     });
     const honored = await generate(request({
       stage: 'base',
@@ -196,7 +207,7 @@ describe('US1 tileset generation routes', () => {
       tilingMode: 'fixed-block',
     }), params());
     expect(honored.status).toBe(200);
-    expect((await honored.json()).generation_params.tilingMode).toBe('fixed-block');
+    expect((await honored.json()).generation_params.tilingMode).toBe('individual');
 
     const rejected = await generate(request({
       stage: 'base',
@@ -250,11 +261,20 @@ describe('US1 tileset generation routes', () => {
       sourceFamilyIds: [],
       model: 'gemini',
       prompt: 'structured prompt',
+      promptSections: [{
+        id: 'content',
+        title: 'Requested content',
+        text: 'Short green grass.',
+      }],
     }), params());
     const data = await response.json();
 
     expect(response.status).toBe(201);
-    expect(mockedPostProcess).toHaveBeenCalledWith(expect.any(Uint8Array), 32, 'texture');
+    expect(mockedPostProcess).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      32,
+      expect.objectContaining({ kind: 'surface', width: 32, height: 32 }),
+    );
     expect(uploadTilesetImage).toHaveBeenCalledWith(expect.objectContaining({
       data: png,
       projectId,
@@ -269,16 +289,22 @@ describe('US1 tileset generation routes', () => {
       status: 'fresh',
       sourceFamilyIds: [],
       model: 'gemini',
+      promptSections: [{
+        id: 'content',
+        title: 'Requested content',
+        text: 'Short green grass.',
+      }],
     });
   });
 
-  it('persists a requested tilingMode instead of the recomputed fallback', async () => {
+  it('refuses to accept a surface that failed its output contract', async () => {
     mockedPostProcess.mockResolvedValueOnce({
       mimeType: 'image/png',
       bytes: new Uint8Array(png),
       generationMode: 'texture',
       tilingMode: 'individual',
-      selfTilingScore: 1,
+      selfTilingScore: 0.2,
+      reviewPassed: false,
     });
     const response = await saveGenerated(request({
       name: 'grass',
@@ -294,13 +320,15 @@ describe('US1 tileset generation routes', () => {
       model: 'gemini',
       prompt: 'structured prompt',
     }), params());
-    expect(response.status).toBe(201);
-    expect((await response.json()).generation_metadata.tilingMode).toBe('fixed-block');
+    expect(response.status).toBe(409);
+    expect(uploadTilesetImage).not.toHaveBeenCalled();
+    expect(await db.collection('tilesets').countDocuments()).toBe(0);
   });
 
   it('allows duplicate organizational names and categories for distinct described materials', async () => {
+    const existingId = new ObjectId();
     await db.collection('tilesets').insertOne({
-      _id: new ObjectId(),
+      _id: existingId,
       projectId,
       generation_metadata: {
         generated: true,
@@ -318,8 +346,9 @@ describe('US1 tileset generation routes', () => {
       category: 'vegetation',
       label: ' grass ',
       subjectDescription: 'lush grass',
+      generationMode: 'texture',
       role: 'family',
-      sourceFamilyIds: [],
+      sourceFamilyIds: [existingId.toHexString()],
       model: 'gemini',
       prompt: 'structured prompt',
     }), params());

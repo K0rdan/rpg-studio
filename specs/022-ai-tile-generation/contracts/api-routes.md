@@ -65,7 +65,8 @@ Request:
 Server loads `styleSpec` from the project (400/409 if missing). Server loads reference images from blob storage for stages `family` and `transition` (and for `base` only if `regenerateTilesetId` points at a family that had sources — first-family regen still has none).
 
 Pipeline: PromptBuilder → GenerationClient → PostProcessor (crop +
-mode branch: self-tiling **or** background removal) → JSON preview.
+mode branch: surface self-tiling, path-autotile neighbour validation, **or**
+background removal) → JSON preview.
 **No Mongo insert. No blob upload.**
 
 Response **200**:
@@ -80,6 +81,7 @@ Response **200**:
     "subjectDescription": "short dense green grass",
     "generationMode": "texture",
     "tilingMode": "individual",
+    "reviewPassed": true,
     "selfTilingScore": 0.94,
     "tile_width": 32,
     "tile_height": 32,
@@ -92,10 +94,15 @@ Response **200**:
 }
 ```
 
-`preview_data` MUST already be post-processed (exact `tileSize*8` square).
+`preview_data` MUST already be post-processed to the dimensions of its selected
+output contract.
 `tilingMode` MUST be present so the UI can tell the creator whether
-cells are individually reusable or a fixed 8×8 stamp (FR-019).
+the canonical surface tile, declared path-autotile layout, or prop result is
+usable according to its selected output contract.
 `selfTilingScore` is optional (texture only) and MUST NOT be shown raw.
+`reviewPassed: false` still returns the preview so the creator can see the
+failure, and save MUST answer **409** without storing a usable tileset.
+`passedSlotIds` lists path-autotile slots the palette may offer.
 
 Unavailable model: **409** `{ "message": "…", "code": "model_unavailable", "reason": "not_supported" | "misconfigured" | "quota" }` or **429** `{ "code": "model_unavailable", "reason": "rate_limit" }`. No `preview_data`.
 
@@ -134,7 +141,7 @@ MUST NOT persist client-supplied tiling fields blindly.
 
 On insert: `generation_metadata` as in data-model.md, `status: 'fresh'`.
 `tile_width` / `tile_height` remain `styleSpec.tileSize` even for
-`fixed-block`. Push id onto `project.tilesets`.
+the selected output-contract metadata. Push id onto `project.tilesets`.
 
 On regenerate: update the existing tileset’s blob and metadata; set it `fresh`; set **direct** dependents `status: 'stale'`. Same tileset `id`.
 

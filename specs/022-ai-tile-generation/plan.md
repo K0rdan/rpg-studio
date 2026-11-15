@@ -7,7 +7,7 @@
 
 ## Summary
 
-Replace the pre-022 single-shot Gemini tileset flow with a native editor-backend pipeline: project style (`ProjectStyleSpec`), deterministic `PromptBuilder` (texture vs prop), interchangeable `GenerationClient` providers, and a mandatory `PostProcessor` (crop + grid-snap + self-tiling or background removal). Accepted results remain ordinary `Tileset` documents with optional lineage and `generationMode` / `tilingMode` on `generation_metadata`. User Story 1 (style + first family) ships before later families, transitions, stale marking, or extra providers.
+Replace the pre-022 single-shot Gemini tileset flow with a native editor-backend pipeline whose asset contract is selected before prompting: one canonical self-tiling surface tile, a topology-aware path-autotile atlas, or an isolated prop. `PromptBuilder` and `PostProcessor` MUST share that contract; a continuous texture is never sliced into an implicit 8×8 atlas. Later-family prompts make the attached image a technique-only style sample and explicitly require a new image, rather than an edit or copy of its subject, pattern, palette, or colors. The decision flow and manual scene-test protocol are in [pipeline.md](./pipeline.md). User Story 1 (style + first surface material) ships before path-autotiles, transitions, stale marking, or extra providers.
 
 ## Technical Context
 
@@ -35,7 +35,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 | VI   | Native generation orchestration | PASS   | Sequencing in `apps/editor` API/lib only; no external workflow tool                                                                                                                                                |
 | VII  | Image-to-image anchoring        | PASS   | `GenerationRequest` after first family requires `referenceImages.length >= 1`; Gemini + GPT adapters send those bytes; Claude cannot generate pixels and MUST surface unavailable rather than text-only style lock |
 | VIII | Generation brick split          | PASS   | Four units: style on project types, `GenerationClient`, `PromptBuilder`, `PostProcessor` — separate modules, no prompt construction inside providers                                                               |
-| IX   | Post-processing                 | PASS   | Route MUST run PostProcessor before preview JSON or save; `RawGenerationResult` is never a `Tileset`; texture runs self-tiling (fixed-block fallback); prop runs local background removal |
+| IX   | Post-processing                 | PASS   | Route MUST run PostProcessor before preview JSON or save; `RawGenerationResult` is never a `Tileset`; surface textures self-tile as one canonical tile, path-autotiles validate declared neighbours, and props run local background removal |
 | X    | Reference traceability          | PASS   | `sourceFamilyIds` / `pairFamilyIds` written at accept; dependents query on those fields                                                                                                                            |
 | XI   | Independently testable stages   | PASS   | Story 1 complete before Story 2 code; transitions and regenerate are later tasks                                                                                                                                   |
 

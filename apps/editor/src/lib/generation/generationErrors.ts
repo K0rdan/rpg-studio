@@ -8,6 +8,8 @@ import type {
 export interface GenerationClient {
   readonly model: GenerationModelId;
   isAvailable(): boolean;
+  /** Provider settings that shape the output; recorded by the debug dump. */
+  describeConfig?(): Record<string, unknown>;
   generate(request: GenerationClientRequest): Promise<RawGenerationResult>;
 }
 

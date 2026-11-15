@@ -36,11 +36,31 @@ export type GenerationRole = typeof GENERATION_ROLES[number];
 export const GENERATION_STATUSES = ['fresh', 'stale'] as const;
 export type GenerationStatus = typeof GENERATION_STATUSES[number];
 
-export const GENERATION_MODES = ['texture', 'prop'] as const;
+export const GENERATION_MODES = ['texture', 'path-autotile', 'prop'] as const;
 export type GenerationMode = typeof GENERATION_MODES[number];
 
 export const TILING_MODES = ['individual', 'fixed-block'] as const;
 export type TilingMode = typeof TILING_MODES[number];
+
+/** Versioned path-autotile slot geometry. The editor only offers slots this layout declares. */
+export const PATH_AUTOTILE_LAYOUT_IDS = ['path-center-edges-corners-v1'] as const;
+export type PathAutotileLayoutId = typeof PATH_AUTOTILE_LAYOUT_IDS[number];
+
+/** Stable sections that make a generated prompt auditable and editable by intent. */
+export const GENERATION_PROMPT_SECTION_IDS = [
+  'new-image',
+  'content',
+  'constraints',
+  'references',
+  'output',
+] as const;
+export type GenerationPromptSectionId = typeof GENERATION_PROMPT_SECTION_IDS[number];
+
+export interface GenerationPromptSection {
+  id: GenerationPromptSectionId;
+  title: string;
+  text: string;
+}
 
 export const GENERATION_UNAVAILABLE_REASONS = [
   'rate_limit',
@@ -91,6 +111,12 @@ export interface ProcessedGenerationResult {
   generationMode: GenerationMode;
   tilingMode: TilingMode;
   selfTilingScore?: number;
+  /** False when a surface fails self-tiling or a required autotile slot fails. */
+  reviewPassed: boolean;
+  pathAutotileLayoutId?: PathAutotileLayoutId;
+  parentMaterialId?: string;
+  /** Topology slots that passed neighbour checks and may be offered in the palette. */
+  passedSlotIds?: string[];
 }
 
 // Generation request from client
@@ -107,7 +133,10 @@ export interface TilesetGenerationRequest {
 export interface TilesetGenerationMetadata {
   generated: boolean;
   style?: TilesetStyle;
+  /** The flattened provider prompt, retained for backward compatibility. */
   prompt?: string;
+  /** Named source blocks used to assemble `prompt` for generation audit and iteration. */
+  promptSections?: GenerationPromptSection[];
   generated_at?: Date;
   model?: GenerationModelId;
   role?: GenerationRole;
@@ -119,8 +148,15 @@ export interface TilesetGenerationMetadata {
   sourceFamilyIds?: string[];
   pairFamilyIds?: [string, string];
   generationMode?: GenerationMode;
+  /** Legacy presentation metadata. A failed surface is not stored as fixed-block. */
   tilingMode?: TilingMode;
   selfTilingScore?: number;
+  /** Accepted path-autotile only: the surface material this atlas belongs to. */
+  parentMaterialId?: string;
+  /** Accepted path-autotile only: versioned slot geometry. */
+  pathAutotileLayoutId?: PathAutotileLayoutId;
+  /** Accepted path-autotile only: slots the palette may offer. */
+  passedSlotIds?: string[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -174,8 +210,31 @@ export function isGenerationMode(value: unknown): value is GenerationMode {
   return isOneOf(value, GENERATION_MODES);
 }
 
+export function isPathAutotileLayoutId(value: unknown): value is PathAutotileLayoutId {
+  return isOneOf(value, PATH_AUTOTILE_LAYOUT_IDS);
+}
+
 export function isTilingMode(value: unknown): value is TilingMode {
   return isOneOf(value, TILING_MODES);
+}
+
+export function isGenerationPromptSection(
+  value: unknown,
+): value is GenerationPromptSection {
+  return (
+    isRecord(value)
+    && isOneOf(value.id, GENERATION_PROMPT_SECTION_IDS)
+    && isTrimmedString(value.title, 80)
+    && isTrimmedString(value.text, 4_000)
+  );
+}
+
+export function isGenerationPromptSections(
+  value: unknown,
+): value is GenerationPromptSection[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(isGenerationPromptSection);
 }
 
 export function isGenerationUnavailableReason(
@@ -262,6 +321,7 @@ export function isProcessedGenerationResult(
     || !(value.bytes instanceof Uint8Array)
     || !isGenerationMode(value.generationMode)
     || !isTilingMode(value.tilingMode)
+    || typeof value.reviewPassed !== 'boolean'
   ) {
     return false;
   }
@@ -274,6 +334,21 @@ export function isProcessedGenerationResult(
       && value.selfTilingScore <= 1
     )
   );
+  const hasValidLayout = (
+    value.pathAutotileLayoutId === undefined
+    || isPathAutotileLayoutId(value.pathAutotileLayoutId)
+  );
+  const hasValidParent = (
+    value.parentMaterialId === undefined
+    || isTrimmedString(value.parentMaterialId)
+  );
+  const hasValidSlots = (
+    value.passedSlotIds === undefined
+    || (
+      Array.isArray(value.passedSlotIds)
+      && value.passedSlotIds.every((slotId) => isTrimmedString(slotId))
+    )
+  );
 
-  return hasValidScore;
+  return hasValidScore && hasValidLayout && hasValidParent && hasValidSlots;
 }

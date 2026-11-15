@@ -339,3 +339,54 @@ from the content description sent to the image model.
 - [x] T067 Update base/family prompts to use only a concise material/object description; keep category, asset name, folder path, and labels out of prompt text in `apps/editor/src/lib/generation/promptBuilder.ts` and `promptBuilder.test.ts`.
 - [x] T068 Replace the family-label input with asset name, folder path, and texture/object description fields; persist the description for regeneration in `apps/editor/src/components/TilesetGenerateDialog.tsx` and the generate/save routes.
 - [x] T069 Revise the feature requirements, prompt/API contracts, quickstart, and route/browser coverage for category-as-classification, duplicate asset names, user-selected storage path, and regeneration descriptions.
+
+---
+
+## Phase 11: New-image style-reference semantics
+
+**Purpose**: Ensure a later-family image attachment provides rendering
+technique only, never a subject, pattern, color, or edit source.
+
+- [x] T070 Update the AI-generation specification and PromptBuilder contract to distinguish a technique-only style sample from transition-family inputs in `specs/022-ai-tile-generation/spec.md`, `plan.md`, and `contracts/*.md`.
+- [x] T071 Add deterministic prompt assertions for new-image-from-scratch, no-edit, style-sample-only, and subject/pattern/palette/color exclusion language in `apps/editor/src/lib/generation/promptBuilder.test.ts`.
+- [x] T072 Implement the shared new-image and technique-only reference instructions in `apps/editor/src/lib/generation/promptBuilder.ts`, preserving transition prompts' intentional family-combination semantics.
+
+---
+
+## Phase 12: Structured generation prompt metadata
+
+**Purpose**: Make each intent behind a generated prompt independently visible
+and auditable in the editor and in development debug files.
+
+- [x] T073 Model and validate ordered named generation-prompt sections in `packages/types/src/tileset-generation.ts`, retaining the existing flattened prompt for compatibility.
+- [x] T074 Return, carry through preview/save, and persist prompt sections alongside the provider prompt in the prompt builder and generation routes under `apps/editor/src/lib/generation/` and `apps/editor/src/app/api/projects/[projectId]/tilesets/`.
+- [x] T075 Render prompt sections independently in the tileset inspector, preview developer view, and development `*-prompt.txt` / debug page, with a readable legacy flat-prompt fallback.
+- [x] T076 Add prompt-builder and debug-dump coverage for deterministic ordered sections and legacy prompt formatting.
+
+---
+
+## Phase 13: Mapping-ready material and path pipeline
+
+**Purpose**: Replace the contradictory continuous-texture-as-8×8-atlas
+contract with explicit surface, path-autotile, and decoration deliverables.
+
+- [x] T077 Add types-first generation-mode and canonical-output metadata for
+  `texture`, `path-autotile`, and `prop`, including a path-autotile layout id
+  and parent surface id in `packages/types/src/tileset-generation.ts`.
+- [x] T078 Replace the blanket 8×8 surface extraction pipeline with a single
+  canonical self-tiling tile pipeline; retain grid extraction only for declared
+  autotile atlases in `apps/editor/src/lib/generation/`.
+- [x] T079 Define the first path-autotile atlas layout (required slots, atlas
+  coordinates, and neighbouring-slot validation rules) and expose only passed
+  variants in the editor palette.
+- [x] T080 Split prompt composition by output contract; make texture exclusions
+  material-aware and add deterministic coverage for dirt, gravel, cobblestone,
+  and path-autotile requests.
+- [x] T081 Build an editor scene-test preview covering an 8×8 repeated material,
+  straight path, four corners, and every supported junction before acceptance.
+- [x] T082 Add fixture-based post-processing tests for self-tiling surface
+  validation, expected autotile adjacencies, failed/missing topology slots, raw
+  JPEG input, and canonical PNG outputs.
+- [x] T083 Update API, data-model, quickstart, and Cypress coverage so accepted
+  asset mode/layout/parent-material metadata and the manual qualification result
+  remain auditable.

@@ -9,10 +9,10 @@ import {
   isAssetName,
   isGenerationDescription,
   isGenerationModelId,
+  isGenerationPromptSections,
   isProjectStyleSpec,
   isTileFamilyCategory,
   type GenerationRole,
-  type TilingMode,
 } from '@packages/types';
 import {
   findTransitionForPair,
@@ -23,10 +23,8 @@ import {
 } from '@/lib/generation/familyLookup';
 import { resolveGenerationMode } from '@/lib/generation/category-config';
 import { markDependentsStale } from '@/lib/generation/lineage';
-import {
-  postProcessGeneratedImage,
-  resolveRequestedTilingMode,
-} from '@/lib/generation/postProcessor';
+import { resolveOutputContract } from '@/lib/generation/outputContract';
+import { postProcessGeneratedImage } from '@/lib/generation/postProcessor';
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -67,6 +65,9 @@ export async function POST(
     const request = body as Record<string, unknown>;
     const imageData = request.image_data;
     const prompt = request.prompt;
+    const promptSections = isGenerationPromptSections(request.promptSections)
+      ? request.promptSections
+      : undefined;
     const model = request.model;
     const role = request.role as GenerationRole | undefined;
     const hasFolderPath = Object.prototype.hasOwnProperty.call(request, 'folderPath');
@@ -167,37 +168,65 @@ export async function POST(
       }
     }
 
+    const parentMaterialId = typeof request.parentMaterialId === 'string'
+      ? request.parentMaterialId
+      : undefined;
     const resolvedMode = resolveGenerationMode({
       stage: role === 'transition' ? 'transition' : (
         sourceFamilyIds.length === 0 ? 'base' : 'family'
       ),
       category,
       requested: request.generationMode,
+      parentMaterialId,
     });
     if (!resolvedMode.ok) {
       return NextResponse.json({ message: resolvedMode.message }, { status: 400 });
+    }
+    if (resolvedMode.mode === 'path-autotile') {
+      const parent = families.find((family) => (
+        generatedTilesetId(family) === parentMaterialId
+        && family.generation_metadata?.generationMode !== 'prop'
+        && family.generation_metadata?.generationMode !== 'path-autotile'
+      ));
+      if (!parent) {
+        return NextResponse.json(
+          { message: 'Parent surface material was not found' },
+          { status: 400 },
+        );
+      }
     }
 
     const base64Data = imageData.slice('data:image/png;base64,'.length);
     const imageBuffer = Buffer.from(base64Data, 'base64');
     let processedImage: Buffer;
     let processedMode = resolvedMode.mode;
-    let tilingMode: TilingMode = 'individual';
+    let tilingMode: 'individual' | 'fixed-block' = 'individual';
     let selfTilingScore: number | undefined;
+    let pathAutotileLayoutId: string | undefined;
+    let passedSlotIds: string[] | undefined;
     try {
       const processed = await postProcessGeneratedImage(
         new Uint8Array(imageBuffer),
         styleSpec.tileSize,
-        resolvedMode.mode,
+        resolveOutputContract({
+          stage: role === 'transition' ? 'transition' : 'family',
+          generationMode: resolvedMode.mode,
+          tileSize: styleSpec.tileSize,
+          parentMaterialId,
+        }),
       );
+      if (processed.reviewPassed === false) {
+        return NextResponse.json(
+          { message: 'This result failed its output contract and cannot be accepted' },
+          { status: 409 },
+        );
+      }
       processedImage = Buffer.from(processed.bytes);
       processedMode = processed.generationMode;
+      tilingMode = processed.tilingMode;
       selfTilingScore = processed.selfTilingScore;
-      const resolvedTiling = resolveRequestedTilingMode(request.tilingMode, processed.tilingMode);
-      if (!resolvedTiling.ok) {
-        return NextResponse.json({ message: resolvedTiling.message }, { status: 400 });
-      }
-      tilingMode = resolvedTiling.mode;
+      pathAutotileLayoutId = processed.pathAutotileLayoutId;
+      passedSlotIds = processed.passedSlotIds;
     } catch {
       return NextResponse.json({ message: 'Invalid generated PNG image' }, { status: 400 });
     }
@@ -207,6 +236,7 @@ export async function POST(
     const generation_metadata = {
       generated: true as const,
       prompt: prompt.trim(),
+      ...(promptSections ? { promptSections } : {}),
       generated_at: now,
       model,
       role,
@@ -218,6 +248,11 @@ export async function POST(
       generationMode: processedMode,
       tilingMode,
       ...(selfTilingScore === undefined ? {} : { selfTilingScore }),
+      ...(typeof parentMaterialId === 'string' && processedMode === 'path-autotile'
+        ? { parentMaterialId }
+        : {}),
+      ...(typeof pathAutotileLayoutId === 'string' ? { pathAutotileLayoutId } : {}),
+      ...(passedSlotIds ? { passedSlotIds } : {}),
     };
 
     if (regenerateTilesetId) {

@@ -26,13 +26,22 @@
 
 **Claude**: no generate call; `isAvailable()` is false unless a future Anthropic image model appears.
 
-## Decision: Family sheet is 8×8 tiles (64 cells); same PostProcessor geometry for families and transitions
+## Decision: Generation geometry follows the mapping deliverable
 
-**Decision**: Keep the current 8-column × 8-row sheet. Target pixel size = `tileSize * 8` square. Transitions use the same sheet size; PromptBuilder instructs edge/join occupancy rather than a second geometry.
+**Decision**: A surface texture is one canonical `tileSize × tileSize` tile;
+it is not an implicit 8×8 atlas. A path-autotile is an explicit, versioned
+atlas whose named slots and dimensions are defined before prompting. Props keep
+their own declared geometry. Raw provider images may be larger square images;
+post-processing owns conversion to the canonical PNG output.
 
-**Rationale**: One PostProcessor path; existing generate route already resizes to this size; maps can paint from a 64-tile atlas immediately.
+**Rationale**: A seamless patch can be verified only as that patch. Conversely,
+an edge, corner or junction tile must be checked against its intended neighbours,
+not against itself. One 8×8 geometry for all three produces invalid guarantees.
 
-**Alternatives considered**: RPG Maker autotile 47-blob or 4×4 blob — better joins, but a new crop layout and palette UX in the same iteration. Deferred.
+**Alternatives considered**: Continuing to use a fixed 8×8 sheet for every
+result — rejected because it slices a continuous texture into arbitrary cells.
+The exact first autotile layout is deferred to T079, but it must be explicit
+rather than inferred from a model image.
 
 ## Decision: Controlled categories and adjacency (config in code, not creator-edited)
 
@@ -114,27 +123,24 @@ Implied categories: server fills the mode; conflicting client value → 400. Cre
 
 **Alternatives considered**: Hardcode vegetation as texture — too lossy. Default creator-choice to texture when omitted — hides the choice and makes US1 vegetation/grass silently texture.
 
-## Decision: Self-tiling verification then fixed-block fallback; no automatic model retry
+## Decision: Validate against the correct continuity contract; no automatic retry
 
-**Decision**: After crop/grid-snap, `texture` (including transitions) runs `verifySelfTiling` on each extracted cell: compare left↔right and top↔bottom edge bands (mean absolute difference in RGB, score mapped to 0–1). Calibrate the pass threshold against a known-good Test-1 fixture before locking it. If any cell fails, or verification is skipped: `tilingMode: 'fixed-block'`. If all pass: `individual`. Persist `selfTilingScore` as the minimum cell score (diagnostic only).
+**Decision**: A surface texture runs `verifySelfTiling` once on its canonical
+tile, comparing left↔right and top↔bottom bands. A path-autotile validates each
+required slot against the neighbouring slots named by its layout. A failed
+surface or missing/failed required path slot remains a review failure; it is not
+silently repackaged as a fixed-block stamp. The route never re-calls the model:
+the creator can retry after seeing the failure.
 
-The generate route does **not** re-call the model on failure (same policy as provider errors: the creator retries). The preview still returns; the UI MUST state individually reusable vs fixed-block before accept (FR-019). Prop mode skips verification, omits `selfTilingScore`, and uses `tilingMode: 'individual'` (each cell is a variant, not a wraparound material).
+**Rationale**: A fixed block hides a failed material rather than making it
+paintable like RPG Maker. Auto-retry hides provider cost and cannot establish a
+topology contract.
 
-**Rationale**: FR-018 forbids presenting failed texture cells as reusable tiles. FR-019 allows fallback. Auto-retry would hide cost and still might fail.
+## Decision: Prop background removal is local PostProcessor
 
-**Alternatives considered**: Reject the preview entirely on fail — worse UX than an honest stamp. Change `tile_width` to the full sheet so the map has one giant cell — breaks mixed 32px painting and the player blit path.
+**Superseded for surfaces and props** by the geometry decision above: a surface is one canonical tile and a prop is one isolated object. Grid extraction remains only for a declared path-autotile or the explicit transition atlas.
 
-## Decision: Fixed-block is an editor stamp, not a core / tile-size change
-
-**Decision**: Keep `tile_width` / `tile_height` = `styleSpec.tileSize` and keep the PNG as an 8×8 atlas. `packages/core` and `apps/player` stay unchanged. When `generation_metadata.tilingMode === 'fixed-block'`, the map **palette** shows one swatch; the **brush** writes the 64 GIDs in atlas order as an 8×8 block from the clicked cell (clipped to the map). **Fill** is disabled for that tileset in this iteration (avoids flooding the map with stamps). Imported tilesets and metadata without `tilingMode` keep per-cell picking and fill.
-
-**Rationale**: Constitution II/III and the plan’s “no core / player” constraint. The player already renders atlas cells; “non-decomposable” is a creation-time picking rule, not a new runtime primitive.
-
-**Alternatives considered**: Multi-tile stamp engine in core — out of scope. Single 256×256 map tile — cannot sit on a 32px map grid.
-
-## Decision: Prop background removal is local PostProcessor; 8×8 variant atlas kept
-
-**Decision**: `removeBackground` (alpha threshold and/or chroma-key from a sampled near-uniform background, typically corners) runs after crop/grid-snap for `prop` only. Spec already accepts fringing. Prop families still occupy the same 8×8 sheet: 64 decorative variants, not a single object PNG. PromptBuilder must ask for isolated objects on a flat background, not a wrapping ground texture.
+**Decision**: `removeBackground` (alpha threshold and/or chroma-key from a sampled near-uniform background, typically corners) runs after crop for `prop` only. Spec already accepts fringing. PromptBuilder must ask for one isolated object on a flat background, not a wrapping ground texture.
 
 **Rationale**: One PostProcessor geometry (research sheet decision). FR-020 forbids trusting model transparency.
 

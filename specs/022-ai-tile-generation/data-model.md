@@ -25,9 +25,13 @@ not introduce parallel aliases (`Perspective`, `GenerationProvider`,
 `ModelPreference`).
 
 ```typescript
-export type GenerationMode = 'texture' | 'prop';
+export type GenerationMode = 'texture' | 'path-autotile' | 'prop';
 
 export type TilingMode = 'individual' | 'fixed-block';
+
+/** Declared only when generationMode is 'path-autotile'. It identifies the
+ * slot geometry and neighbour-validation rules of the atlas. */
+export type PathAutotileLayoutId = string;
 
 export interface TilesetGenerationMetadata {
   generated: boolean;
@@ -45,18 +49,28 @@ export interface TilesetGenerationMetadata {
   sourceFamilyIds?: string[];
   pairFamilyIds?: [string, string];
 
-  /** 'texture' = continuous self-tiling material.
+  /** 'texture' = one continuous self-tiling material;
+   *  'path-autotile' = a topology-aware atlas for one parent material;
    *  'prop' = isolated object; background removed locally (FR-017/020). */
   generationMode?: GenerationMode;
 
-  /** texture (and transitions) only. 'individual' = each cell is a
-   *  reusable self-tiling-verified tile. 'fixed-block' = fallback:
-   *  the 8×8 sheet is one non-decomposable stamp (FR-019). */
+  /** Required for a path-autotile; identifies its source surface material. */
+  parentMaterialId?: string;
+
+  /** Required for a path-autotile; names its versioned atlas topology. */
+  pathAutotileLayoutId?: PathAutotileLayoutId;
+
+  /** Legacy presentation metadata. New surface textures are individually
+   *  reusable as one canonical tile; it is not a fallback for a failed
+   *  self-tiling result. */
   tilingMode?: TilingMode;
 
-  /** Diagnostic 0–1 from self-tiling verification. Not shown raw in
-   *  the UI. Texture / transition only; omitted for prop. */
+  /** Diagnostic 0–1 from surface self-tiling verification. Not shown raw in
+   *  the UI; omitted for prop and replaced by slot diagnostics for autotiles. */
   selfTilingScore?: number;
+
+  /** Path-autotile slots that passed neighbour checks and may be painted. */
+  passedSlotIds?: string[];
 }
 ```
 
@@ -71,6 +85,10 @@ export interface ProcessedGenerationResult {
   generationMode: GenerationMode;
   tilingMode: TilingMode;
   selfTilingScore?: number;
+  reviewPassed: boolean;
+  pathAutotileLayoutId?: PathAutotileLayoutId;
+  parentMaterialId?: string;
+  passedSlotIds?: string[];
 }
 ```
 
@@ -152,20 +170,23 @@ mode is implied.
 
 - Implied category: server assigns the mapped mode. If the client
   sends a conflicting `generationMode` → **400**.
-- `creator-choice`: client MUST send `generationMode` → **400** if
-  missing or not `texture` | `prop`.
-- `stage: transition` is always processed as `texture` (edge/join
-  sheet). Client `generationMode` is ignored; persisted metadata
-  records `generationMode: 'texture'`.
+- `creator-choice`: client MUST send `texture` or `prop` → **400** if
+  missing or any other mode except `path-autotile`.
+- `path-autotile` is available for every category except `decoration`,
+  and only when `parentMaterialId` identifies an accepted surface
+  family. A missing or non-surface parent → **400**.
+- `stage: transition` is always an explicit edge/join atlas processed
+  with `generationMode: 'texture'`. It is not a single surface tile.
+  Client `generationMode` is ignored.
 
-**Fixed-block placement (FR-019)**: do not change `tile_width` /
-`tile_height` (they stay `styleSpec.tileSize`) and do not change
-`packages/core`. The image remains an 8×8 atlas so the player can
-blit cells. The **palette** treats `tilingMode: 'fixed-block'` as one
-stamp: one swatch; the brush writes the full 8×8 cell pattern from the
-clicked map cell (clipped to bounds). Fill is disabled for that
-tileset this iteration. Individual cells are not pickable.
-`individual` keeps today’s per-cell palette and fill.
+**Geometry is mode-specific**: a `texture` family is one
+`tileSize × tileSize` canonical image; a failed self-tiling result is a
+review failure (`reviewPassed: false`) and MUST NOT be saved or
+repackaged as `fixed-block`. A `path-autotile` uses layout
+`path-center-edges-corners-v1` (centre, four edges, four outer corners;
+no junctions). A prop is one isolated object. Transition sheets stay an
+explicit 8×8 edge/join atlas. The editor uses persisted mode, layout,
+and `passedSlotIds` to decide which cells the palette offers.
 
 ---
 

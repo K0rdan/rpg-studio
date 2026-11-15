@@ -78,17 +78,39 @@ export async function createMismatchedEdgeSheetPng(tileSize: TileSize = 16): Pro
 }
 
 export async function createPropOnFlatBackgroundPng(tileSize: TileSize = 16): Promise<Buffer> {
-  const dimension = tileSize * SHEET_GRID_SIZE;
   const inset = Math.max(2, Math.floor(tileSize / 4));
-  return rawRgbaPng(dimension, dimension, (x, y) => {
-    const localX = x % tileSize;
-    const localY = y % tileSize;
+  return rawRgbaPng(tileSize, tileSize, (x, y) => {
     const inside = (
-      localX >= inset
-      && localX < tileSize - inset
-      && localY >= inset
-      && localY < tileSize - inset
+      x >= inset
+      && x < tileSize - inset
+      && y >= inset
+      && y < tileSize - inset
     );
     return inside ? [200, 40, 40, 255] : [20, 180, 40, 255];
   });
+}
+
+export async function createUniformAutotilePng(tileSize: TileSize = 16): Promise<Buffer> {
+  return rawRgbaPng(tileSize * 3, tileSize * 3, () => [90, 70, 40, 255]);
+}
+
+export async function createBrokenAutotilePng(tileSize: TileSize = 16): Promise<Buffer> {
+  return rawRgbaPng(tileSize * 3, tileSize * 3, (x, y) => {
+    const column = Math.floor(x / tileSize);
+    const row = Math.floor(y / tileSize);
+    return column === 2 && row === 1
+      ? [10, 10, 200, 255]
+      : [90, 70, 40, 255];
+  });
+}
+
+export async function createUniformJpeg(size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 3,
+      background: { r: 40, g: 160, b: 70 },
+    },
+  }).jpeg({ quality: 100 }).toBuffer();
 }

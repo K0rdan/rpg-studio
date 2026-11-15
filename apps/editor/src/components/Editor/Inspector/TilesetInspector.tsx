@@ -100,6 +100,15 @@ export const TilesetInspector = ({ projectId, tileset }: TilesetInspectorProps) 
             {metadata.generationMode && (
               <MetadataRow label="Mode" value={formatMetadataValue(metadata.generationMode)} />
             )}
+            {metadata.pathAutotileLayoutId && (
+              <MetadataRow label="Autotile layout" value={metadata.pathAutotileLayoutId} />
+            )}
+            {metadata.parentMaterialId && (
+              <MetadataRow label="Parent surface" value={metadata.parentMaterialId} />
+            )}
+            {metadata.passedSlotIds?.length ? (
+              <MetadataRow label="Passed slots" value={metadata.passedSlotIds.join(', ')} />
+            ) : null}
             {metadata.tilingMode && (
               <MetadataRow label="Tiling" value={formatMetadataValue(metadata.tilingMode)} />
             )}
@@ -113,7 +122,21 @@ export const TilesetInspector = ({ projectId, tileset }: TilesetInspectorProps) 
               <MetadataRow label="Transition families" value={metadata.pairFamilyIds.join(', ')} />
             ) : null}
             {metadata.status && <MetadataRow label="Status" value={formatMetadataValue(metadata.status)} />}
-            {metadata.prompt && <MetadataRow label="Prompt" value={metadata.prompt} />}
+            {metadata.promptSections?.length ? (
+              <Box sx={{ pt: 1 }}>
+                <Typography variant="caption" sx={{ color: '#777' }}>Prompt components</Typography>
+                {metadata.promptSections.map((section) => (
+                  <Box key={section.id} sx={{ mt: 0.75, p: 1, bgcolor: '#202020', borderRadius: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#aaa', fontWeight: 700 }}>
+                      {section.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.25, color: '#ccc', fontSize: '0.75rem', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
+                      {section.text}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            ) : metadata.prompt ? <MetadataRow label="Prompt" value={metadata.prompt} /> : null}
           </Box>
         </Box>
       )}

@@ -19,7 +19,8 @@ export interface GenerationClientRequest {
   model: GenerationModelId;
   prompt: string; // from PromptBuilder only
   referenceImages: GenerationReferenceImage[]; // empty iff first family
-  /** Hint for providers that need an output size; sheet is always 8×8 tiles. */
+  /** Hint for providers that need an output size; canonical geometry is chosen
+   * by the generation mode/output contract, not assumed to be an 8×8 sheet. */
   tileSize: 16 | 32 | 64 | 128;
 }
 
@@ -33,8 +34,9 @@ export interface RawGenerationResult {
 export interface ProcessedGenerationResult {
   mimeType: 'image/png';
   bytes: Uint8Array;
-  generationMode: 'texture' | 'prop';
+  generationMode: 'texture' | 'path-autotile' | 'prop';
   tilingMode: 'individual' | 'fixed-block';
+  reviewPassed: boolean;
   selfTilingScore?: number;
 }
 
@@ -62,6 +64,9 @@ interface GenerationClient {
 2. `generate` MUST NOT build or rewrite the prompt (PromptBuilder).
 3. If `referenceImages.length === 0`, the adapter MAY use text-only generation (first family only). The **orchestrating route** MUST reject empty references when the project already has an accepted `role: 'family'` tileset (gate VII).
 4. If `referenceImages.length >= 1`, the adapter MUST send those bytes to the provider as images (Gemini `inlineData` parts, GPT `images.edit` files). It MUST NOT drop them and restate style in text.
+   The provider endpoint name does not change their semantic role: for later
+   families, PromptBuilder defines them as technique-only style samples and
+   requires a newly generated image rather than an edit of an input image.
 5. Claude: `isAvailable()` is `false`; `generate` throws `not_supported`.
 6. Missing API key: `misconfigured`.
 7. Mapped HTTP failures: see research.md (429 rate_limit, quota, 502 upstream).

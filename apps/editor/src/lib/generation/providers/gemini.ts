@@ -11,7 +11,16 @@ import {
   type GenerationClient,
 } from '../generationErrors';
 
-const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
+const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
+const GEMINI_IMAGE_CONFIG = {
+  responseModalities: ['Image'],
+  imageConfig: { aspectRatio: '1:1' },
+};
+
+/** `GEMINI_IMAGE_MODEL` lets the generation lab compare image models. */
+function geminiImageModel(): string {
+  return process.env.GEMINI_IMAGE_MODEL || DEFAULT_GEMINI_IMAGE_MODEL;
+}
 
 function upstreamStatus(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null || !('status' in error)) {
@@ -25,6 +34,10 @@ export class GeminiGenerationClient implements GenerationClient {
 
   isAvailable(): boolean {
     return Boolean(process.env.GEMINI_API_KEY);
+  }
+
+  describeConfig(): Record<string, unknown> {
+    return { imageModel: geminiImageModel(), ...GEMINI_IMAGE_CONFIG };
   }
 
   async generate(
@@ -59,12 +72,9 @@ export class GeminiGenerationClient implements GenerationClient {
               },
             ];
       const response = await client.models.generateContent({
-        model: GEMINI_IMAGE_MODEL,
+        model: geminiImageModel(),
         contents,
-        config: {
-          responseModalities: ['Image'],
-          imageConfig: { aspectRatio: '1:1' },
-        },
+        config: GEMINI_IMAGE_CONFIG,
       });
       const parts = response.candidates?.[0]?.content?.parts ?? [];
       const inlineData = parts.find(

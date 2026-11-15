@@ -25,6 +25,9 @@ export type GeneratedTilesetDocument = WithId<Document> & {
     generationMode?: GenerationMode;
     tilingMode?: TilingMode;
     selfTilingScore?: number;
+    parentMaterialId?: string;
+    pathAutotileLayoutId?: string;
+    passedSlotIds?: string[];
   };
 };
 

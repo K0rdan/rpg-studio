@@ -6,9 +6,12 @@ import {
   isGenerationModelId,
   isProjectStyleSpec,
   isTileFamilyCategory,
+  isTilingMode,
   type GenerationMode,
   type GenerationModelId,
+  type GenerationPromptSection,
   type GenerationReferenceImage,
+  type ProcessedGenerationResult,
 } from '@packages/types';
 import { requireProjectAccess } from '@/lib/apiAuth';
 import {
@@ -24,19 +27,45 @@ import {
 } from '@/lib/generation/familyLookup';
 import { resolveGenerationMode } from '@/lib/generation/category-config';
 import { dumpGenerationPreview } from '@/lib/generation/debugDump';
+import { resolveOutputContract } from '@/lib/generation/outputContract';
 import {
+  BASELINE_POST_PROCESS,
   postProcessGeneratedImage,
-  resolveRequestedTilingMode,
 } from '@/lib/generation/postProcessor';
 import {
   buildBasePrompt,
   buildFamilyPrompt,
+  buildPathAutotilePrompt,
   buildTransitionPrompt,
+  type PromptOptions,
 } from '@/lib/generation/promptBuilder';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getTilesetStorage } from '@/lib/storage';
 
 export const runtime = 'nodejs';
+
+/** Production prompt: every experiment flag stays off until the lab promotes one. */
+const PRODUCTION_PROMPT_OPTIONS: PromptOptions = {};
+
+function qualificationSummary(processed: ProcessedGenerationResult): string {
+  if (processed.generationMode === 'path-autotile') {
+    const slots = processed.passedSlotIds?.join(', ') || 'none';
+    const layout = processed.pathAutotileLayoutId ?? 'layout';
+    return processed.reviewPassed
+      ? `path-autotile ${layout} passed slots: ${slots}`
+      : `path-autotile ${layout} failed; passed slots: ${slots}`;
+  }
+  if (processed.generationMode === 'prop') {
+    return 'prop background removed';
+  }
+  if (processed.selfTilingScore === undefined) {
+    return 'transition atlas fitted';
+  }
+  const score = ` (score ${processed.selfTilingScore.toFixed(3)})`;
+  return processed.reviewPassed
+    ? `surface self-tiling passed${score}`
+    : `surface self-tiling failed${score}`;
+}
 
 function unavailableResponse(error: GenerationUnavailableError) {
   const status = error.reason === 'rate_limit'
@@ -121,11 +150,8 @@ export async function POST(
     if (model instanceof NextResponse) {
       return model;
     }
-    if (request.tilingMode !== undefined) {
-      const requestedTiling = resolveRequestedTilingMode(request.tilingMode, 'individual');
-      if (!requestedTiling.ok) {
-        return NextResponse.json({ message: requestedTiling.message }, { status: 400 });
-      }
+    if (request.tilingMode !== undefined && !isTilingMode(request.tilingMode)) {
+      return NextResponse.json({ message: 'Invalid tiling mode' }, { status: 400 });
     }
 
     const regenerateTilesetId = typeof request.regenerateTilesetId === 'string'
@@ -145,8 +171,13 @@ export async function POST(
     let pairFamilyIds: [string, string] | null = null;
     let role: 'family' | 'transition' = 'family';
     let prompt = '';
+    let promptSections: GenerationPromptSection[] = [];
     let name = '';
     let generationMode: GenerationMode = 'texture';
+    let parentMaterialId = typeof request.parentMaterialId === 'string'
+      ? request.parentMaterialId
+      : undefined;
+    let parentMaterialDescription = '';
 
     if (regenerateTilesetId) {
       if (!ObjectId.isValid(regenerateTilesetId)) {
@@ -172,8 +203,11 @@ export async function POST(
       if (request.generationMode === undefined) {
         request.generationMode = existing.generation_metadata.generationMode;
       }
-      if (request.tilingMode === undefined) {
-        request.tilingMode = existing.generation_metadata.tilingMode;
+      if (request.parentMaterialId === undefined) {
+        request.parentMaterialId = existing.generation_metadata.parentMaterialId;
+      }
+      if (typeof request.parentMaterialId === 'string') {
+        parentMaterialId = request.parentMaterialId;
       }
       if (role === 'transition' && existing.generation_metadata.pairFamilyIds) {
         pairFamilyIds = sortPairFamilyIds(...existing.generation_metadata.pairFamilyIds);
@@ -206,15 +240,25 @@ export async function POST(
         stage: 'base',
         category,
         requested: request.generationMode,
+        parentMaterialId,
       });
       if (!resolvedMode.ok) {
         return NextResponse.json({ message: resolvedMode.message }, { status: 400 });
       }
-      prompt = buildBasePrompt({
+      if (resolvedMode.mode === 'path-autotile') {
+        return NextResponse.json(
+          { message: 'Accept a surface material before generating a path autotile' },
+          { status: 400 },
+        );
+      }
+      const builtPrompt = buildBasePrompt({
         style,
         subjectDescription,
         generationMode: resolvedMode.mode,
-      }).prompt;
+        options: PRODUCTION_PROMPT_OPTIONS,
+      });
+      prompt = builtPrompt.prompt;
+      promptSections = builtPrompt.sections;
       name = assetName;
       generationMode = resolvedMode.mode;
     } else if (stage === 'family') {
@@ -252,15 +296,47 @@ export async function POST(
         stage: 'family',
         category,
         requested: request.generationMode,
+        parentMaterialId,
       });
       if (!resolvedMode.ok) {
         return NextResponse.json({ message: resolvedMode.message }, { status: 400 });
       }
-      prompt = buildFamilyPrompt({
-        style,
-        subjectDescription,
-        generationMode: resolvedMode.mode,
-      }).prompt;
+      if (resolvedMode.mode === 'path-autotile') {
+        const parent = families.find((family) => (
+          generatedTilesetId(family) === parentMaterialId
+          && family.generation_metadata?.generationMode !== 'prop'
+          && family.generation_metadata?.generationMode !== 'path-autotile'
+        ));
+        if (!parent || !parentMaterialId) {
+          return NextResponse.json(
+            { message: 'Parent surface material was not found' },
+            { status: 400 },
+          );
+        }
+        parentMaterialDescription = parent.generation_metadata?.generationDescription
+          || parent.generation_metadata?.label
+          || parent.name
+          || 'parent surface';
+        sourceFamilies = [parent];
+      }
+      const builtPrompt = resolvedMode.mode === 'path-autotile'
+        ? buildPathAutotilePrompt({
+          style,
+          subjectDescription,
+          parentMaterialDescription,
+          hasReferences: true,
+        })
+        : buildFamilyPrompt({
+          style,
+          subjectDescription,
+          generationMode: resolvedMode.mode,
+          options: PRODUCTION_PROMPT_OPTIONS,
+          referenceMaterials: sourceFamilies
+            .map((family) => family.generation_metadata?.generationDescription ?? family.name)
+            .filter((value): value is string => typeof value === 'string'),
+        });
+      prompt = builtPrompt.prompt;
+      promptSections = builtPrompt.sections;
       name = assetName;
       generationMode = resolvedMode.mode;
     } else if (stage === 'transition') {
@@ -294,7 +370,9 @@ export async function POST(
       }
       role = 'transition';
       generationMode = 'texture';
-      prompt = buildTransitionPrompt({ style }).prompt;
+      const builtPrompt = buildTransitionPrompt({ style });
+      prompt = builtPrompt.prompt;
+      promptSections = builtPrompt.sections;
       name = assetName;
     } else {
       return NextResponse.json(
@@ -313,6 +391,12 @@ export async function POST(
       );
     }
 
+    const outputContract = resolveOutputContract({
+      stage: stage === 'transition' ? 'transition' : stage === 'family' ? 'family' : 'base',
+      generationMode,
+      tileSize: style.tileSize,
+      parentMaterialId,
+    });
     const client = getGenerationClient(model);
     if (!client.isAvailable()) {
       return unavailableResponse(new GenerationUnavailableError(
@@ -323,23 +407,23 @@ export async function POST(
           : `${model} image generation is not configured`,
       ));
     }
+    const generateStartedAt = performance.now();
     const rawResult = await client.generate({
       model,
       prompt,
       referenceImages,
       tileSize: style.tileSize,
     });
+    const postProcessStartedAt = performance.now();
     const processed = await postProcessGeneratedImage(
       rawResult,
       style.tileSize,
-      generationMode,
+      outputContract,
+      BASELINE_POST_PROCESS,
     );
-    const resolvedTiling = resolveRequestedTilingMode(request.tilingMode, processed.tilingMode);
-    if (!resolvedTiling.ok) {
-      return NextResponse.json({ message: resolvedTiling.message }, { status: 400 });
-    }
-    const tilingMode = resolvedTiling.mode;
+    const finishedAt = performance.now();
     const outputBuffer = Buffer.from(processed.bytes);
+    const qualificationNote = qualificationSummary(processed);
     await dumpGenerationPreview({
       rawBytes: rawResult.bytes,
       processed: outputBuffer,
@@ -347,6 +431,51 @@ export async function POST(
       stage,
       assetName,
       prompt,
+      promptSections,
+      qualificationNote,
+      referenceImages: referenceImages.map((image) => {
+        const family = sourceFamilies.find((candidate) => (
+          generatedTilesetId(candidate) === image.tilesetId
+        ));
+        return {
+          tilesetId: image.tilesetId,
+          name: family?.name,
+          description: family?.generation_metadata?.generationDescription
+            ?? family?.generation_metadata?.label,
+          bytes: image.bytes,
+        };
+      }),
+      input: {
+        request,
+        resolved: {
+          stage,
+          category,
+          assetName,
+          subjectDescription,
+          generationMode,
+          role,
+          model,
+          parentMaterialId,
+          regenerateTilesetId,
+          pairFamilyIds,
+        },
+        style,
+        outputContract: {
+          kind: outputContract.kind,
+          width: outputContract.width,
+          height: outputContract.height,
+          columns: outputContract.columns,
+          rows: outputContract.rows,
+        },
+        providerConfig: client.describeConfig?.() ?? {},
+        promptOptions: PRODUCTION_PROMPT_OPTIONS,
+        referenceMode: 'full',
+        postProcess: BASELINE_POST_PROCESS,
+        timingsMs: {
+          generate: Math.round(postProcessStartedAt - generateStartedAt),
+          postProcess: Math.round(finishedAt - postProcessStartedAt),
+        },
+      },
     });
 
     return NextResponse.json({
@@ -360,8 +489,12 @@ export async function POST(
         category: isTileFamilyCategory(category) ? category : undefined,
         role,
         generationMode: processed.generationMode,
-        tilingMode,
+        tilingMode: processed.tilingMode,
         selfTilingScore: processed.selfTilingScore,
+        reviewPassed: processed.reviewPassed,
+        pathAutotileLayoutId: processed.pathAutotileLayoutId,
+        parentMaterialId: processed.parentMaterialId ?? parentMaterialId,
+        passedSlotIds: processed.passedSlotIds,
         tile_width: style.tileSize,
         tile_height: style.tileSize,
         model,
@@ -369,6 +502,7 @@ export async function POST(
         pairFamilyIds,
         regenerateTilesetId,
         prompt,
+        promptSections,
       },
     }, { status: 200 });
   } catch (error) {

@@ -1,5 +1,4 @@
 import {
-  isGenerationMode,
   isTileFamilyCategory,
   type GenerationMode,
   type TileFamilyCategory,
@@ -29,10 +28,15 @@ export function categoryModeOf(
   return CATEGORY_MODE[category];
 }
 
+function hasParentMaterial(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export function resolveGenerationMode(input: {
   stage: GenerationStage;
   category?: unknown;
   requested?: unknown;
+  parentMaterialId?: unknown;
 }): ResolveGenerationModeResult {
   if (input.stage === 'transition') {
     return { ok: true, mode: 'texture' };
@@ -42,9 +46,25 @@ export function resolveGenerationMode(input: {
     return { ok: false, message: 'A valid family category is required' };
   }
 
+  if (input.requested === 'path-autotile') {
+    if (input.category === 'decoration') {
+      return {
+        ok: false,
+        message: 'Decoration families are isolated props, not path autotiles',
+      };
+    }
+    if (!hasParentMaterial(input.parentMaterialId)) {
+      return {
+        ok: false,
+        message: 'A path autotile requires a parent surface material',
+      };
+    }
+    return { ok: true, mode: 'path-autotile' };
+  }
+
   const mapped = CATEGORY_MODE[input.category];
   if (mapped === 'creator-choice') {
-    if (!isGenerationMode(input.requested)) {
+    if (input.requested !== 'texture' && input.requested !== 'prop') {
       return {
         ok: false,
         message: 'Choose texture or prop for this category',

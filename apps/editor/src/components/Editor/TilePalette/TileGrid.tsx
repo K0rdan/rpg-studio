@@ -1,6 +1,7 @@
 import { Box, CircularProgress, Tooltip, Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { isFixedBlockTileset } from '@/lib/mapPainting';
+import { PATH_CENTER_EDGES_CORNERS_V1, slotByPosition } from '@/lib/generation/pathAutotileLayout';
 import { useTileSelectionStore } from '@/stores/tileSelectionStore';
 import type { Tileset } from '@packages/types';
 
@@ -165,6 +166,23 @@ export const TileGrid = ({ tileset }: TileGridProps) => {
         {Array.from({ length: totalTiles }).map((_, index) => {
           const x = index % columns;
           const y = Math.floor(index / columns);
+          const layoutId = tileset.generation_metadata?.pathAutotileLayoutId;
+          const passedSlotIds = tileset.generation_metadata?.passedSlotIds;
+          const autotileSlot = layoutId === PATH_CENTER_EDGES_CORNERS_V1.id
+            ? slotByPosition(PATH_CENTER_EDGES_CORNERS_V1, x, y)
+            : undefined;
+          const offered = !autotileSlot
+            || !passedSlotIds
+            || passedSlotIds.includes(autotileSlot.id);
+          if (autotileSlot && !offered) {
+            return (
+              <Box
+                key={index}
+                aria-hidden
+                sx={{ width: displayTileWidth, height: displayTileHeight }}
+              />
+            );
+          }
           const isSelected = selectedTileIndex === index;
           const isCollidable = tileset.tiles?.some(
             (tile) => tile.id === index && tile.is_collidable === true,

@@ -30,13 +30,14 @@ import { apiFetch } from '@/lib/apiFetch';
 import { normalizeAssetFolderPath } from '@/lib/assetFolders';
 import { areCategoriesCommonlyAdjacent } from '@/lib/generation/adjacency';
 import { categoryModeOf } from '@/lib/generation/category-config';
+import { SceneTestPreview } from '@/components/SceneTestPreview';
 import {
   COMMON_TILE_SIZES,
   GENERATION_MODEL_IDS,
   TILE_FAMILY_CATEGORIES,
-  TILING_MODES,
   type GenerationMode,
   type GenerationModelId,
+  type GenerationPromptSection,
   type ProjectPerspective,
   type ProjectStyleSpec,
   type TileFamilyCategory,
@@ -67,9 +68,14 @@ interface TilesetGenerationParams {
   pairFamilyIds: [string, string] | null;
   regenerateTilesetId: string | null;
   prompt: string;
+  promptSections: GenerationPromptSection[];
   generationMode: GenerationMode;
   tilingMode: TilingMode;
   selfTilingScore?: number;
+  reviewPassed?: boolean;
+  pathAutotileLayoutId?: string;
+  parentMaterialId?: string;
+  passedSlotIds?: string[];
 }
 
 interface TilesetGenerationResponse {
@@ -81,6 +87,7 @@ interface FamilyOption {
   id: string;
   name: string;
   category?: TileFamilyCategory;
+  generationMode?: GenerationMode;
 }
 
 interface DependentSummary {
@@ -107,14 +114,26 @@ function modelLabel(model: GenerationModelId): string {
   }
 }
 
-function tilingModeLabel(mode: TilingMode): string {
-  switch (mode) {
-    case 'individual':
-      return 'Individually reusable tiles';
-    case 'fixed-block':
-      return 'Single fixed 8×8 stamp';
+function usabilityText(params: TilesetGenerationParams): string {
+  if (params.reviewPassed === false) {
+    return params.generationMode === 'path-autotile'
+      ? 'Rejected: a required path slot failed its neighbour check.'
+      : 'Rejected: this surface does not self-tile.';
+  }
+  if (params.tilingMode === 'fixed-block') {
+    return 'a single fixed 8×8 stamp';
+  }
+  switch (params.generationMode) {
+    case 'texture':
+      return params.role === 'transition'
+        ? 'Transition atlas for the selected pair.'
+        : 'One canonical self-tiling surface tile.';
+    case 'path-autotile':
+      return 'Path autotile. Only slots that passed neighbour checks can be painted.';
+    case 'prop':
+      return 'Isolated object with the background removed.';
     default: {
-      const exhaustive: never = mode;
+      const exhaustive: never = params.generationMode;
       return exhaustive;
     }
   }
@@ -137,7 +156,7 @@ export default function TilesetGenerateDialog({
   const [assetFolderPath, setAssetFolderPath] = useState(folderPath);
   const [category, setCategory] = useState<TileFamilyCategory>('vegetation');
   const [generationMode, setGenerationMode] = useState<GenerationMode>('texture');
-  const [tilingMode, setTilingMode] = useState<TilingMode>('individual');
+  const [parentMaterialId, setParentMaterialId] = useState('');
   const [tileSize, setTileSize] = useState<ProjectStyleSpec['tileSize']>(32);
   const [perspective, setPerspective] = useState<ProjectPerspective>('top-down');
   const [mood, setMood] = useState('');
@@ -159,9 +178,19 @@ export default function TilesetGenerateDialog({
 
   const isRegenerate = Boolean(regenerateTilesetId);
   const categoryGenerationMode = categoryModeOf(category);
-  const effectiveGenerationMode = categoryGenerationMode === 'creator-choice'
-    ? generationMode
-    : categoryGenerationMode;
+  const effectiveGenerationMode: GenerationMode = generationMode === 'path-autotile' && category !== 'decoration'
+    ? 'path-autotile'
+    : categoryGenerationMode === 'creator-choice'
+      ? (generationMode === 'prop' ? 'prop' : 'texture')
+      : categoryGenerationMode;
+  const surfaceFamilies = families.filter((family) => (
+    family.generationMode !== 'prop' && family.generationMode !== 'path-autotile'
+  ));
+
+  const defaultParentId = surfaceFamilies[0]?.id ?? '';
+  const selectedParentId = surfaceFamilies.some((family) => family.id === parentMaterialId)
+    ? parentMaterialId
+    : defaultParentId;
 
   useEffect(() => {
     if (!open) return;
@@ -196,6 +225,7 @@ export default function TilesetGenerateDialog({
             id: tileset.id,
             name: tileset.name,
             category: tileset.generation_metadata?.category,
+            generationMode: tileset.generation_metadata?.generationMode,
           }));
         setFamilies(accepted);
         setTransitions(tilesets.filter((tileset) => tileset.generation_metadata?.role === 'transition'));
@@ -219,7 +249,7 @@ export default function TilesetGenerateDialog({
             if (metadata?.generationDescription) setSubjectDescription(metadata.generationDescription);
             else if (metadata?.label) setSubjectDescription(metadata.label);
             if (metadata?.generationMode) setGenerationMode(metadata.generationMode);
-            if (metadata?.tilingMode) setTilingMode(metadata.tilingMode);
+            if (metadata?.parentMaterialId) setParentMaterialId(metadata.parentMaterialId);
           }
         }
       } catch (error) {
@@ -234,9 +264,10 @@ export default function TilesetGenerateDialog({
     };
   }, [open, projectId, regenerateTilesetId, showToast]);
 
-  useEffect(() => {
-    if (open && !regenerateTilesetId) setAssetFolderPath(folderPath);
-  }, [folderPath, open, regenerateTilesetId]);
+  const openDialog = () => {
+    setAssetFolderPath(folderPath);
+    setInternalOpen(true);
+  };
 
   const suggestedPartner = useMemo(() => {
     return families.find((family) => (
@@ -267,7 +298,6 @@ export default function TilesetGenerateDialog({
     setAssetFolderPath(folderPath);
     setCategory('vegetation');
     setGenerationMode('texture');
-    setTilingMode('individual');
     setMode('family');
     setSourceFamilyId('');
     setPairA('');
@@ -332,15 +362,17 @@ export default function TilesetGenerateDialog({
             category,
             name: assetName.trim(),
             subjectDescription: subjectDescription.trim(),
-            ...(categoryModeOf(category) === 'creator-choice'
-              ? { generationMode }
+            ...(effectiveGenerationMode === 'path-autotile' || categoryModeOf(category) === 'creator-choice'
+              ? { generationMode: effectiveGenerationMode }
               : {}),
-            ...(families.length > 0 && sourceFamilyId ? { sourceFamilyIds: [sourceFamilyId] } : {}),
+            ...(effectiveGenerationMode === 'path-autotile' ? { parentMaterialId: selectedParentId } : {}),
+            ...(families.length > 0 && sourceFamilyId && effectiveGenerationMode !== 'path-autotile'
+              ? { sourceFamilyIds: [sourceFamilyId] }
+              : {}),
           };
       if (requestModel !== projectModel) {
         body.model = requestModel;
       }
-      body.tilingMode = tilingMode;
 
       const response = await apiFetch(`/api/projects/${projectId}/tilesets/generate`, {
         method: 'POST',
@@ -422,6 +454,7 @@ export default function TilesetGenerateDialog({
             aria-label="Generate tileset"
             onClick={(event) => {
               event.stopPropagation();
+              setAssetFolderPath(folderPath);
               setInternalOpen(true);
             }}
           >
@@ -433,7 +466,7 @@ export default function TilesetGenerateDialog({
           variant="contained"
           color="secondary"
           startIcon={<AutoAwesomeIcon />}
-          onClick={() => setInternalOpen(true)}
+          onClick={openDialog}
         >
           Generate Tileset
         </Button>
@@ -471,6 +504,19 @@ export default function TilesetGenerateDialog({
                   }}
                 />
               </Card>
+              {generationParams && (
+                <SceneTestPreview
+                  src={previewData}
+                  generationMode={generationParams.generationMode}
+                  role={generationParams.role}
+                  passedSlotIds={generationParams.passedSlotIds}
+                />
+              )}
+              {generationParams?.reviewPassed === false && (
+                <Alert severity="error">
+                  This result failed its output contract. Reject it and describe the material more precisely.
+                </Alert>
+              )}
               <Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   <strong>Asset name:</strong> {generationParams?.name}
@@ -490,9 +536,7 @@ export default function TilesetGenerateDialog({
                 )}
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   <strong>Usable as:</strong>{' '}
-                  {generationParams?.tilingMode === 'fixed-block'
-                    ? 'a single fixed 8×8 stamp'
-                    : 'individually reusable tiles'}
+                  {generationParams ? usabilityText(generationParams) : ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   <strong>Perspective:</strong> {perspective}
@@ -503,22 +547,21 @@ export default function TilesetGenerateDialog({
                   <Typography variant="subtitle2" gutterBottom>
                     Prompt sent to the model (dev)
                   </Typography>
-                  <Typography
-                    component="pre"
-                    variant="body2"
-                    sx={{
-                      m: 0,
-                      p: 1.5,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      bgcolor: 'action.hover',
-                      borderRadius: 1,
-                    }}
-                  >
-                    {generationParams.prompt}
-                  </Typography>
+                  <Stack spacing={1}>
+                    {(generationParams.promptSections?.length
+                      ? generationParams.promptSections
+                      : [{ id: 'content', title: 'Full prompt', text: generationParams.prompt }]
+                    ).map((section) => (
+                      <Box key={section.id} sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                          {section.title}
+                        </Typography>
+                        <Typography component="pre" variant="body2" sx={{ m: '4px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12 }}>
+                          {section.text}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
                 </Box>
               )}
               <Typography variant="body2" color="text.secondary">
@@ -579,11 +622,17 @@ export default function TilesetGenerateDialog({
               {mode === 'family' && (
                 <>
                   <TextField
-                    label={effectiveGenerationMode === 'texture' ? 'Texture description' : 'Object description'}
+                    label={effectiveGenerationMode === 'prop'
+                      ? 'Object description'
+                      : effectiveGenerationMode === 'path-autotile'
+                        ? 'Path material'
+                        : 'Texture description'}
                     helperText="Describe only the material or object to generate, not the visual style or a full image prompt."
-                    placeholder={effectiveGenerationMode === 'texture'
-                      ? 'e.g. short dense green grass with small clover'
-                      : 'e.g. small pine tree with a rounded canopy'}
+                    placeholder={effectiveGenerationMode === 'prop'
+                      ? 'e.g. small pine tree with a rounded canopy'
+                      : effectiveGenerationMode === 'path-autotile'
+                        ? 'e.g. compacted dry earth'
+                        : 'e.g. short dense green grass with small clover'}
                     slotProps={{ htmlInput: { 'aria-label': 'Generation description', maxLength: 200 } }}
                     value={subjectDescription}
                     onChange={(event) => setSubjectDescription(event.target.value)}
@@ -606,21 +655,45 @@ export default function TilesetGenerateDialog({
                       ))}
                     </Select>
                   </FormControl>
-                  {categoryModeOf(category) === 'creator-choice' && (
+                  {category !== 'decoration' && (
                     <FormControl fullWidth disabled={loading}>
-                      <InputLabel>Texture or prop</InputLabel>
+                      <InputLabel>Output contract</InputLabel>
                       <Select
-                        value={generationMode}
-                        label="Texture or prop"
-                        inputProps={{ 'aria-label': 'Texture or prop' }}
+                        value={effectiveGenerationMode}
+                        label="Output contract"
+                        inputProps={{ 'aria-label': 'Output contract' }}
                         onChange={(event) => setGenerationMode(event.target.value as GenerationMode)}
                       >
-                        <MenuItem value="texture">Texture (self-tiling material)</MenuItem>
-                        <MenuItem value="prop">Prop (isolated object)</MenuItem>
+                        <MenuItem value="texture">Surface material</MenuItem>
+                        {categoryModeOf(category) === 'creator-choice' && (
+                          <MenuItem value="prop">Prop (isolated object)</MenuItem>
+                        )}
+                        <MenuItem value="path-autotile">Path autotile</MenuItem>
                       </Select>
                     </FormControl>
                   )}
-                  {families.length > 0 && (
+                  {effectiveGenerationMode === 'path-autotile' && (
+                    surfaceFamilies.length > 0 ? (
+                      <FormControl fullWidth disabled={loading}>
+                        <InputLabel>Parent surface</InputLabel>
+                        <Select
+                          value={selectedParentId}
+                          label="Parent surface"
+                          inputProps={{ 'aria-label': 'Parent surface' }}
+                          onChange={(event) => setParentMaterialId(event.target.value)}
+                        >
+                          {surfaceFamilies.map((family) => (
+                            <MenuItem key={family.id} value={family.id}>{family.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <Alert severity="warning">
+                        Accept a surface material before generating its path autotile.
+                      </Alert>
+                    )
+                  )}
+                  {families.length > 0 && effectiveGenerationMode !== 'path-autotile' && (
                     <FormControl fullWidth disabled={loading}>
                       <InputLabel>Reference family</InputLabel>
                       <Select
@@ -688,20 +761,6 @@ export default function TilesetGenerateDialog({
                   )}
                 </>
               )}
-
-              <FormControl fullWidth disabled={loading || !styleLoaded}>
-                <InputLabel>Tiling mode</InputLabel>
-                <Select
-                  value={tilingMode}
-                  label="Tiling mode"
-                  inputProps={{ 'aria-label': 'Tiling mode' }}
-                  onChange={(event) => setTilingMode(event.target.value as TilingMode)}
-                >
-                  {TILING_MODES.map((mode) => (
-                    <MenuItem key={mode} value={mode}>{tilingModeLabel(mode)}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
 
               <Typography variant="subtitle2">Project style</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -795,7 +854,7 @@ export default function TilesetGenerateDialog({
               <Button
                 onClick={handleApprove}
                 variant="contained"
-                disabled={loading}
+                disabled={loading || generationParams?.reviewPassed === false}
                 startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
               >
                 {loading ? 'Saving...' : 'Accept'}
@@ -809,7 +868,7 @@ export default function TilesetGenerateDialog({
               <Button
                 onClick={handleGenerate}
                 variant="contained"
-                disabled={loading || (mode === 'transition' && families.length < 2 && !isRegenerate)}
+                disabled={loading || (mode === 'transition' && families.length < 2 && !isRegenerate) || (effectiveGenerationMode === 'path-autotile' && !selectedParentId)}
                 startIcon={loading ? <CircularProgress size={20} /> : <AutoAwesomeIcon />}
               >
                 {loading ? 'Generating...' : isRegenerate ? 'Regenerate' : 'Generate'}

@@ -4,6 +4,7 @@ import {
   isGenerationClientRequest,
   isGenerationDescription,
   isGenerationMode,
+  isGenerationPromptSections,
   isGenerationReferenceImage,
   isProcessedGenerationResult,
   isProjectStyleSpec,
@@ -53,6 +54,7 @@ const processedGenerationFixture: ProcessedGenerationResult = {
   generationMode: 'texture',
   tilingMode: 'individual',
   selfTilingScore: 0.94,
+  reviewPassed: true,
 };
 
 // @ts-expect-error Raw provider output must not be usable as a persisted tileset.
@@ -125,7 +127,7 @@ describe('generation type guards', () => {
       },
     );
 
-    it.each(['texture', 'prop'] as const)('accepts generation mode %s', (mode) => {
+    it.each(['texture', 'path-autotile', 'prop'] as const)('accepts generation mode %s', (mode) => {
       expect(isGenerationMode(mode)).toBe(true);
     });
 
@@ -145,6 +147,17 @@ describe('generation type guards', () => {
         bytes: processedGenerationFixture.bytes,
         generationMode: 'prop',
         tilingMode: 'individual',
+        reviewPassed: true,
+      })).toBe(true);
+      expect(isProcessedGenerationResult({
+        mimeType: 'image/png',
+        bytes: processedGenerationFixture.bytes,
+        generationMode: 'path-autotile',
+        tilingMode: 'individual',
+        reviewPassed: false,
+        pathAutotileLayoutId: 'path-center-edges-corners-v1',
+        parentMaterialId: 'surface-1',
+        passedSlotIds: ['center', 'edge-n'],
       })).toBe(true);
       expect(isProcessedGenerationResult(rawGenerationFixture)).toBe(false);
       expect(isProcessedGenerationResult({
@@ -167,6 +180,17 @@ describe('generation type guards', () => {
   });
 
   describe('client request fields', () => {
+    it('validates non-empty, named prompt sections', () => {
+      expect(isGenerationPromptSections([
+        { id: 'content', title: 'Requested content', text: 'Short green grass.' },
+        { id: 'output', title: 'Output contract', text: 'Output: 256×256 px.' },
+      ])).toBe(true);
+      expect(isGenerationPromptSections([
+        { id: 'content', title: ' Requested content', text: 'Short green grass.' },
+      ])).toBe(false);
+      expect(isGenerationPromptSections([])).toBe(false);
+    });
+
     it('validates short generation descriptions', () => {
       expect(isGenerationDescription('lush green grass')).toBe(true);
       expect(isGenerationDescription('x'.repeat(200))).toBe(true);

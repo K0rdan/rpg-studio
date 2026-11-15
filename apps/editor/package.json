@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
+    "lab": "tsx --env-file=.env.local scripts/generation-lab/cli.ts",
     "check:auth": "node ../../scripts/check-auth-prerequisites.mjs"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
     "eslint-config-next": "^16.4.3",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   }
 }

@@ -48,4 +48,24 @@ describe('resolveGenerationMode', () => {
       requested: 'prop',
     })).toEqual({ ok: true, mode: 'prop' });
   });
+
+  it('allows a path autotile only with a parent surface', () => {
+    expect(resolveGenerationMode({
+      stage: 'family',
+      category: 'ground',
+      requested: 'path-autotile',
+      parentMaterialId: 'surface-1',
+    })).toEqual({ ok: true, mode: 'path-autotile' });
+    expect(resolveGenerationMode({
+      stage: 'family',
+      category: 'ground',
+      requested: 'path-autotile',
+    })).toMatchObject({ ok: false });
+    expect(resolveGenerationMode({
+      stage: 'family',
+      category: 'decoration',
+      requested: 'path-autotile',
+      parentMaterialId: 'surface-1',
+    })).toMatchObject({ ok: false });
+  });
 });
